@@ -1,19 +1,31 @@
-const mongoose = require('mongoose');
-require('dotenv').config(); // Load .env variables
+const { MongoClient, ServerApiVersion } = require('mongodb');
+require('dotenv').config(); // Load environment variables
 
-const mongoURI = process.env.MONGO_URI; // Get MongoDB URI from .env
+const uri = process.env.MONGO_URI; // Get MongoDB URI from .env
 
-const connectDB = async () => {
-    try {
-        await mongoose.connect(mongoURI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
-        console.log("✅ MongoDB connected successfully!");
-    } catch (error) {
-        console.error("❌ MongoDB Connection Error:", error);
-        process.exit(1);
-    }
-};
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
 
-module.exports = connectDB;
+async function run() {
+  try {
+    console.log("🚀 Connecting to MongoDB...");
+    await client.connect(); // Connect to the server
+
+    // Check the connection by sending a ping
+    await client.db("Shreyansh_1812").command({ ping: 1 });
+    console.log("✅ Pinged your deployment. Successfully connected to MongoDB!");
+  } catch (error) {
+    console.error("❌ MongoDB Connection Error:", error);
+  } finally {
+    // Close the connection after checking
+    await client.close();
+  }
+}
+
+run().catch(console.dir);
