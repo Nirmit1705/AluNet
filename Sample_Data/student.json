@@ -1,0 +1,28 @@
+{
+    "name": "John Doe",
+    "email": "johndoe@email.com",
+    "role": "student",
+    "graduationYear": 2027,
+    "specialization": "Artificial Intelligence",
+    "skills": ["JavaScript", "React", "AI"],
+    "internships": [
+        {
+            "company": "Reliance Industries",
+            "duration": "1 Month",
+            "role": "Risk Management Intern"
+        },
+        {
+            "company": "Tata Consultancy Services",
+            "duration": "6 Months",
+            "role": "Data Analyst Intern"
+        }
+    ],
+    "projects": [
+        {
+            "name": "AI Chatbot",
+            "description": "A chatbot that uses AI to understand and respond to user queries."
+        }
+    ],
+    "linkedin": "https://www.linkedin.com/in/johndoe",
+    "goal": "To become a successful AI Engineer."
+}
