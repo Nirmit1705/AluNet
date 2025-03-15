@@ -1,9 +1,14 @@
+require("dotenv").config();
+
 const { MongoClient, ServerApiVersion } = require('mongodb');
-require('dotenv').config(); // Load environment variables
 
-const uri = process.env.MONGO_URI; // Get MongoDB URI from .env
+const uri = process.env.MONGO_URI; 
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+if (!uri) {
+    console.error("MONGO_URI is undefined! Check your .env file.");
+    process.exit(1);
+}
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -12,20 +17,16 @@ const client = new MongoClient(uri, {
   }
 });
 
-async function run() {
+async function connectDB() {
   try {
-    console.log("🚀 Connecting to MongoDB...");
-    await client.connect(); // Connect to the server
-
-    // Check the connection by sending a ping
-    await client.db("Shreyansh_1812").command({ ping: 1 });
-    console.log("✅ Pinged your deployment. Successfully connected to MongoDB!");
+    console.log("Connecting to MongoDB...");
+    await client.connect();
+    await client.db().command({ ping: 1 });
+    console.log("Successfully connected to MongoDB!");
   } catch (error) {
-    console.error("❌ MongoDB Connection Error:", error);
-  } finally {
-    // Close the connection after checking
-    await client.close();
+    console.error("MongoDB Connection Error:", error);
+    process.exit(1);
   }
 }
 
-run().catch(console.dir);
+module.exports = { client, connectDB };
