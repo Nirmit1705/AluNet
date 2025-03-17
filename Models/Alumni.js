@@ -2,11 +2,9 @@ const mongoose = require('mongoose');
 
 const AlumniSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    email: { type: String, required: true },
-    phone: { type: String }, 
+    email: { type: String, required: true, unique: true },
+    phone: { type: String, required: true }, 
     graduationYear: { type: Number, required: true },
-    University:{ type: String, required:true},
-    College:{ type: String, required:true},
     degree: { type: String, required: true },
     specialization: { type: String, required: true },
     currentPosition: { type: String, required: true },
@@ -14,8 +12,8 @@ const AlumniSchema = new mongoose.Schema({
     linkedin: { type: String, required: true }, 
     experience: { type: Number, required: true },
     skills: [{ type: String, required: true }],
-    mentorshipAvailable: { type: Boolean, required: true }, 
-    bio: { type: String }, 
-});
+    mentorshipAvailable: { type: Boolean, default: true, required: true }, 
+    bio: { type: String }
+}, { timestamps: true }); 
 
 module.exports = mongoose.model('Alumni', AlumniSchema);
