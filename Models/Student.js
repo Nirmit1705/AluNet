@@ -17,9 +17,9 @@ const projectSchema = new mongoose.Schema({
 const studentSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    role: { type: String, required: true, enum: ['student', 'alumni'] },
     graduationYear: { type: Number, required: true },
-    specialization: { type: String, required: true },
+University:{ type:String, required:true},
+College:{ type:String, required:true},
     skills: [{ type: String }], // Array of skills
     internships: [internshipSchema], // Embedded array of internships
     projects: [projectSchema], // Embedded array of projects
