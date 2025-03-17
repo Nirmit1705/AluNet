@@ -1,21 +1,34 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   registerAlumni,
   authAlumni,
   getAlumniProfile,
   updateAlumniProfile,
   getAllAlumni,
   deleteAlumni,
-} = require("../Controllers/alumniController.js");
-// const { protect, admin } = require("../middleware/authMiddleware");
+  searchAlumni,
+  getAlumniByBatch,
+  getAlumniByCompany,
+} from "../Controllers/alumniController.js";
+import { protect, admin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// Public routes
 router.post("/register", registerAlumni);
 router.post("/login", authAlumni);
+
+// Protected routes
 router.get("/profile", protect, getAlumniProfile);
 router.put("/profile", protect, updateAlumniProfile);
-router.get("/", getAllAlumni);
+
+// Admin routes
+router.get("/", protect, admin, getAllAlumni);
 router.delete("/:id", protect, admin, deleteAlumni);
 
-module.exports = router;
+// Additional useful routes
+router.get("/search", protect, admin, searchAlumni);
+router.get("/batch/:year", protect, admin, getAlumniByBatch);
+router.get("/company/:company", protect, admin, getAlumniByCompany);
+
+export default router;

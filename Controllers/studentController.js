@@ -1,14 +1,29 @@
-const asyncHandler = require("express-async-handler");
-const Student = require("../Models/Student.js");
-const generateToken = require("../Utils/generateToken.js");
+import asyncHandler from "express-async-handler";
+import Student from "../Models/Student.js";
+import { formatStudentResponse } from "../Utils/responseFormatter.js";
 
 // @desc    Register a new student
 // @route   POST /api/students/register
 // @access  Public
 const registerStudent = asyncHandler(async (req, res) => {
-  const { name, email, role, graduationYear, specialization, skills, internships, projects, linkedin, goal } = req.body;
+  const {
+    name,
+    email,
+    phone,
+    registrationNumber,
+    currentYear,
+    branch,
+    cgpa,
+    skills,
+    interests,
+    bio,
+    linkedin,
+    github,
+    resume,
+    University,
+    College
+  } = req.body;
 
-  // Check if student already exists
   const studentExists = await Student.findOne({ email });
 
   if (studentExists) {
@@ -16,35 +31,26 @@ const registerStudent = asyncHandler(async (req, res) => {
     throw new Error("Student already registered");
   }
 
-  // Create new student with embedded internships and projects
   const student = await Student.create({
     name,
     email,
-    role,
-    graduationYear,
-    specialization,
+    phone,
+    registrationNumber,
+    currentYear,
+    branch,
+    cgpa,
     skills,
-    internships,
-    projects,
+    interests,
+    bio,
     linkedin,
-    goal,
+    github,
+    resume,
+    University,
+    College
   });
 
   if (student) {
-    res.status(201).json({
-      _id: student._id,
-      name: student.name,
-      email: student.email,
-      role: student.role,
-      graduationYear: student.graduationYear,
-      specialization: student.specialization,
-      skills: student.skills,
-      internships: student.internships,
-      projects: student.projects,
-      linkedin: student.linkedin,
-      goal: student.goal,
-      token: generateToken(student._id),
-    });
+    res.status(201).json(formatStudentResponse(student, true));
   } else {
     res.status(400);
     throw new Error("Invalid student data");
@@ -60,20 +66,7 @@ const authStudent = asyncHandler(async (req, res) => {
   const student = await Student.findOne({ email });
 
   if (student) {
-    res.json({
-      _id: student._id,
-      name: student.name,
-      email: student.email,
-      role: student.role,
-      graduationYear: student.graduationYear,
-      specialization: student.specialization,
-      skills: student.skills,
-      internships: student.internships,
-      projects: student.projects,
-      linkedin: student.linkedin,
-      goal: student.goal,
-      token: generateToken(student._id),
-    });
+    res.json(formatStudentResponse(student, true));
   } else {
     res.status(401);
     throw new Error("Invalid email");
@@ -87,19 +80,7 @@ const getStudentProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
 
   if (student) {
-    res.json({
-      _id: student._id,
-      name: student.name,
-      email: student.email,
-      role: student.role,
-      graduationYear: student.graduationYear,
-      specialization: student.specialization,
-      skills: student.skills,
-      internships: student.internships,
-      projects: student.projects,
-      linkedin: student.linkedin,
-      goal: student.goal,
-    });
+    res.json(formatStudentResponse(student));
   } else {
     res.status(404);
     throw new Error("Student not found");
@@ -113,85 +94,103 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
 
   if (student) {
-    student.name = req.body.name || student.name;
-    student.specialization = req.body.specialization || student.specialization;
-    student.skills = req.body.skills || student.skills;
-    student.linkedin = req.body.linkedin || student.linkedin;
-    student.goal = req.body.goal || student.goal;
-
-    // Update internships if provided
-    if (req.body.internships) {
-      student.internships = req.body.internships;
-    }
-
-    // Update projects if provided
-    if (req.body.projects) {
-      student.projects = req.body.projects;
-    }
+    // Update fields if provided in request
+    Object.keys(req.body).forEach(key => {
+      if (req.body[key] !== undefined) {
+        student[key] = req.body[key];
+      }
+    });
 
     const updatedStudent = await student.save();
-
-    res.json({
-      _id: updatedStudent._id,
-      name: updatedStudent.name,
-      email: updatedStudent.email,
-      role: updatedStudent.role,
-      graduationYear: updatedStudent.graduationYear,
-      specialization: updatedStudent.specialization,
-      skills: updatedStudent.skills,
-      internships: updatedStudent.internships,
-      projects: updatedStudent.projects,
-      linkedin: updatedStudent.linkedin,
-      goal: updatedStudent.goal,
-      token: generateToken(updatedStudent._id),
-    });
+    res.json(formatStudentResponse(updatedStudent, true));
   } else {
     res.status(404);
     throw new Error("Student not found");
   }
 });
 
-// @desc    Add an internship
-// @route   PUT /api/students/add-internship
-// @access  Private
-const addInternship = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user._id);
+// @desc    Get all students
+// @route   GET /api/students
+// @access  Private (Admin)
+const getAllStudents = asyncHandler(async (req, res) => {
+  const students = await Student.find({});
+  res.json(students);
+});
+
+// @desc    Delete a student
+// @route   DELETE /api/students/:id
+// @access  Private (Admin)
+const deleteStudent = asyncHandler(async (req, res) => {
+  const student = await Student.findById(req.params.id);
 
   if (student) {
-    const { company, duration, role } = req.body;
-    student.internships.push({ company, duration, role });
-
-    await student.save();
-    res.json(student.internships);
+    await student.remove();
+    res.json({ message: "Student removed successfully" });
   } else {
     res.status(404);
     throw new Error("Student not found");
   }
 });
 
-// @desc    Add a project
-// @route   PUT /api/students/add-project
-// @access  Private
-const addProject = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user._id);
+// @desc    Search students by various criteria
+// @route   GET /api/students/search
+// @access  Private (Admin)
+const searchStudents = asyncHandler(async (req, res) => {
+  const { name, branch, skills, currentYear } = req.query;
+  
+  const query = {};
+  
+  if (name) query.name = { $regex: name, $options: 'i' };
+  if (branch) query.branch = { $regex: branch, $options: 'i' };
+  if (skills) query.skills = { $in: skills.split(',').map(skill => skill.trim()) };
+  if (currentYear) query.currentYear = currentYear;
 
-  if (student) {
-    const { name, description } = req.body;
-    student.projects.push({ name, description });
-
-    await student.save();
-    res.json(student.projects);
+  const students = await Student.find(query);
+  
+  if (students.length > 0) {
+    res.json(students);
   } else {
     res.status(404);
-    throw new Error("Student not found");
+    throw new Error("No students found matching the search criteria");
   }
 });
 
-module.exports = {
+// @desc    Get students by branch
+// @route   GET /api/students/branch/:branch
+// @access  Private (Admin)
+const getStudentsByBranch = asyncHandler(async (req, res) => {
+  const students = await Student.find({ branch: req.params.branch });
+  
+  if (students.length > 0) {
+    res.json(students);
+  } else {
+    res.status(404);
+    throw new Error("No students found in this branch");
+  }
+});
+
+// @desc    Get students by year
+// @route   GET /api/students/year/:year
+// @access  Private (Admin)
+const getStudentsByYear = asyncHandler(async (req, res) => {
+  const students = await Student.find({ currentYear: req.params.year });
+  
+  if (students.length > 0) {
+    res.json(students);
+  } else {
+    res.status(404);
+    throw new Error("No students found in this year");
+  }
+});
+
+export {
   registerStudent,
   authStudent,
   getStudentProfile,
   updateStudentProfile,
-  addInternship,
-  addProject,
+  getAllStudents,
+  deleteStudent,
+  searchStudents,
+  getStudentsByBranch,
+  getStudentsByYear,
 };
