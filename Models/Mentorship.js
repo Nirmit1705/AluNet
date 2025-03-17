@@ -4,7 +4,7 @@ const MentorSchema = new mongoose.Schema({
     name: { type: String, required: true },
     expertiseArea: { type: String, required: true },
     skillsOffered: [{ type: String, required: true }],
-    furtherSkillsRequired: [{ type: String, required: true }],
+  //  furtherSkillsRequired: [{ type: String, required: true }],
     timeRequired: { type: String, required: true },
     availability: { type: String, required: true },
     modeOfMentorship: { type: String, required: true },
