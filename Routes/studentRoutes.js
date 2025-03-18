@@ -10,25 +10,21 @@ import {
   getStudentsByBranch,
   getStudentsByYear,
 } from "../Controllers/studentController.js";
-import { protect, admin } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Public routes
 router.post("/register", registerStudent);
 router.post("/login", authStudent);
+router.get("/", getAllStudents);
+router.get("/search", searchStudents);
+router.get("/branch/:branch", getStudentsByBranch);
+router.get("/year/:year", getStudentsByYear);
 
 // Protected routes
 router.get("/profile", protect, getStudentProfile);
 router.put("/profile", protect, updateStudentProfile);
-
-// Admin routes
-router.get("/", protect, admin, getAllStudents);
-router.delete("/:id", protect, admin, deleteStudent);
-
-// Additional useful routes
-router.get("/search", protect, admin, searchStudents);
-router.get("/branch/:branch", protect, admin, getStudentsByBranch);
-router.get("/year/:year", protect, admin, getStudentsByYear);
+router.delete("/:id", protect, deleteStudent);
 
 export default router;
