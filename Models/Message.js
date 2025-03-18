@@ -1,36 +1,65 @@
-const mongoose = require('mongoose');
+
+import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
     sender: { 
         type: mongoose.Schema.Types.ObjectId, 
         required: true, 
-        refPath: 'senderType' // Can reference either Student or Alumni
+        refPath: 'senderModel'
     },
-    senderType: { 
+    senderModel: { 
         type: String, 
         required: true, 
-        enum: ['Student', 'Alumni'] // Determines whether the sender is a student or an alumnus
+        enum: ['Student', 'Alumni']
     },
     receiver: { 
         type: mongoose.Schema.Types.ObjectId, 
         required: true, 
-        refPath: 'receiverType' 
+        refPath: 'receiverModel'
     },
-    receiverType: { 
+    receiverModel: { 
         type: String, 
         required: true, 
-        enum: ['Student', 'Alumni'] 
+        enum: ['Student', 'Alumni']
     },
-    message: { 
+    content: { 
         type: String, 
         required: true 
     },
-    timestamp: { 
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    createdAt: { 
         type: Date, 
         default: Date.now 
     }
-}, { collection: 'Messages' });
+}, { 
+    timestamps: true
+});
 
-const Message = mongoose.model('Message', messageSchema, 'Messages');
+// Create a compound index for efficiently retrieving conversations
+messageSchema.index({ sender: 1, receiver: 1 });
 
-module.exports = Message;
+// Create an index for finding unread messages
+messageSchema.index({ receiver: 1, isRead: 1 });
+
+// Method to mark a message as read
+messageSchema.methods.markAsRead = async function() {
+    this.isRead = true;
+    return this.save();
+};
+
+// Static method to get conversation between two users
+messageSchema.statics.getConversation = async function(user1Id, user2Id) {
+    return this.find({
+        $or: [
+            { sender: user1Id, receiver: user2Id },
+            { sender: user2Id, receiver: user1Id }
+        ]
+    }).sort({ createdAt: 1 });
+};
+
+const Message = mongoose.model('Message', messageSchema);
+
+export default Message;
