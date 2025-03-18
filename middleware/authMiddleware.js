@@ -18,13 +18,11 @@ const protect = asyncHandler(async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Find user by id
-      // First check if it's an alumni
-      let user = await Alumni.findById(decoded.id).select('-password');
+      // Find user by id - check all possible user types
+      let user = await Alumni.findById(decoded.id);
       
-      // If not found in alumni, check students
       if (!user) {
-        user = await Student.findById(decoded.id).select('-password');
+        user = await Student.findById(decoded.id);
       }
 
       if (!user) {
@@ -48,14 +46,15 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 });
 
-// Admin middleware
-const admin = (req, res, next) => {
-  if (req.user && req.user.isAdmin) {
+// Middleware to check if user is alumni
+const isAlumni = (req, res, next) => {
+  // Check if the user is from the Alumni model
+  if (req.user && req.user.constructor.modelName === 'Alumni') {
     next();
   } else {
     res.status(401);
-    throw new Error('Not authorized as an admin');
+    throw new Error('Not authorized as alumni');
   }
 };
 
-export { protect, admin }; 
+export { protect, isAlumni }; 

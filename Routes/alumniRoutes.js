@@ -10,25 +10,21 @@ import {
   getAlumniByBatch,
   getAlumniByCompany,
 } from "../Controllers/alumniController.js";
-import { protect, admin } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Public routes
 router.post("/register", registerAlumni);
 router.post("/login", authAlumni);
+router.get("/", getAllAlumni);
+router.get("/search", searchAlumni);
+router.get("/batch/:year", getAlumniByBatch);
+router.get("/company/:company", getAlumniByCompany);
 
 // Protected routes
 router.get("/profile", protect, getAlumniProfile);
 router.put("/profile", protect, updateAlumniProfile);
-
-// Admin routes
-router.get("/", protect, admin, getAllAlumni);
-router.delete("/:id", protect, admin, deleteAlumni);
-
-// Additional useful routes
-router.get("/search", protect, admin, searchAlumni);
-router.get("/batch/:year", protect, admin, getAlumniByBatch);
-router.get("/company/:company", protect, admin, getAlumniByCompany);
+router.delete("/:id", protect, deleteAlumni);
 
 export default router;

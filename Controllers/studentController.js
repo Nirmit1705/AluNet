@@ -61,15 +61,44 @@ const registerStudent = asyncHandler(async (req, res) => {
 // @route   POST /api/students/login
 // @access  Public
 const authStudent = asyncHandler(async (req, res) => {
+  console.log('Login attempt received');
+  console.log('Request body:', req.body);
+  
   const { email } = req.body;
-
-  const student = await Student.findOne({ email });
-
-  if (student) {
-    res.json(formatStudentResponse(student, true));
-  } else {
-    res.status(401);
-    throw new Error("Invalid email");
+  
+  if (!email) {
+    console.log('No email provided in request');
+    res.status(400);
+    throw new Error("Email is required");
+  }
+  
+  console.log(`Attempting to find student with email: ${email}`);
+  
+  try {
+    const student = await Student.findOne({ email });
+    
+    console.log(`Student found: ${student ? 'Yes' : 'No'}`);
+    
+    if (student) {
+      console.log(`Student details: ID=${student._id}, Name=${student.name}`);
+      try {
+        const response = formatStudentResponse(student, true);
+        console.log('Token generated successfully');
+        res.json(response);
+      } catch (tokenError) {
+        console.error('Error in formatStudentResponse:', tokenError);
+        res.status(500);
+        throw new Error(`Authentication error: ${tokenError.message}`);
+      }
+    } else {
+      console.log('No student found with this email');
+      res.status(401);
+      throw new Error("Invalid email");
+    }
+  } catch (error) {
+    console.error('Error during student lookup:', error);
+    res.status(500);
+    throw new Error(`Server error during login: ${error.message}`);
   }
 });
 
