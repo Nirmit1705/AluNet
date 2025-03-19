@@ -5,10 +5,11 @@ import {
   getAlumniProfile,
   updateAlumniProfile,
   getAllAlumni,
-  deleteAlumni,
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
+  uploadAlumniProfilePicture,
+  getProfileCompletionStatus
 } from "../Controllers/alumniController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -23,8 +24,14 @@ router.get("/batch/:year", getAlumniByBatch);
 router.get("/company/:company", getAlumniByCompany);
 
 // Protected routes
-router.get("/profile", protect, getAlumniProfile);
-router.put("/profile", protect, updateAlumniProfile);
-router.delete("/:id", protect, deleteAlumni);
+router.route("/profile")
+  .get(protect, getAlumniProfile)
+  .put(protect, updateAlumniProfile);
+
+// Profile picture upload route
+router.post("/profile/upload-picture", protect, uploadAlumniProfilePicture);
+
+// Profile completion status route
+router.get("/profile/completion", protect, getProfileCompletionStatus);
 
 export default router;

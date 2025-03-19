@@ -32,6 +32,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
       // Set user in request object
       req.user = user;
+      req.user.model = user instanceof Alumni ? 'Alumni' : 'Student';
       next();
     } catch (error) {
       console.error(error);

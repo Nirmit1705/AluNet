@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Student from "../Models/Student.js";
+import generateToken from "../Utils/generateToken.js";
 import { formatStudentResponse } from "../Utils/responseFormatter.js";
 
 // @desc    Register a new student
@@ -57,49 +58,41 @@ const registerStudent = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Authenticate student & get token
+// @desc    Auth user & get token
 // @route   POST /api/students/login
 // @access  Public
 const authStudent = asyncHandler(async (req, res) => {
-  console.log('Login attempt received');
-  console.log('Request body:', req.body);
+  const { email, password } = req.body;
+
+  // Check for user email
+  const student = await Student.findOne({ email }).select('+password');
+
+  if (!student) {
+    res.status(401);
+    throw new Error('Invalid credentials');
+  }
+
+  // Check if password matches
+  const isMatch = await student.matchPassword(password);
   
-  const { email } = req.body;
-  
-  if (!email) {
-    console.log('No email provided in request');
-    res.status(400);
-    throw new Error("Email is required");
+  if (!isMatch) {
+    res.status(401);
+    throw new Error('Invalid credentials');
   }
   
-  console.log(`Attempting to find student with email: ${email}`);
-  
-  try {
-    const student = await Student.findOne({ email });
-    
-    console.log(`Student found: ${student ? 'Yes' : 'No'}`);
-    
-    if (student) {
-      console.log(`Student details: ID=${student._id}, Name=${student.name}`);
-      try {
-        const response = formatStudentResponse(student, true);
-        console.log('Token generated successfully');
-        res.json(response);
-      } catch (tokenError) {
-        console.error('Error in formatStudentResponse:', tokenError);
-        res.status(500);
-        throw new Error(`Authentication error: ${tokenError.message}`);
-      }
-    } else {
-      console.log('No student found with this email');
-      res.status(401);
-      throw new Error("Invalid email");
-    }
-  } catch (error) {
-    console.error('Error during student lookup:', error);
-    res.status(500);
-    throw new Error(`Server error during login: ${error.message}`);
+  // Check if email is verified (unless verification is disabled in development)
+  if (process.env.NODE_ENV !== 'development' && !student.isEmailVerified) {
+    res.status(401);
+    throw new Error('Please verify your email before logging in');
   }
+
+  res.json({
+    _id: student._id,
+    name: student.name,
+    email: student.email,
+    token: generateToken(student._id),
+    isEmailVerified: student.isEmailVerified
+  });
 });
 
 // @desc    Get student profile
@@ -140,7 +133,7 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
 
 // @desc    Get all students
 // @route   GET /api/students
-// @access  Private (Admin)
+// @access  Public
 const getAllStudents = asyncHandler(async (req, res) => {
   const students = await Student.find({});
   res.json(students);
@@ -148,12 +141,12 @@ const getAllStudents = asyncHandler(async (req, res) => {
 
 // @desc    Delete a student
 // @route   DELETE /api/students/:id
-// @access  Private (Admin)
+// @access  Private
 const deleteStudent = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.params.id);
 
   if (student) {
-    await student.remove();
+    await Student.findByIdAndDelete(req.params.id);
     res.json({ message: "Student removed successfully" });
   } else {
     res.status(404);
@@ -163,7 +156,7 @@ const deleteStudent = asyncHandler(async (req, res) => {
 
 // @desc    Search students by various criteria
 // @route   GET /api/students/search
-// @access  Private (Admin)
+// @access  Public
 const searchStudents = asyncHandler(async (req, res) => {
   const { name, branch, skills, currentYear } = req.query;
   
@@ -186,7 +179,7 @@ const searchStudents = asyncHandler(async (req, res) => {
 
 // @desc    Get students by branch
 // @route   GET /api/students/branch/:branch
-// @access  Private (Admin)
+// @access  Public
 const getStudentsByBranch = asyncHandler(async (req, res) => {
   const students = await Student.find({ branch: req.params.branch });
   
@@ -200,7 +193,7 @@ const getStudentsByBranch = asyncHandler(async (req, res) => {
 
 // @desc    Get students by year
 // @route   GET /api/students/year/:year
-// @access  Private (Admin)
+// @access  Public
 const getStudentsByYear = asyncHandler(async (req, res) => {
   const students = await Student.find({ currentYear: req.params.year });
   

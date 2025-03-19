@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Alumni from "../Models/Alumni.js";
 import { formatAlumniResponse } from "../Utils/responseFormatter.js";
+import generateToken from "../Utils/generateToken.js";
 
 // @desc    Register a new alumni
 // @route   POST /api/alumni/register
@@ -41,20 +42,41 @@ const registerAlumni = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Authenticate alumni & get token
+// @desc    Auth user & get token
 // @route   POST /api/alumni/login
 // @access  Public
 const authAlumni = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  const { email, password } = req.body;
 
-  const alumni = await Alumni.findOne({ email });
+  // Check for user email
+  const alumni = await Alumni.findOne({ email }).select('+password');
 
-  if (alumni) {
-    res.json(formatAlumniResponse(alumni, true));
-  } else {
+  if (!alumni) {
     res.status(401);
-    throw new Error("Invalid email");
+    throw new Error('Invalid credentials');
   }
+
+  // Check if password matches
+  const isMatch = await alumni.matchPassword(password);
+  
+  if (!isMatch) {
+    res.status(401);
+    throw new Error('Invalid credentials');
+  }
+  
+  // Check if email is verified (unless verification is disabled in development)
+  if (process.env.NODE_ENV !== 'development' && !alumni.isEmailVerified) {
+    res.status(401);
+    throw new Error('Please verify your email before logging in');
+  }
+
+  res.json({
+    _id: alumni._id,
+    name: alumni.name,
+    email: alumni.email,
+    token: generateToken(alumni._id),
+    isEmailVerified: alumni.isEmailVerified
+  });
 });
 
 // @desc    Get alumni profile
@@ -95,7 +117,7 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
 
 // @desc    Get all alumni
 // @route   GET /api/alumni
-// @access  Private (Admin)
+// @access  Public
 const getAllAlumni = asyncHandler(async (req, res) => {
   const alumniList = await Alumni.find({});
   res.json(alumniList);
@@ -103,12 +125,12 @@ const getAllAlumni = asyncHandler(async (req, res) => {
 
 // @desc    Delete an alumni
 // @route   DELETE /api/alumni/:id
-// @access  Private (Admin)
+// @access  Private
 const deleteAlumni = asyncHandler(async (req, res) => {
   const alumni = await Alumni.findById(req.params.id);
 
   if (alumni) {
-    await alumni.remove();
+    await Alumni.findByIdAndDelete(req.params.id);
     res.json({ message: "Alumni removed successfully" });
   } else {
     res.status(404);
@@ -118,7 +140,7 @@ const deleteAlumni = asyncHandler(async (req, res) => {
 
 // @desc    Search alumni by various criteria
 // @route   GET /api/alumni/search
-// @access  Private (Admin)
+// @access  Public
 const searchAlumni = asyncHandler(async (req, res) => {
   const { name, degree, specialization, skills, mentorshipAvailable } = req.query;
   
@@ -142,7 +164,7 @@ const searchAlumni = asyncHandler(async (req, res) => {
 
 // @desc    Get alumni by graduation year
 // @route   GET /api/alumni/batch/:year
-// @access  Private (Admin)
+// @access  Public
 const getAlumniByBatch = asyncHandler(async (req, res) => {
   const alumni = await Alumni.find({ graduationYear: req.params.year });
   
@@ -156,7 +178,7 @@ const getAlumniByBatch = asyncHandler(async (req, res) => {
 
 // @desc    Get alumni by company
 // @route   GET /api/alumni/company/:company
-// @access  Private (Admin)
+// @access  Public
 const getAlumniByCompany = asyncHandler(async (req, res) => {
   const alumni = await Alumni.find({ 
     company: { $regex: req.params.company, $options: 'i' }

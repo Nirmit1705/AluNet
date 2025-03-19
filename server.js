@@ -23,6 +23,8 @@ import alumniRoutes from "./Routes/alumniRoutes.js";
 import studentRoutes from "./Routes/studentRoutes.js";
 import mentorshipRoutes from "./Routes/mentorshipRoutes.js";
 import jobPostingRoutes from "./Routes/jobPostingRoutes.js";
+import messageRoutes from "./Routes/messageRoutes.js";
+import notificationRoutes from "./Routes/notificationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 // Connect to database
@@ -37,6 +39,8 @@ app.use("/api/alumni", alumniRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/mentorship", mentorshipRoutes);
 app.use("/api/jobs", jobPostingRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
     res.send("Alumni-Student Interaction Platform API is running...");

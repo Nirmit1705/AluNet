@@ -5,10 +5,11 @@ import {
   getStudentProfile,
   updateStudentProfile,
   getAllStudents,
-  deleteStudent,
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
+  uploadStudentProfilePicture,
+  uploadStudentResume
 } from "../Controllers/studentController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -23,8 +24,12 @@ router.get("/branch/:branch", getStudentsByBranch);
 router.get("/year/:year", getStudentsByYear);
 
 // Protected routes
-router.get("/profile", protect, getStudentProfile);
-router.put("/profile", protect, updateStudentProfile);
-router.delete("/:id", protect, deleteStudent);
+router.route("/profile")
+  .get(protect, getStudentProfile)
+  .put(protect, updateStudentProfile);
+
+// File upload routes
+router.post("/profile/upload-picture", protect, uploadStudentProfilePicture);
+router.post("/profile/upload-resume", protect, uploadStudentResume);
 
 export default router;
