@@ -1,33 +1,35 @@
+import mongoose from 'mongoose';
 
-require("dotenv").config();
-
-const { MongoClient, ServerApiVersion } = require('mongodb');
-
-const uri = process.env.MONGO_URI; 
-
-if (!uri) {
-    console.error("MONGO_URI is undefined! Check your .env file.");
-    process.exit(1);
-}
-
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
-});
-
-async function connectDB() {
+export const connectDB = async () => {
   try {
-    console.log("Connecting to MongoDB...");
-    await client.connect();
-    await client.db().command({ ping: 1 });
-    console.log("Successfully connected to MongoDB!");
+    // Check if MONGO_URI is defined
+    if (!process.env.MONGO_URI) {
+      console.error('MONGO_URI is not defined in environment variables');
+      console.error('Please create a .env file with MONGO_URI defined');
+      process.exit(1);
+    }
+
+    console.log('Attempting to connect to MongoDB...');
+    console.log('MongoDB URI:', process.env.MONGO_URI ? 'URI is defined' : 'URI is undefined');
+
+    mongoose.set('strictQuery', false);
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log('Connection state:', mongoose.connection.readyState);
   } catch (error) {
-    console.error("MongoDB Connection Error:", error);
+    console.error('MongoDB connection error details:');
+    console.error(`Error name: ${error.name}`);
+    console.error(`Error message: ${error.message}`);
+    console.error(`Error code: ${error.code}`);
+    console.error(`Error codeName: ${error.codeName}`);
+    console.error(`Full error:`, error);
+    console.error(`Stack trace:`, error.stack);
+    
+    console.error(`Error connecting to MongoDB: ${error.message}`);
     process.exit(1);
   }
-}
-
-module.exports = { client, connectDB };
+};
