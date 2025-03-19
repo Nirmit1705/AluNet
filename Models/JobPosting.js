@@ -1,16 +1,49 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const JobPostingSchema = new mongoose.Schema({
-    companyName: { type: String, required: true }, // Fixed key name
-    location: { type: String, required: true },
-    typeOfWork: { type: String, required: true },
-    expectedCTC: { type: String, required: true },
-    role: { type: String, required: true },
-    skillsRequired: [{ type: String, required: true }],
-    experienceLevel: { type: String, required: true }, // Changed from Number to String
-    jobDescription: { type: String, required: true },
-    applicationDeadline: { type: Date, required: true }, // Changed from String to Date
-    applicationLink: { type: String, required: true }
+    title: { 
+        type: String, 
+        required: true 
+    },
+    companyName: { 
+        type: String, 
+        required: true 
+    },
+    location: { 
+        type: String, 
+        required: true 
+    },
+    description: { 
+        type: String, 
+        required: true 
+    },
+    requirements: { 
+        type: String, 
+        required: true 
+    },
+    applicationLink: { 
+        type: String, 
+        required: true 
+    },
+    postedBy: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Alumni',
+        required: true 
+    },
+    postedAt: { 
+        type: Date, 
+        default: Date.now 
+    }
+}, {
+    timestamps: true
 });
 
-module.exports = mongoose.model('JobPosting', JobPostingSchema);
+// Add text search index for searching jobs
+JobPostingSchema.index({ 
+    title: 'text', 
+    companyName: 'text', 
+    description: 'text' 
+});
+
+const JobPosting = mongoose.model('JobPosting', JobPostingSchema);
+export default JobPosting;
