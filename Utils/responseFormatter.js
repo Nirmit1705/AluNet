@@ -66,4 +66,4 @@ const formatStudentResponse = (student, includeToken = false) => {
   return response;
 };
 
-export { formatAlumniResponse, formatStudentResponse }; 
+export { formatAlumniResponse, formatStudentResponse };
