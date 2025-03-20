@@ -34,14 +34,13 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 5em;
   line-height: 1.1;
 }
 
@@ -75,4 +74,93 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Add animations for testimonial slider */
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    visibility: hidden;
+  }
+  5% {
+    opacity: 0;
+    visibility: visible;
+  }
+  15%, 30% {
+    opacity: 1;
+    visibility: visible;
+  }
+  35%, 100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.animate-fade-in-out {
+  animation: fadeInOut 15s infinite;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.delay-5000 {
+  animation-delay: 5s;
+}
+
+.delay-10000 {
+  animation-delay: 10s;
+}
+
+/* Add pulse animation for mentorship button */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+}
+
+.animate-pulse-button {
+  animation: pulse 2s infinite;
+}
+
+/* Testimonial card hover effects */
+.testimonial-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.5s ease;
+}
+
+.testimonial-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Count-up animation for statistics */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stat-value {
+  animation: countUp 1s ease-out forwards;
+}
+
+.stat-value-delay-1 {
+  animation-delay: 0.2s;
+}
+
+.stat-value-delay-2 {
+  animation-delay: 0.4s;
+}
+
+.stat-value-delay-3 {
+  animation-delay: 0.6s;
 }
