@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from '../../lib/utils.jsx';
 import { Label } from './Label';
 
 const FormField = ({
