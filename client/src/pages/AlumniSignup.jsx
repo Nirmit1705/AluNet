@@ -16,7 +16,14 @@ const AlumniSignup = () => {
     graduationYear: '',
     branch: '',
     company: '',
-    position: ''
+    position: '',
+    linkedInProfile: '',
+    skills: '',
+    mentorshipAvailable: true,
+    mentorshipAreas: '',
+    industry: '',
+    location: '',
+    bio: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -87,47 +94,81 @@ const AlumniSignup = () => {
       // Remove confirmPassword as it's not needed in the API call
       const { confirmPassword, ...apiData } = formData;
       
-      // In a real app, you would call your API here
-      // For demo purposes, we'll simulate a successful response
+      // Format all data for both controller and model
+      const formattedData = {
+        // Required by both controller and model
+        name: apiData.name,
+        email: apiData.email,
+        password: apiData.password,
+        
+        // Required by model but not expected by controller
+        branch: apiData.branch,
+        
+        // Expected by controller
+        graduationYear: parseInt(apiData.graduationYear),
+        phone: '',
+        University: '',
+        College: '',
+        degree: '',
+        specialization: '',
+        currentPosition: apiData.position || '',
+        company: apiData.company || '',
+        linkedin: apiData.linkedInProfile || '',
+        experience: 0,
+        skills: apiData.skills ? apiData.skills.split(',').map(skill => skill.trim()).filter(Boolean) : [],
+        mentorshipAvailable: apiData.mentorshipAvailable || false,
+        bio: apiData.bio || ''
+      };
       
-      // Example API call:
-      // const response = await fetch('/api/alumni/signup', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(apiData)
-      // });
+      console.log('Sending registration data:', formattedData);
       
-      // if (!response.ok) {
-      //   const error = await response.json();
-      //   throw new Error(error.message || 'Failed to register');
-      // }
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Account created successfully:', apiData);
-      
-      // Redirect to success page or login
-      // navigate('/login', { state: { message: 'Account created successfully! Please verify your email to login.' } });
-      
-      // For demo, just reset the form
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        graduationYear: '',
-        branch: '',
-        company: '',
-        position: ''
+      // Call the API to register the alumni
+      const response = await fetch('/api/alumni/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formattedData),
+        credentials: 'include' // Include cookies
       });
       
-      // Show success message
-      alert('Account created successfully! In a real app, you would be redirected to login or verification page.');
+      console.log('Server response status:', response.status);
+      
+      // Handle the response
+      let data;
+      let responseText = '';
+      
+      try {
+        responseText = await response.text();
+        console.log('Raw response text:', responseText);
+        
+        if (responseText) {
+          try {
+            data = JSON.parse(responseText);
+            console.log('Parsed JSON data:', data);
+          } catch (jsonError) {
+            console.error('JSON parsing error:', jsonError);
+            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+          }
+        } else {
+          throw new Error('Empty response from server');
+        }
+      } catch (textError) {
+        console.error('Error reading response:', textError);
+        throw new Error(`Failed to read server response: ${textError.message}`);
+      }
+      
+      if (!response.ok) {
+        throw new Error(data?.message || `Server error: ${response.status}`);
+      }
+      
+      // Success - store auth data and redirect
+      console.log('Account created successfully:', data);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userType', 'alumni');
+      navigate('/alumni/dashboard');
       
     } catch (error) {
       console.error('Registration error:', error);
-      setServerError(error.message || 'Something went wrong. Please try again.');
+      setServerError(error.message || 'Failed to register. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -266,75 +307,146 @@ const AlumniSignup = () => {
                     <option value="">Select branch</option>
                     <option value="Computer Engineering">Computer Engineering</option>
                     <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Civil">Civil</option>
-                    <option value="Other">Other</option>
+                    <option value="Electronics Engineering">Electronics Engineering</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                    <option value="Civil Engineering">Civil Engineering</option>
+                    <option value="Chemical Engineering">Chemical Engineering</option>
+                    <option value="Aerospace Engineering">Aerospace Engineering</option>
+                    <option value="Biomedical Engineering">Biomedical Engineering</option>
                   </Select>
                 </FormField>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
-                  label="Current Company"
+                  label="Company"
                   name="company"
-                  optional
                 >
                   <Input
                     id="company"
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
-                    placeholder="Company name"
+                    placeholder="Your current company"
                   />
                 </FormField>
                 
                 <FormField
-                  label="Current Position"
+                  label="Position"
                   name="position"
-                  optional
                 >
                   <Input
                     id="position"
                     name="position"
                     value={formData.position}
                     onChange={handleChange}
-                    placeholder="Job title"
+                    placeholder="Your current position"
                   />
                 </FormField>
               </div>
               
-              <div className="pt-2">
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  label="Industry"
+                  name="industry"
                 >
-                  {isLoading ? 'Creating account...' : 'Create Account'}
-                </Button>
+                  <Input
+                    id="industry"
+                    name="industry"
+                    value={formData.industry}
+                    onChange={handleChange}
+                    placeholder="Your industry"
+                  />
+                </FormField>
+                
+                <FormField
+                  label="Location"
+                  name="location"
+                >
+                  <Input
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    placeholder="Your location"
+                  />
+                </FormField>
               </div>
+              
+              <FormField
+                label="Skills (comma-separated)"
+                name="skills"
+              >
+                <Input
+                  id="skills"
+                  name="skills"
+                  value={formData.skills}
+                  onChange={handleChange}
+                  placeholder="e.g., JavaScript, Python, React"
+                />
+              </FormField>
+              
+              <FormField
+                label="Mentorship Areas (comma-separated)"
+                name="mentorshipAreas"
+              >
+                <Input
+                  id="mentorshipAreas"
+                  name="mentorshipAreas"
+                  value={formData.mentorshipAreas}
+                  onChange={handleChange}
+                  placeholder="e.g., Career Guidance, Technical Skills"
+                />
+              </FormField>
+              
+              <FormField
+                label="LinkedIn Profile"
+                name="linkedInProfile"
+              >
+                <Input
+                  id="linkedInProfile"
+                  name="linkedInProfile"
+                  value={formData.linkedInProfile}
+                  onChange={handleChange}
+                  placeholder="Your LinkedIn profile URL"
+                />
+              </FormField>
+              
+              <FormField
+                label="Bio"
+                name="bio"
+              >
+                <textarea
+                  id="bio"
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  placeholder="A brief introduction about yourself"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                  rows="3"
+                ></textarea>
+              </FormField>
             </form>
           </CardContent>
           
-          <CardFooter className="flex justify-center border-t p-6">
-            <p className="text-sm text-gray-600">
+          <CardFooter className="flex flex-col space-y-4">
+            <Button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+            
+            <p className="text-sm text-center text-gray-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary-blue font-medium hover:underline">
-                Log in
+              <Link to="/login" className="text-primary-blue hover:underline">
+                Sign in
               </Link>
             </p>
           </CardFooter>
         </Card>
-        
-        <div className="mt-4 text-center">
-          <Link to="/" className="text-sm text-gray-600 hover:text-primary-blue inline-flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-            Back to home
-          </Link>
-        </div>
       </div>
     </div>
   );

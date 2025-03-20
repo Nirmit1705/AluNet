@@ -66,42 +66,50 @@ const LoginPage = () => {
     setServerError('');
     
     try {
-      // In a real app, you would call your API here
-      // For demo purposes, we'll simulate a successful response
+      // Determine which endpoint to use based on user type
+      const endpoint = formData.userType === 'alumni' ? '/api/alumni/login' : '/api/students/login';
       
-      // Example API call:
-      // const response = await fetch(`/api/${formData.userType}/login`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     email: formData.email,
-      //     password: formData.password
-      //   })
-      // });
+      console.log('Sending login request to:', endpoint);
       
-      // if (!response.ok) {
-      //   const error = await response.json();
-      //   throw new Error(error.message || 'Invalid email or password');
-      // }
+      // Call the API to authenticate the user
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      });
       
-      // const data = await response.json();
-      // localStorage.setItem('token', data.token);
-      // localStorage.setItem('userType', formData.userType);
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('JSON parsing error:', jsonError);
+          throw new Error('Invalid response from server. Please try again.');
+        }
+      } else {
+        const textResponse = await response.text();
+        console.error('Non-JSON response:', textResponse);
+        throw new Error('Invalid response format from server');
+      }
+      
+      if (!response.ok) {
+        throw new Error(data?.message || 'Invalid email or password');
+      }
+      
+      // Store auth data in localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userType', formData.userType);
+      localStorage.setItem('userId', data._id);
+      localStorage.setItem('userName', data.name);
       
       console.log('Logged in successfully as:', formData.userType);
       
-      // Simulated successful login
-      localStorage.setItem('token', 'demo-token-xxx');
-      localStorage.setItem('userType', formData.userType);
-      
       // Redirect to dashboard based on user type
-      // navigate(`/${formData.userType}/dashboard`);
-      
-      // For demo, just alert
-      alert(`Login successful as ${formData.userType}! In a real app, you would be redirected to the ${formData.userType} dashboard.`);
+      navigate(`/${formData.userType}/dashboard`);
       
     } catch (error) {
       console.error('Login error:', error);

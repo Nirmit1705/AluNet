@@ -105,59 +105,68 @@ const StudentSignup = () => {
     
     try {
       // Process skills and interests as arrays and remove confirmPassword
-      const { confirmPassword, skills, interests, ...restData } = formData;
+      const { confirmPassword, ...formFields } = formData;
       
       const formattedData = {
-        ...restData,
-        skills: skills.split(',').map(skill => skill.trim()).filter(Boolean),
-        interests: interests.split(',').map(interest => interest.trim()).filter(Boolean)
+        name: formFields.name,
+        email: formFields.email,
+        password: formFields.password,
+        registrationNumber: formFields.registrationNumber,
+        currentYear: parseInt(formFields.currentYear),
+        branch: formFields.branch,
+        skills: formFields.skills.split(',').map(skill => skill.trim()).filter(Boolean),
+        interests: formFields.interests.split(',').map(interest => interest.trim()).filter(Boolean),
+        University: formFields.university,
+        College: formFields.college,
+        graduationYear: parseInt(formFields.graduationYear)
       };
       
-      // In a real app, you would call your API here
-      // For demo purposes, we'll simulate a successful response
+      console.log('Sending registration data:', formattedData);
       
-      // Example API call:
-      // const response = await fetch('/api/students/signup', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formattedData)
-      // });
-      
-      // if (!response.ok) {
-      //   const error = await response.json();
-      //   throw new Error(error.message || 'Failed to register');
-      // }
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Account created successfully:', formattedData);
-      
-      // Redirect to success page or login
-      // navigate('/login', { state: { message: 'Account created successfully! Please verify your email to login.' } });
-      
-      // For demo, just reset the form
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        registrationNumber: '',
-        currentYear: '',
-        branch: '',
-        graduationYear: '',
-        university: '',
-        college: '',
-        skills: '',
-        interests: ''
+      // Call the API to register the student
+      const response = await fetch('/api/students/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(formattedData)
       });
       
-      // Show success message
-      alert('Account created successfully! In a real app, you would be redirected to login or verification page.');
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Try to get the response text first
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+      
+      // Then parse it as JSON if possible
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError);
+        console.error('Response text:', responseText);
+        throw new Error('Server response was not in JSON format. Please try again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error(data?.message || `Registration failed with status ${response.status}`);
+      }
+      
+      console.log('Account created successfully:', data);
+      
+      // Set localStorage items to maintain login state
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userType', 'student');
+      
+      // Redirect to student dashboard
+      navigate('/student/dashboard');
       
     } catch (error) {
       console.error('Registration error:', error);
-      setServerError(error.message || 'Something went wrong. Please try again.');
+      setServerError(error.message || 'Failed to register. Please try again.');
     } finally {
       setIsLoading(false);
     }
