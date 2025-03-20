@@ -1,7 +1,9 @@
 import asyncHandler from "express-async-handler";
 import Student from "../Models/Student.js";
-import generateToken from "../Utils/generateToken.js";
+import { generateToken } from "../Utils/generateToken.js";
 import { formatStudentResponse } from "../Utils/responseFormatter.js";
+import { uploadProfilePicture, uploadResume, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
+import fs from 'fs';
 
 // @desc    Register a new student
 // @route   POST /api/students/register
@@ -205,6 +207,127 @@ const getStudentsByYear = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Upload student profile picture
+// @route   POST /api/students/profile/upload-picture
+// @access  Private
+const uploadStudentProfilePicture = asyncHandler(async (req, res) => {
+  // Use multer middleware for file upload
+  uploadProfilePicture(req, res, async (err) => {
+    if (err) {
+      res.status(400);
+      throw new Error(err.message);
+    }
+
+    // Check if file exists
+    if (!req.file) {
+      res.status(400);
+      throw new Error('Please upload a file');
+    }
+
+    try {
+      const student = await Student.findById(req.user._id);
+      
+      if (!student) {
+        res.status(404);
+        throw new Error('Student not found');
+      }
+
+      // If student already has a profile picture, delete it from Cloudinary
+      if (student.profilePicture && student.profilePicture.public_id) {
+        await removeFromCloudinary(student.profilePicture.public_id);
+      }
+
+      // Upload to Cloudinary
+      const result = await uploadToCloudinary(req.file.path, 'student_profile_pictures');
+      
+      // Remove temporary file
+      fs.unlinkSync(req.file.path);
+
+      // Update student profile with new picture URL
+      student.profilePicture = {
+        url: result.url,
+        public_id: result.public_id
+      };
+      
+      await student.save();
+
+      res.json({
+        message: 'Profile picture uploaded successfully',
+        profilePicture: student.profilePicture
+      });
+    } catch (error) {
+      // Remove temporary file if it exists
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      res.status(500);
+      throw new Error(`Failed to upload profile picture: ${error.message}`);
+    }
+  });
+});
+
+// @desc    Upload student resume
+// @route   POST /api/students/profile/upload-resume
+// @access  Private
+const uploadStudentResume = asyncHandler(async (req, res) => {
+  // Use multer middleware for file upload
+  uploadResume(req, res, async (err) => {
+    if (err) {
+      res.status(400);
+      throw new Error(err.message);
+    }
+
+    // Check if file exists
+    if (!req.file) {
+      res.status(400);
+      throw new Error('Please upload a file');
+    }
+
+    try {
+      const student = await Student.findById(req.user._id);
+      
+      if (!student) {
+        res.status(404);
+        throw new Error('Student not found');
+      }
+
+      // If student already has a resume, delete it from Cloudinary
+      if (student.resume && student.resume.public_id) {
+        await removeFromCloudinary(student.resume.public_id);
+      }
+
+      // Upload to Cloudinary
+      const result = await uploadToCloudinary(req.file.path, 'student_resumes');
+      
+      // Remove temporary file
+      fs.unlinkSync(req.file.path);
+
+      // Update student profile with new resume URL
+      student.resume = {
+        url: result.url,
+        public_id: result.public_id,
+        filename: req.file.originalname
+      };
+      
+      await student.save();
+
+      res.json({
+        message: 'Resume uploaded successfully',
+        resume: student.resume
+      });
+    } catch (error) {
+      // Remove temporary file if it exists
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      res.status(500);
+      throw new Error(`Failed to upload resume: ${error.message}`);
+    }
+  });
+});
+
 export {
   registerStudent,
   authStudent,
@@ -215,4 +338,6 @@ export {
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
+  uploadStudentProfilePicture,
+  uploadStudentResume,
 };

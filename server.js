@@ -26,6 +26,8 @@ import jobPostingRoutes from "./Routes/jobPostingRoutes.js";
 import messageRoutes from "./Routes/messageRoutes.js";
 import notificationRoutes from "./Routes/notificationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import { protect } from "./middleware/authMiddleware.js";
+import mongoose from "mongoose";
 
 // Connect to database
 connectDB();
@@ -44,6 +46,68 @@ app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
     res.send("Alumni-Student Interaction Platform API is running...");
+});
+
+// Test route for health check
+app.get("/api/test", (req, res) => {
+    res.json({
+        status: "success",
+        message: "Server is running correctly",
+        timestamp: new Date().toISOString(),
+        env: process.env.NODE_ENV || 'development',
+        apiVersion: "1.0.0"
+    });
+});
+
+// Protected test route that requires authentication
+app.get("/api/test/auth", protect, (req, res) => {
+    res.json({
+        status: "success",
+        message: "Authentication successful",
+        user: {
+            id: req.user._id,
+            name: req.user.name,
+            email: req.user.email,
+            userType: req.user.model || req.user.constructor.modelName
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Database connection test route
+app.get("/api/test/db", async (req, res) => {
+    try {
+        // Check database connection
+        const dbState = mongoose.connection.readyState;
+        const states = {
+            0: "disconnected",
+            1: "connected",
+            2: "connecting",
+            3: "disconnecting"
+        };
+        
+        // Get list of collections
+        const collections = await mongoose.connection.db.listCollections().toArray();
+        const collectionNames = collections.map(c => c.name);
+        
+        res.json({
+            status: "success",
+            database: {
+                connection: states[dbState],
+                name: mongoose.connection.name,
+                host: mongoose.connection.host,
+                collections: collectionNames
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: "error",
+            message: "Database connection error",
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // Error handling middleware

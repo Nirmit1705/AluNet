@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import JobPosting from '../Models/JobPosting.js';
 import Student from '../Models/Student.js';
-import createNotification from '../utils/createNotification.js';
+import { createNotification } from './notificationController.js';
 
 // @desc    Create a new job posting
 // @route   POST /api/jobs

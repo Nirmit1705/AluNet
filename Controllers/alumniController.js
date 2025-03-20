@@ -1,7 +1,9 @@
 import asyncHandler from "express-async-handler";
 import Alumni from "../Models/Alumni.js";
 import { formatAlumniResponse } from "../Utils/responseFormatter.js";
-import generateToken from "../Utils/generateToken.js";
+import { generateToken } from "../Utils/generateToken.js";
+import { uploadProfilePicture, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
+import fs from 'fs';
 
 // @desc    Register a new alumni
 // @route   POST /api/alumni/register
@@ -192,6 +194,66 @@ const getAlumniByCompany = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Upload alumni profile picture
+// @route   POST /api/alumni/profile/upload-picture
+// @access  Private
+const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
+  // Use multer middleware for file upload
+  uploadProfilePicture(req, res, async (err) => {
+    if (err) {
+      res.status(400);
+      throw new Error(err.message);
+    }
+
+    // Check if file exists
+    if (!req.file) {
+      res.status(400);
+      throw new Error('Please upload a file');
+    }
+
+    try {
+      const alumni = await Alumni.findById(req.user._id);
+      
+      if (!alumni) {
+        res.status(404);
+        throw new Error('Alumni not found');
+      }
+
+      // If alumni already has a profile picture, delete it from Cloudinary
+      if (alumni.profilePicture && alumni.profilePicture.public_id) {
+        await removeFromCloudinary(alumni.profilePicture.public_id);
+      }
+
+      // Upload to Cloudinary
+      const result = await uploadToCloudinary(req.file.path, 'alumni_profile_pictures');
+      
+      // Remove temporary file
+      fs.unlinkSync(req.file.path);
+
+      // Update alumni profile with new picture URL
+      alumni.profilePicture = {
+        url: result.url,
+        public_id: result.public_id
+      };
+      
+      await alumni.save();
+
+      res.json({
+        message: 'Profile picture uploaded successfully',
+        profilePicture: alumni.profilePicture
+      });
+    } catch (error) {
+      // Remove temporary file if it exists
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      res.status(500);
+      throw new Error(`Failed to upload profile picture: ${error.message}`);
+    }
+  });
+});
+
 export {
   registerAlumni,
   authAlumni,
@@ -202,4 +264,5 @@ export {
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
+  uploadAlumniProfilePicture,
 };

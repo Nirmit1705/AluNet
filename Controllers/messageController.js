@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Message from '../Models/Message.js';
 import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
-import { createNotification } from '../utils/notificationUtils.js';
+import { createNotification } from './notificationController.js';
 
 // @desc    Send a new message
 // @route   POST /api/messages

@@ -8,8 +8,7 @@ import {
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
-  uploadAlumniProfilePicture,
-  getProfileCompletionStatus
+  uploadAlumniProfilePicture
 } from "../Controllers/alumniController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -30,8 +29,5 @@ router.route("/profile")
 
 // Profile picture upload route
 router.post("/profile/upload-picture", protect, uploadAlumniProfilePicture);
-
-// Profile completion status route
-router.get("/profile/completion", protect, getProfileCompletionStatus);
 
 export default router;

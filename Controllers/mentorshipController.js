@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Mentorship from '../Models/Mentorship.js';
 import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
+import { createNotification } from './notificationController.js';
 
 // @desc    Create a new mentorship request
 // @route   POST /api/mentorship
