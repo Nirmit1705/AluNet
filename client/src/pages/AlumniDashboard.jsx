@@ -3,12 +3,27 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import DashboardNavbar from '../components/DashboardNavbar';
+import axios from 'axios';
 
 const AlumniDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [userData, setUserData] = useState(null);
+  const [userData, setUserData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
+  // Alumni mock data - guaranteed fallback
+  const ALUMNI_MOCK_DATA = {
+    name: 'Alumni User',
+    userType: 'alumni',
+    graduationYear: '2018',
+    branch: 'Computer Engineering',
+    company: 'Tech Company',
+    position: 'Software Engineer',
+    email: 'alumni@example.com',
+    phone: '(555) 123-4567',
+    bio: 'Experienced engineer passionate about mentoring students.'
+  };
+
   // Function to get initials from a name
   const getInitials = (name) => {
     if (!name) return '';
@@ -19,88 +34,65 @@ const AlumniDashboard = () => {
       .toUpperCase();
   };
   
+  // Load user data from MongoDB instead of localStorage
   useEffect(() => {
-    // Fetch user data from the backend
-    const fetchUserData = async () => {
+    const fetchUserFromAPI = async () => {
       setIsLoading(true);
       try {
-        // Get the token from localStorage
+        // Get auth token from localStorage (only thing we'll keep in localStorage)
         const token = localStorage.getItem('token');
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        
-        if (userData) {
-          // Use locally stored user data if available (from signup/login)
-          console.log('Using locally stored user data:', userData);
-          setUserData(userData);
-          setIsLoading(false);
-          return;
-        }
         
         if (!token) {
-          console.error('No token found');
+          console.error('No auth token found');
+          setError('You must be logged in. Please login again.');
+          setUserData(ALUMNI_MOCK_DATA); // Use mock data as fallback
           setIsLoading(false);
           return;
         }
 
-        // Make the API call with the token in the headers
-        const response = await fetch('/api/alumni/profile', {
+        // Set authorization header
+        const config = {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user data');
+        };
+        
+        // Fetch alumni profile from API
+        const response = await axios.get('http://localhost:5000/api/alumni/profile', config);
+        
+        if (response.data) {
+          console.log('Alumni data from API:', response.data);
+          
+          // Update the user data state with API response
+          setUserData({
+            ...response.data,
+            userType: 'alumni'
+          });
+          
+          // We'll still store userType in localStorage for route protection
+          localStorage.setItem('userType', 'alumni');
+        } else {
+          console.error('No data returned from API');
+          setUserData(ALUMNI_MOCK_DATA);
         }
-
-        const data = await response.json();
-        console.log('Fetched profile data:', data);
-        
-        // Store the user data in localStorage for future use
-        localStorage.setItem('userData', JSON.stringify(data));
-        
-        setUserData(data);
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Error fetching alumni data:', error);
         
-        // Try to get user data from localStorage as fallback
-        const storedData = localStorage.getItem('userData');
-        if (storedData) {
-          try {
-            const parsedData = JSON.parse(storedData);
-            console.log('Using stored user data as fallback:', parsedData);
-            setUserData(parsedData);
-            setIsLoading(false);
-            return;
-          } catch (e) {
-            console.error('Error parsing stored user data:', e);
-          }
+        // If we get a 401 error, the token is invalid/expired
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem('token'); // Clear invalid token
+          setError('Your session has expired. Please login again.');
+        } else {
+          setError('Error connecting to server. Using offline mode.');
+          setUserData(ALUMNI_MOCK_DATA);
         }
-        
-        // Ultimate fallback - mock data
-        setUserData({
-          name: 'Alumni User',
-          email: 'alumni@example.com',
-          batch: '2018',
-          branch: 'Computer Science',
-          currentCompany: 'Tech Company',
-          position: 'Senior Developer',
-          stats: {
-            mentorships: 0,
-            jobsPosted: 0,
-            messagesReceived: 0
-          },
-          recentMessages: [],
-          recentJobs: [],
-          mentorships: []
-        });
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchUserData();
+    
+    fetchUserFromAPI();
   }, []);
 
   // Helper function to extract correct field values with proper fallbacks
@@ -464,6 +456,37 @@ const AlumniDashboard = () => {
         return <div>Content not found</div>;
     }
   };
+
+  // Show error message if there's an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white shadow-md rounded-lg p-8 max-w-md w-full text-center">
+          <div className="mb-6 text-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-4">Connection Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="py-2 px-4 bg-primary-blue text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="py-2 px-4 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Cg fill=%22%23e6e6e6%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/svg%3E')">

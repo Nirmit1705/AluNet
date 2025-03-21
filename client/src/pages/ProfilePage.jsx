@@ -7,6 +7,7 @@ import { FormField } from '../components/ui/FormField';
 import { Label } from '../components/ui/Label';
 import { Select } from '../components/ui/Select';
 import DashboardNavbar from '../components/DashboardNavbar';
+import axios from 'axios';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const ProfilePage = () => {
   // Sample user data - in a real app, this would be fetched from an API
   const [userData, setUserData] = useState(null);
   const [formData, setFormData] = useState({});
+  const [error, setError] = useState(null);
   
   useEffect(() => {
     // Get user type from localStorage
@@ -38,47 +40,52 @@ const ProfilePage = () => {
     
     // Fetch user data from localStorage
     const fetchUserData = async () => {
+      setIsLoading(true);
       try {
-        // Try to get stored userData first
-        const storedData = localStorage.getItem('userData');
+        // Get token and user type from localStorage
+        const token = localStorage.getItem('token');
+        const userTypeFromStorage = localStorage.getItem('userType');
         
-        if (storedData) {
-          const parsedData = JSON.parse(storedData);
-          console.log('Using stored user data:', parsedData);
-          setUserData(parsedData);
-          setFormData(parsedData);
-        } else {
-          // Fallback to mock data based on user type
-          if (storedUserType === 'alumni') {
-            const mockData = {
-              name: 'Alumni User',
-              email: 'alumni@example.com',
-              phoneNumber: '(555) 123-4567',
-              bio: 'Software engineer with experience in web development.',
-              batch: '2018',
-              branch: 'Computer Science',
-              currentCompany: 'Tech Company',
-              position: 'Senior Developer',
-              linkedInUrl: 'linkedin.com/in/alumni',
-            };
-            setUserData(mockData);
-            setFormData(mockData);
-          } else {
-            const mockData = {
-              name: 'Student User',
-              email: 'student@example.com',
-              phoneNumber: '(555) 987-6543',
-              bio: 'Computer Engineering student passionate about technology.',
-              currentYear: '3rd Year',
-              branch: 'Computer Engineering',
-              skills: 'JavaScript, React, Node.js',
-            };
-            setUserData(mockData);
-            setFormData(mockData);
+        if (!token || !userTypeFromStorage) {
+          console.error('Auth token or user type not found');
+          setError('Please login to view your profile');
+          setIsLoading(false);
+          return;
+        }
+        
+        setUserType(userTypeFromStorage);
+        
+        // Set up config with auth header
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
+        };
+        
+        // Determine API endpoint based on user type
+        const endpoint = userTypeFromStorage === 'alumni' 
+          ? 'http://localhost:5000/api/alumni/profile'
+          : 'http://localhost:5000/api/students/profile';
+        
+        // Fetch user profile from API
+        const response = await axios.get(endpoint, config);
+        
+        if (response.data) {
+          console.log(`${userTypeFromStorage} data from API:`, response.data);
+          setUserData(response.data);
+          setFormData(response.data);
+        } else {
+          throw new Error('No data received from server');
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('Error fetching user data:', error);
+        
+        if (error.response && error.response.status === 401) {
+          setError('Your session has expired. Please login again.');
+        } else {
+          setError('Error loading profile data. Please try again later.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -95,11 +102,46 @@ const ProfilePage = () => {
     }));
   };
   
-  const handleSaveProfile = () => {
-    // Save profile data to localStorage
-    localStorage.setItem('userData', JSON.stringify(formData));
-    setUserData(formData);
-    setIsEditing(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    try {
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      // Set authorization header
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      // Determine API endpoint based on user type
+      const endpoint = userType === 'alumni' 
+        ? 'http://localhost:5000/api/alumni/profile'
+        : 'http://localhost:5000/api/students/profile';
+      
+      // Send update request to API
+      const response = await axios.put(endpoint, formData, config);
+      
+      if (response.data) {
+        console.log('Profile updated successfully:', response.data);
+        // Update local state with new data
+        setUserData(response.data);
+        setFormData(response.data);
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Portfolio item functions
@@ -215,6 +257,37 @@ const ProfilePage = () => {
         <div className="text-center">
           <p className="text-lg text-gray-600">Unable to load profile. Please log in again.</p>
           <Button className="mt-4" onClick={() => window.location.href = '/login'}>Go to Login</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error message if there's an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white shadow-md rounded-lg p-8 max-w-md w-full text-center">
+          <div className="mb-6 text-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-4">Profile Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="py-2 px-4 bg-primary-blue text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="py-2 px-4 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -588,7 +661,7 @@ const ProfilePage = () => {
                       <Button variant="outline" onClick={() => setIsEditing(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={handleSaveProfile}>
+                      <Button onClick={handleSubmit}>
                         Save Changes
                       </Button>
                     </div>

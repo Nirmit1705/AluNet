@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import DashboardNavbar from '../components/DashboardNavbar';
+import axios from 'axios';
 
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -10,6 +11,7 @@ const StudentDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
+  const [error, setError] = useState(null);
   
   // Student mock data - guaranteed fallback
   const STUDENT_MOCK_DATA = {
@@ -100,15 +102,65 @@ const StudentDashboard = () => {
     console.log("Name value extracted:", nameValue);
   };
   
-  // Load user data from localStorage
+  // Load user data from MongoDB instead of localStorage
   useEffect(() => {
-    // Completely reset and enforce student data
-    const studentData = forceStudentDataReset();
-    console.log('Forced student data:', studentData);
+    const fetchUserFromAPI = async () => {
+      setIsLoading(true);
+      try {
+        // Get auth token from localStorage (only thing we'll keep in localStorage)
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No auth token found');
+          setError('You must be logged in. Please login again.');
+          setUserData(STUDENT_MOCK_DATA); // Use mock data as fallback
+          setIsLoading(false);
+          return;
+        }
+
+        // Set authorization header
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+        
+        // Fetch student profile from API
+        const response = await axios.get('http://localhost:5000/api/students/profile', config);
+        
+        if (response.data) {
+          console.log('Student data from API:', response.data);
+          
+          // Update the user data state with API response
+          setUserData({
+            ...response.data,
+            userType: 'student'
+          });
+          
+          // We'll still store userType in localStorage for route protection
+          localStorage.setItem('userType', 'student');
+        } else {
+          console.error('No data returned from API');
+          setUserData(STUDENT_MOCK_DATA);
+        }
+      } catch (error) {
+        console.error('Error fetching student data:', error);
+        
+        // If we get a 401 error, the token is invalid/expired
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem('token'); // Clear invalid token
+          setError('Your session has expired. Please login again.');
+        } else {
+          setError('Error connecting to server. Using offline mode.');
+          setUserData(STUDENT_MOCK_DATA);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Set the data and remove loading state
-    setUserData(studentData);
-    setIsLoading(false);
+    fetchUserFromAPI();
   }, []);
   
   // Now create studentData using useMemo after all helper functions are defined
@@ -179,25 +231,49 @@ const StudentDashboard = () => {
     setIsEditing(true);
   };
 
-  const saveProfileChanges = () => {
-    // Update userData with edited values
-    setUserData(prev => ({
-      ...prev,
-      ...editedData
-    }));
-    
-    // Save to localStorage
+  const saveProfileChanges = async () => {
     try {
-      localStorage.setItem('userData', JSON.stringify({
-        ...userData,
-        ...editedData
-      }));
-      console.log('Updated profile saved to localStorage');
-    } catch (err) {
-      console.error('Error saving profile to localStorage:', err);
+      setIsLoading(true);
+      
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      // Set authorization header
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      // Send update request to API
+      const response = await axios.put(
+        'http://localhost:5000/api/students/profile',
+        editedData,
+        config
+      );
+      
+      if (response.data) {
+        console.log('Profile updated successfully:', response.data);
+        
+        // Update local state with the updated data from API
+        setUserData({
+          ...userData,
+          ...response.data
+        });
+        
+        // Exit editing mode
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsEditing(false);
   };
 
   const cancelEditing = () => {
@@ -213,34 +289,21 @@ const StudentDashboard = () => {
   };
 
   // Function to reset all user data
-  const resetStudentData = () => {
-    if (window.confirm("This will reset your profile data. Continue?")) {
-      // Generate a mock student name
-      const mockNames = [
-        "Sarah Johnson", "Michael Chen", "Emma Rodriguez", "David Kim", 
-        "Olivia Smith", "James Wilson", "Sophia Williams", "Benjamin Davis"
-      ];
-      const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
-      
-      // Create fresh student data with random name
-      const freshStudentData = {
-        ...STUDENT_MOCK_DATA,
-        name: randomName,
-        email: randomName.toLowerCase().replace(' ', '.') + '@example.com',
-        phone: '(555) ' + Math.floor(100 + Math.random() * 900) + '-' + Math.floor(1000 + Math.random() * 9000),
-        enrollmentNumber: 'CE' + Math.floor(10000 + Math.random() * 90000),
-      };
-      
-      // Update localStorage
-      localStorage.setItem('userType', 'student');
-      localStorage.setItem('userName', randomName);
-      localStorage.setItem('userData', JSON.stringify(freshStudentData));
-      
-      // Update state
-      setUserData(freshStudentData);
-      
-      // Force refresh
-      window.location.reload();
+  const resetStudentData = async () => {
+    if (window.confirm("This will log you out and you'll need to login again. Continue?")) {
+      try {
+        // Clear all localStorage data
+        localStorage.removeItem('token');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        
+        // Redirect to login page
+        window.location.href = '/login';
+      } catch (error) {
+        console.error('Error during logout:', error);
+        alert('Failed to log out. Please try again.');
+      }
     }
   };
 
@@ -701,6 +764,37 @@ const StudentDashboard = () => {
 
   // Final check of student name right before rendering
   console.log('FINAL CHECK - Student name used for rendering:', studentData?.name);
+  
+  // Show error message if there's an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white shadow-md rounded-lg p-8 max-w-md w-full text-center">
+          <div className="mb-6 text-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-4">Connection Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="py-2 px-4 bg-primary-blue text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="py-2 px-4 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gray-50 bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Cg fill=%22%23e6e6e6%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/svg%3E')">
