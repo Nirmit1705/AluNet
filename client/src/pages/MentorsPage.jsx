@@ -1,66 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import { Box, Container, Typography, Grid, Card, CardContent, Button, 
   Chip, TextField, Dialog, DialogTitle, DialogContent, DialogActions,
-  InputAdornment, IconButton, Rating, Avatar, Divider } from '@mui/material';
+  InputAdornment, IconButton, Rating, Avatar, Divider, CircularProgress } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import axios from 'axios';
 
 const MentorsPage = () => {
-  const [mentors, setMentors] = useState([
-    {
-      id: 1,
-      name: 'Alex Johnson',
-      position: 'Software Engineer at Google',
-      bio: 'Experienced software engineer with expertise in web development, cloud computing, and system design.',
-      expertise: ['Software Development', 'Cloud Computing', 'System Design'],
-      rating: 4.8,
-      availability: '2 hours/week',
-      saved: false,
-      avatar: '/assets/avatars/avatar1.jpg'
-    },
-    {
-      id: 2,
-      name: 'Samantha Lee',
-      position: 'Data Scientist at Microsoft',
-      bio: 'Data scientist with strong background in machine learning and data analysis. Passionate about mentoring new talent.',
-      expertise: ['Data Science', 'Machine Learning', 'Python'],
-      rating: 4.5,
-      availability: '1 hour/week',
-      saved: true,
-      avatar: '/assets/avatars/avatar2.jpg'
-    },
-    {
-      id: 3,
-      name: 'Michael Chen',
-      position: 'Product Manager at Amazon',
-      bio: 'Product manager with experience in launching successful tech products. Can help with product thinking and career guidance.',
-      expertise: ['Product Management', 'UX Design', 'Business Strategy'],
-      rating: 4.7,
-      availability: '3 hours/week',
-      saved: false,
-      avatar: '/assets/avatars/avatar3.jpg'
-    },
-    {
-      id: 4,
-      name: 'Priya Patel',
-      position: 'Frontend Engineer at Netflix',
-      bio: 'Frontend specialist with focus on React and modern JavaScript frameworks. Loves helping students break into tech.',
-      expertise: ['React', 'JavaScript', 'UI/UX'],
-      rating: 4.9,
-      availability: 'As needed',
-      saved: false,
-      avatar: '/assets/avatars/avatar4.jpg'
-    }
-  ]);
+  const [mentors, setMentors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [savedMentors, setSavedMentors] = useState(new Set());
 
   const [searchTerm, setSearchTerm] = useState('');
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [requestMessage, setRequestMessage] = useState('');
   const [savedMentorsOnly, setSavedMentorsOnly] = useState(false);
+
+  // Fetch alumni data from backend
+  useEffect(() => {
+    const fetchAlumni = async () => {
+      try {
+        setLoading(true);
+        // Try to fetch from backend first
+        const response = await axios.get('http://localhost:5000/api/alumni');
+        
+        // Transform alumni data to match mentor structure
+        const alumniData = response.data.map(alumni => ({
+          id: alumni._id,
+          name: alumni.name,
+          position: alumni.position ? `${alumni.position} at ${alumni.company}` : 'Alumni',
+          bio: alumni.bio || 'No bio available',
+          expertise: alumni.skills || [],
+          rating: 4.5, // Default rating since we don't have this in the backend yet
+          availability: alumni.mentorshipAvailable ? 'Available for mentorship' : 'Limited availability',
+          saved: false,
+          avatar: alumni.profilePicture || '',
+          // Additional alumni specific fields
+          graduationYear: alumni.graduationYear,
+          branch: alumni.branch,
+          email: alumni.email,
+          company: alumni.company,
+        }));
+        
+        setMentors(alumniData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching alumni:', err);
+        setError('Failed to load mentors. Please try again later.');
+        
+        // If backend call fails, use local storage data
+        const storedAlumni = localStorage.getItem('alumniData');
+        if (storedAlumni) {
+          try {
+            const parsedData = JSON.parse(storedAlumni);
+            if (Array.isArray(parsedData) && parsedData.length > 0) {
+              setMentors(parsedData);
+              setError(null);
+            }
+          } catch (parseErr) {
+            console.error('Error parsing stored alumni data:', parseErr);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Load saved mentors from localStorage
+    const loadSavedMentors = () => {
+      try {
+        const saved = localStorage.getItem('savedMentors');
+        if (saved) {
+          setSavedMentors(new Set(JSON.parse(saved)));
+        }
+      } catch (err) {
+        console.error('Error loading saved mentors:', err);
+      }
+    };
+
+    fetchAlumni();
+    loadSavedMentors();
+  }, []);
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
@@ -71,9 +96,16 @@ const MentorsPage = () => {
   };
 
   const toggleSaved = (id) => {
-    setMentors(mentors.map(mentor => 
-      mentor.id === id ? { ...mentor, saved: !mentor.saved } : mentor
-    ));
+    const newSavedMentors = new Set(savedMentors);
+    
+    if (newSavedMentors.has(id)) {
+      newSavedMentors.delete(id);
+    } else {
+      newSavedMentors.add(id);
+    }
+    
+    setSavedMentors(newSavedMentors);
+    localStorage.setItem('savedMentors', JSON.stringify([...newSavedMentors]));
   };
 
   const openRequestDialog = (mentor) => {
@@ -90,26 +122,57 @@ const MentorsPage = () => {
     setRequestMessage(e.target.value);
   };
 
-  const submitRequest = () => {
-    // Here you would typically make an API call to submit the mentorship request
-    console.log(`Sending request to ${selectedMentor.name}: ${requestMessage}`);
+  const submitRequest = async () => {
+    if (!selectedMentor || !requestMessage.trim()) {
+      alert('Please enter a message for your mentorship request.');
+      return;
+    }
     
-    // Show success message or notification
-    alert(`Request sent to ${selectedMentor.name}!`);
-    
-    closeRequestDialog();
+    try {
+      // Here you would make an API call to submit the mentorship request
+      // For now we'll just console log it
+      console.log(`Sending request to ${selectedMentor.name}: ${requestMessage}`);
+      
+      // In a real implementation, you would use:
+      // await axios.post('http://localhost:5000/api/mentorship/request', {
+      //   mentorId: selectedMentor.id,
+      //   message: requestMessage
+      // });
+      
+      // Show success message or notification
+      alert(`Request sent to ${selectedMentor.name}!`);
+      
+      closeRequestDialog();
+    } catch (err) {
+      console.error('Error sending mentorship request:', err);
+      alert('Failed to send mentorship request. Please try again.');
+    }
+  };
+
+  // Generate initials from name for avatar fallback
+  const getInitials = (name) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   const filteredMentors = mentors.filter(mentor => {
     // Filter by search term
     const matchesSearch = 
-      mentor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.bio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.expertise.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
+      mentor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentor.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentor.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentor.expertise?.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      mentor.branch?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mentor.company?.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Filter by saved status if savedMentorsOnly is true
-    const matchesSaved = savedMentorsOnly ? mentor.saved : true;
+    const isSaved = savedMentors.has(mentor.id);
+    const matchesSaved = savedMentorsOnly ? isSaved : true;
     
     return matchesSearch && matchesSaved;
   });
@@ -126,7 +189,7 @@ const MentorsPage = () => {
         <Box sx={{ display: 'flex', mb: 3, gap: 2 }}>
           <TextField
             fullWidth
-            placeholder="Search mentors by name, position, or expertise..."
+            placeholder="Search mentors by name, position, skills, branch..."
             value={searchTerm}
             onChange={handleSearch}
             variant="outlined"
@@ -150,87 +213,110 @@ const MentorsPage = () => {
           </Button>
         </Box>
         
-        <Grid container spacing={3}>
-          {filteredMentors.length > 0 ? (
-            filteredMentors.map((mentor) => (
-              <Grid item xs={12} md={6} key={mentor.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                        <Avatar 
-                          src={mentor.avatar} 
-                          alt={mentor.name}
-                          sx={{ width: 60, height: 60 }}
-                        />
-                        <Box>
-                          <Typography variant="h6" component="h2">
-                            {mentor.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {mentor.position}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Rating value={mentor.rating} precision={0.1} readOnly size="small" />
-                            <Typography variant="body2" color="text.secondary">
-                              ({mentor.rating})
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography variant="h6" color="error" gutterBottom>
+              {error}
+            </Typography>
+            <Button variant="contained" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {filteredMentors.length > 0 ? (
+              filteredMentors.map((mentor) => (
+                <Grid item xs={12} md={6} key={mentor.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                          <Avatar 
+                            src={mentor.avatar} 
+                            alt={mentor.name}
+                            sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}
+                          >
+                            {!mentor.avatar && getInitials(mentor.name)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="h6" component="h2">
+                              {mentor.name}
                             </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {mentor.position}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {mentor.branch}, {mentor.graduationYear}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Rating value={mentor.rating} precision={0.1} readOnly size="small" />
+                              <Typography variant="body2" color="text.secondary">
+                                ({mentor.rating})
+                              </Typography>
+                            </Box>
                           </Box>
                         </Box>
+                        
+                        <IconButton 
+                          onClick={() => toggleSaved(mentor.id)} 
+                          color="primary"
+                        >
+                          {savedMentors.has(mentor.id) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                        </IconButton>
                       </Box>
                       
-                      <IconButton onClick={() => toggleSaved(mentor.id)} color="primary">
-                        {mentor.saved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-                      </IconButton>
-                    </Box>
-                    
-                    <Typography variant="body1" paragraph>
-                      {mentor.bio}
-                    </Typography>
-                    
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Availability: {mentor.availability}
-                    </Typography>
-                    
-                    <Box sx={{ mt: 2 }}>
-                      {mentor.expertise.map((exp, index) => (
-                        <Chip 
-                          key={index} 
-                          label={exp} 
-                          sx={{ mr: 1, mb: 1 }}
-                          size="small"
+                      <Typography variant="body1" paragraph>
+                        {mentor.bio}
+                      </Typography>
+                      
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Availability: {mentor.availability}
+                      </Typography>
+                      
+                      <Box sx={{ mt: 2 }}>
+                        {mentor.expertise && mentor.expertise.map((exp, index) => (
+                          <Chip 
+                            key={index} 
+                            label={exp} 
+                            sx={{ mr: 1, mb: 1 }}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Box>
+                      
+                      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button 
+                          variant="contained" 
                           color="primary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                    
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button 
-                        variant="contained" 
-                        color="primary"
-                        onClick={() => openRequestDialog(mentor)}
-                      >
-                        Request Mentorship
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
+                          onClick={() => openRequestDialog(mentor)}
+                        >
+                          Request Mentorship
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            ) : (
+              <Grid item xs={12}>
+                <Box sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" color="text.secondary">
+                    No mentors found matching your criteria.
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    Try adjusting your search or filters.
+                  </Typography>
+                </Box>
               </Grid>
-            ))
-          ) : (
-            <Grid item xs={12}>
-              <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography variant="h6" color="text.secondary">
-                  No mentors found matching your criteria.
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Try adjusting your search or filters.
-                </Typography>
-              </Box>
-            </Grid>
-          )}
-        </Grid>
+            )}
+          </Grid>
+        )}
       </Container>
       
       {/* Mentorship Request Dialog */}
@@ -246,10 +332,7 @@ const MentorsPage = () => {
                 {selectedMentor.bio}
               </Typography>
               <Typography variant="body2">
-                <strong>Expertise:</strong> {selectedMentor.expertise.join(', ')}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Availability:</strong> {selectedMentor.availability}
+                <strong>Expertise:</strong> {selectedMentor.expertise ? selectedMentor.expertise.join(', ') : 'Not specified'}
               </Typography>
             </Box>
             
@@ -261,11 +344,12 @@ const MentorsPage = () => {
             <TextField
               fullWidth
               multiline
-              rows={4}
-              placeholder="Introduce yourself and explain what you're looking for in a mentor..."
+              rows={6}
+              placeholder="Introduce yourself and explain why you would like mentorship from this alumnus. Be specific about your goals and what you hope to learn."
               value={requestMessage}
               onChange={handleRequestChange}
               variant="outlined"
+              sx={{ mb: 2 }}
             />
           </DialogContent>
           <DialogActions>
@@ -274,8 +358,8 @@ const MentorsPage = () => {
             </Button>
             <Button 
               onClick={submitRequest} 
-              color="primary" 
-              variant="contained"
+              variant="contained" 
+              color="primary"
               disabled={!requestMessage.trim()}
             >
               Send Request
