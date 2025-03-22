@@ -1,18 +1,50 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import ProfileCard from "../components/profile/ProfileCard";
 
 const Profile = () => {
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      // Check if user is logged in
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking authentication:", error);
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-12 w-12 bg-primary/20 rounded-full mb-4"></div>
+          <div className="h-4 w-32 bg-primary/20 rounded mb-3"></div>
+          <div className="h-3 w-24 bg-primary/10 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   // Sample profile data
   const profile = {
-    name: "Alex Johnson",
-    role: "Senior Software Engineer at Google",
+    name: localStorage.getItem("userName") || "Alex Johnson",
+    role: localStorage.getItem("userRole") === "alumni" ? "Alumni" : "Student",
     avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    company: "Google",
+    company: localStorage.getItem("userRole") === "alumni" ? "Google" : null,
     location: "Mountain View, CA",
-    experience: 8,
+    experience: localStorage.getItem("userRole") === "alumni" ? 8 : null,
     linkedIn: "https://linkedin.com/in/alexjohnson",
-    email: "alex.johnson@example.com",
+    email: localStorage.getItem("userEmail") || "alex.johnson@example.com",
     skills: [
       "JavaScript",
       "TypeScript",
@@ -46,43 +78,47 @@ const Profile = () => {
             <div className="lg:col-span-2 space-y-8">
               <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-100">
                 <h3 className="text-xl font-bold mb-4">Experience</h3>
-                <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                      <img
-                        src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
-                        alt="Google"
-                        className="max-w-full max-h-full object-contain"
-                      />
+                {localStorage.getItem("userRole") === "alumni" ? (
+                  <div className="space-y-6">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
+                        <img
+                          src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
+                          alt="Google"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <h4 className="font-bold">Senior Software Engineer</h4>
+                        <p className="text-muted-foreground">Google</p>
+                        <p className="text-sm text-muted-foreground">2019 - Present · 4 years</p>
+                        <p className="mt-2">
+                          Led the development of cloud-based solutions that improved system efficiency by 40%. Mentored junior engineers and collaborated with cross-functional teams.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold">Senior Software Engineer</h4>
-                      <p className="text-muted-foreground">Google</p>
-                      <p className="text-sm text-muted-foreground">2019 - Present · 4 years</p>
-                      <p className="mt-2">
-                        Led the development of cloud-based solutions that improved system efficiency by 40%. Mentored junior engineers and collaborated with cross-functional teams.
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                      <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
-                        alt="Microsoft"
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">Software Engineer</h4>
-                      <p className="text-muted-foreground">Microsoft</p>
-                      <p className="text-sm text-muted-foreground">2015 - 2019 · 4 years</p>
-                      <p className="mt-2">
-                        Developed and maintained features for Microsoft Azure. Implemented microservices architecture and RESTful APIs.
-                      </p>
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
+                        <img
+                          src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
+                          alt="Microsoft"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <h4 className="font-bold">Software Engineer</h4>
+                        <p className="text-muted-foreground">Microsoft</p>
+                        <p className="text-sm text-muted-foreground">2015 - 2019 · 4 years</p>
+                        <p className="mt-2">
+                          Developed and maintained features for Microsoft Azure. Implemented microservices architecture and RESTful APIs.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="text-muted-foreground">No work experience added yet.</p>
+                )}
               </div>
 
               <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-200">

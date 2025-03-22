@@ -1,43 +1,80 @@
 import React, { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import StudentDashboardPage from "../components/dashboard/StudentDashboardPage";
 
 const StudentDashboard = () => {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Get the user role from localStorage
-    const storedRole = localStorage.getItem("userRole");
-    setUserRole(storedRole);
-    setLoading(false);
-  }, []);
+    try {
+      // Check if user is logged in
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+      
+      // Get user role from localStorage
+      const role = localStorage.getItem("userRole");
+      setUserRole(role);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking user role:", error);
+      setLoading(false);
+    }
+  }, [navigate]);
 
-  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-12 w-12 rounded-full bg-primary/50 mb-4"></div>
+          <p>Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // Redirect non-student users to the main dashboard
   if (userRole !== "student") {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <div className="container-custom py-16 mx-auto">
+        <div className="glass-card p-8 rounded-xl text-center">
+          <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
+          <p className="mb-6">This dashboard is only available to student users. Your current role is: <span className="font-semibold">{userRole || "unknown"}</span></p>
+          <div className="flex justify-center gap-4">
+            <button 
+              onClick={() => navigate("/")} 
+              className="px-4 py-2 button-secondary"
+            >
+              Go to Homepage
+            </button>
+            {userRole === "alumni" && (
+              <button 
+                onClick={() => navigate("/alumni-dashboard")} 
+                className="px-4 py-2 button-primary"
+              >
+                Go to Alumni Dashboard
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container-custom pt-24 pb-4">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">Student Home</h1>
         </div>
         <p className="text-muted-foreground mb-6">Welcome back! Here's what's happening in your student journey.</p>
+        <StudentDashboardPage />
       </div>
-      <StudentDashboardPage />
     </div>
   );
 };

@@ -1,6 +1,6 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check } from "lucide-react";
 
 const ProfileCard = ({
   name,
@@ -15,6 +15,24 @@ const ProfileCard = ({
   education,
   interests,
 }) => {
+  const [connectionSent, setConnectionSent] = useState(false);
+  const navigate = useNavigate();
+  
+  // Handle connect button click
+  const handleConnect = () => {
+    // If already connected, navigate to messages
+    if (connectionSent) {
+      navigate(`/messages/${name.toLowerCase().replace(/\s+/g, '-')}`);
+    } else {
+      // Otherwise, send connection request
+      setConnectionSent(true);
+      // In a real app, this would send a connection request to the backend
+      setTimeout(() => {
+        alert(`Connection request sent to ${name}`);
+      }, 500);
+    }
+  };
+
   return (
     <div className="glass-card rounded-2xl overflow-hidden animate-scale-in">
       {/* Profile header with banner */}
@@ -38,12 +56,23 @@ const ProfileCard = ({
             <h3 className="text-2xl font-bold">{name}</h3>
             <p className="text-muted-foreground">{role}</p>
           </div>
-          <Link
-            to={`/messages/${name.toLowerCase().replace(/\s+/g, '-')}`}
-            className="button-primary text-sm px-4 py-2"
+          <button
+            onClick={handleConnect}
+            className={`${
+              connectionSent 
+                ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" 
+                : "button-primary"
+            } text-sm px-4 py-2 rounded-lg flex items-center space-x-1 transition-colors`}
           >
-            Connect
-          </Link>
+            {connectionSent ? (
+              <>
+                <Check className="h-4 w-4 mr-1" />
+                <span>Connected</span>
+              </>
+            ) : (
+              "Connect"
+            )}
+          </button>
         </div>
 
         <div className="space-y-1 mb-6">
@@ -68,14 +97,24 @@ const ProfileCard = ({
           {linkedIn && (
             <div className="flex items-center text-sm text-primary">
               <ExternalLink className="h-4 w-4 mr-2" />
-              <a href={linkedIn} target="_blank" rel="noopener noreferrer">
+              <a 
+                href={linkedIn} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
                 LinkedIn Profile
               </a>
             </div>
           )}
           <div className="flex items-center text-sm text-muted-foreground">
             <Mail className="h-4 w-4 mr-2" />
-            <span>{email}</span>
+            <a 
+              href={`mailto:${email}`} 
+              className="hover:text-primary transition-colors"
+            >
+              {email}
+            </a>
           </div>
           {education && (
             <div className="flex items-center text-sm text-muted-foreground">

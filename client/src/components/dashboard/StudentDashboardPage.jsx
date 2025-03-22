@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock, X } from "lucide-react";
 
@@ -95,6 +95,35 @@ const StudentDashboardPage = () => {
   const [savedMentors, setSavedMentors] = useState([]);
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+  
+  // Error handling effect
+  useEffect(() => {
+    try {
+      console.log("StudentDashboardPage mounted successfully");
+    } catch (error) {
+      setDashboardError(error.message);
+      console.error("Error in StudentDashboardPage:", error);
+    }
+  }, []);
+
+  // If there's an error, show a simple error message
+  if (dashboardError) {
+    return (
+      <div className="container-custom py-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">Dashboard Error</h3>
+          <p className="text-red-600 dark:text-red-300 mb-4">{dashboardError}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-white rounded-md"
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   // Navigate to courses page
   const goToCourses = () => {
@@ -426,6 +455,11 @@ const StudentDashboardPage = () => {
           </div>
         </div>
       )}
+      
+      {/* Debug message (can be removed in production) */}
+      <div className="text-center text-muted-foreground mt-8">
+        StudentDashboardPage is rendering correctly! If you're seeing this, the component is working.
+      </div>
     </div>
   );
 };
