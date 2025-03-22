@@ -37,19 +37,20 @@ const AuthForm = ({ type }) => {
     // For now, we'll simulate successful authentication
     
     // Store user role in localStorage (in a real app, this would come from the backend)
+    localStorage.setItem("userRole", role);
+    
     if (type === "register") {
-      localStorage.setItem("userRole", role);
       toast.success("Account created successfully!");
     } else {
-      // For login demo, determine role based on email (just for demo purposes)
-      // In a real app, the role would come from your authentication system
-      const isAlumni = email.includes("alumni") || email.includes("graduate");
-      localStorage.setItem("userRole", isAlumni ? "alumni" : "student");
       toast.success("Logged in successfully!");
     }
     
-    // Navigate to dashboard after successful login/registration
-    navigate("/dashboard");
+    // Navigate to the appropriate home page based on role
+    if (role === "student") {
+      navigate("/student-dashboard");
+    } else {
+      navigate("/alumni-dashboard");
+    }
   };
 
   return (
@@ -147,6 +148,60 @@ const AuthForm = ({ type }) => {
             />
           </div>
         </div>
+
+        {type === "login" && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Login as</label>
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div
+                className={`flex items-center border ${
+                  role === "student" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-gray-200 dark:border-gray-700"
+                } rounded-md p-3 cursor-pointer transition-colors`}
+                onClick={() => selectRole("student")}
+              >
+                <input
+                  type="radio"
+                  id="student-role"
+                  name="role"
+                  checked={role === "student"}
+                  onChange={() => selectRole("student")}
+                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                />
+                <label
+                  htmlFor="student-role"
+                  className="ml-2 block text-sm font-medium cursor-pointer"
+                >
+                  Student
+                </label>
+              </div>
+              <div
+                className={`flex items-center border ${
+                  role === "alumni" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-gray-200 dark:border-gray-700"
+                } rounded-md p-3 cursor-pointer transition-colors`}
+                onClick={() => selectRole("alumni")}
+              >
+                <input
+                  type="radio"
+                  id="alumni-role"
+                  name="role"
+                  checked={role === "alumni"}
+                  onChange={() => selectRole("alumni")}
+                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                />
+                <label
+                  htmlFor="alumni-role"
+                  className="ml-2 block text-sm font-medium cursor-pointer"
+                >
+                  Alumni
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

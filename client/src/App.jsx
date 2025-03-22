@@ -7,6 +7,8 @@ import Index from "./pages/Index.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import StudentDashboard from "./pages/StudentDashboard.jsx";
+import AlumniDashboard from "./pages/AlumniDashboard.jsx";
 import Profile from "./pages/Profile.jsx";
 import Messages from "./pages/Messages.jsx";
 import Jobs from "./pages/Jobs.jsx";
@@ -25,6 +27,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
+          <Route path="/alumni-dashboard" element={<AlumniDashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/jobs" element={<Jobs />} />

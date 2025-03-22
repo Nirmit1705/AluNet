@@ -11,7 +11,15 @@ const Navbar = () => {
   const navigate = useNavigate();
   
   // Check if user is logged in (this would be replaced with actual auth logic)
-  const isLoggedIn = false;
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    // Check if user role exists in localStorage
+    const storedRole = localStorage.getItem("userRole");
+    if (storedRole) {
+      setIsLoggedIn(true);
+    }
+  }, []);
   
   // Check if current page is dashboard
   const isDashboard = location.pathname === "/dashboard" || 
@@ -23,18 +31,14 @@ const Navbar = () => {
     return localStorage.getItem("userRole") || "student";
   });
 
-  // Handle role change
-  const handleRoleChange = (role) => {
-    setUserRole(role);
-    localStorage.setItem("userRole", role);
-    setUserMenuOpen(false);
-
-    // Navigate to the corresponding dashboard
-    if (role === "student") {
+  // Navigate to dashboard based on role
+  const goToDashboard = () => {
+    if (userRole === "student") {
       navigate("/student-dashboard");
     } else {
       navigate("/alumni-dashboard");
     }
+    setUserMenuOpen(false);
   };
 
   // Handle scroll effect
@@ -64,6 +68,12 @@ const Navbar = () => {
 
   // Check if link is active
   const isActive = (path) => {
+    if (path === '/dashboard' || path === '/student-dashboard' || path === '/alumni-dashboard') {
+      // Check if we're on any dashboard page
+      return location.pathname === '/dashboard' || 
+             location.pathname === '/student-dashboard' || 
+             location.pathname === '/alumni-dashboard';
+    }
     return location.pathname === path;
   };
 
@@ -104,41 +114,34 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-8">
-            <Link 
-              to="/" 
-              className={`nav-link ${isActive("/") ? "text-primary" : ""}`}
-            >
-              Home
-            </Link>
             {showLoggedInNav ? (
               <>
-                <Link 
-                  to="/dashboard" 
+                {/* Home link for logged-in users */}
+                <button 
+                  onClick={() => goToDashboard()}
                   className={`nav-link ${
-                    isActive("/dashboard") || 
-                    isActive("/student-dashboard") || 
-                    isActive("/alumni-dashboard") 
+                    isActive("/dashboard") 
                       ? "text-primary" 
-                      : ""
+                      : "text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  Dashboard
-                </Link>
+                  Home
+                </button>
                 <Link 
                   to="/profile" 
-                  className={`nav-link ${isActive("/profile") ? "text-primary" : ""}`}
+                  className={`nav-link ${isActive("/profile") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Profile
                 </Link>
                 <Link 
                   to="/messages" 
-                  className={`nav-link ${isActive("/messages") ? "text-primary" : ""}`}
+                  className={`nav-link ${isActive("/messages") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Messages
                 </Link>
                 <Link 
                   to="/jobs" 
-                  className={`nav-link ${isActive("/jobs") ? "text-primary" : ""}`}
+                  className={`nav-link ${isActive("/jobs") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Jobs
                 </Link>
@@ -157,33 +160,34 @@ const Navbar = () => {
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 animate-fade-in">
                       <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-medium">Switch Role</p>
+                        <p className="text-sm font-medium">Account</p>
                       </div>
                       <div className="p-2">
-                        <button 
-                          onClick={() => handleRoleChange("student")}
-                          className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left transition-colors ${
-                            userRole === "student" 
-                              ? "bg-primary/10 text-primary" 
-                              : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                          }`}
-                        >
-                          <User className="h-4 w-4" />
-                          <span>Student</span>
-                        </button>
-                        <button 
-                          onClick={() => handleRoleChange("alumni")}
-                          className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left transition-colors ${
-                            userRole === "alumni" 
-                              ? "bg-primary/10 text-primary" 
-                              : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                          }`}
-                        >
-                          <GraduationCap className="h-4 w-4" />
-                          <span>Alumni</span>
-                        </button>
+                        <div className="px-3 py-2 text-sm">
+                          <p className="font-medium">Logged in as:</p>
+                          <div className="flex items-center space-x-2 mt-1 text-primary">
+                            {userRole === "student" ? (
+                              <>
+                                <User className="h-4 w-4" />
+                                <span>Student</span>
+                              </>
+                            ) : (
+                              <>
+                                <GraduationCap className="h-4 w-4" />
+                                <span>Alumni</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+                        <button 
+                          onClick={() => goToDashboard()}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <BarChart2 className="h-4 w-4" />
+                          <span>Home</span>
+                        </button>
                         <button 
                           className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
@@ -203,9 +207,16 @@ const Navbar = () => {
               </>
             ) : (
               <>
+                {/* Home link for non-logged-in users */}
+                <Link 
+                  to="/" 
+                  className={`nav-link ${isActive("/") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
+                >
+                  Home
+                </Link>
                 <Link 
                   to="/login" 
-                  className={`nav-link ${isActive("/login") ? "text-primary" : ""}`}
+                  className={`nav-link ${isActive("/login") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Login
                 </Link>
@@ -262,28 +273,31 @@ const Navbar = () => {
       {isOpen && (
         <div className="md:hidden bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 animate-fade-in">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link
-              to="/"
-              className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Home
-            </Link>
             {showLoggedInNav ? (
               <>
-                <Link
-                  to="/dashboard"
-                  className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  onClick={() => setIsOpen(false)}
+                <button
+                  onClick={() => {
+                    goToDashboard();
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left px-3 py-2 rounded-md font-medium ${
+                    isActive("/dashboard") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
                 >
                   <div className="flex items-center space-x-2">
                     <BarChart2 className="h-5 w-5" />
-                    <span>Dashboard</span>
+                    <span>Home</span>
                   </div>
-                </Link>
+                </button>
                 <Link
                   to="/profile"
-                  className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className={`block px-3 py-2 rounded-md font-medium ${
+                    isActive("/profile") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
                   onClick={() => setIsOpen(false)}
                 >
                   <div className="flex items-center space-x-2">
@@ -293,7 +307,11 @@ const Navbar = () => {
                 </Link>
                 <Link
                   to="/messages"
-                  className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className={`block px-3 py-2 rounded-md font-medium ${
+                    isActive("/messages") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
                   onClick={() => setIsOpen(false)}
                 >
                   <div className="flex items-center space-x-2">
@@ -303,7 +321,11 @@ const Navbar = () => {
                 </Link>
                 <Link
                   to="/jobs"
-                  className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className={`block px-3 py-2 rounded-md font-medium ${
+                    isActive("/jobs") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
                   onClick={() => setIsOpen(false)}
                 >
                   <div className="flex items-center space-x-2">
@@ -312,37 +334,32 @@ const Navbar = () => {
                   </div>
                 </Link>
 
-                {/* Role switcher for mobile */}
+                {/* Account status for mobile */}
                 <div className="mt-4 px-3 py-2 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-muted-foreground mb-2">Switch Role</p>
-                  <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground mb-2">Account Status</p>
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-primary/10 rounded-md">
+                    {userRole === "student" ? (
+                      <>
+                        <User className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-primary font-medium">Student Account</span>
+                      </>
+                    ) : (
+                      <>
+                        <GraduationCap className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-primary font-medium">Alumni Account</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="mt-2">
                     <button 
                       onClick={() => {
-                        handleRoleChange("student");
+                        goToDashboard();
                         setIsOpen(false);
                       }}
-                      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left transition-colors ${
-                        userRole === "student" 
-                          ? "bg-primary/10 text-primary" 
-                          : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                      }`}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <User className="h-4 w-4" />
-                      <span>Student</span>
-                    </button>
-                    <button 
-                      onClick={() => {
-                        handleRoleChange("alumni");
-                        setIsOpen(false);
-                      }}
-                      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left transition-colors ${
-                        userRole === "alumni" 
-                          ? "bg-primary/10 text-primary" 
-                          : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                      }`}
-                    >
-                      <GraduationCap className="h-4 w-4" />
-                      <span>Alumni</span>
+                      <BarChart2 className="h-4 w-4" />
+                      <span>Go to Home</span>
                     </button>
                   </div>
                 </div>
@@ -350,8 +367,23 @@ const Navbar = () => {
             ) : (
               <>
                 <Link
+                  to="/"
+                  className={`block px-3 py-2 rounded-md font-medium ${
+                    isActive("/") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link
                   to="/login"
-                  className="block px-3 py-2 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className={`block px-3 py-2 rounded-md font-medium ${
+                    isActive("/login") 
+                      ? "text-primary bg-primary/10" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  } transition-colors`}
                   onClick={() => setIsOpen(false)}
                 >
                   Login
@@ -372,4 +404,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar; 
+export default Navbar;

@@ -1,5 +1,6 @@
-import React from "react";
-import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock } from "lucide-react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock, X } from "lucide-react";
 
 // Sample data for upcoming events
 const upcomingEvents = [
@@ -90,12 +91,78 @@ const courses = [
 ];
 
 const StudentDashboardPage = () => {
+  const navigate = useNavigate();
+  const [savedMentors, setSavedMentors] = useState([]);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
+  const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
+  
+  // Navigate to courses page
+  const goToCourses = () => {
+    navigate("/courses");
+    // In a real app, this would navigate to a courses page
+    alert("Navigating to all courses");
+  };
+  
+  // Navigate to events page
+  const goToEvents = () => {
+    navigate("/events");
+    // In a real app, this would navigate to an events page
+    alert("Navigating to all events");
+  };
+  
+  // Connect with mentor
+  const connectWithMentor = (mentorId) => {
+    // In a real app, this would initiate a connection request
+    alert(`Connection request sent to mentor #${mentorId}`);
+  };
+  
+  // Navigate to mentors page
+  const goToMentors = () => {
+    navigate("/mentors");
+    // In a real app, this would navigate to a mentors page
+    alert("Navigating to all mentors");
+  };
+  
+  // Register for event
+  const registerForEvent = (eventId) => {
+    if (registeredEvents.includes(eventId)) {
+      setRegisteredEvents(registeredEvents.filter(id => id !== eventId));
+    } else {
+      setRegisteredEvents([...registeredEvents, eventId]);
+    }
+  };
+  
+  // Save/bookmark mentor
+  const saveMentor = (mentorId) => {
+    if (savedMentors.includes(mentorId)) {
+      setSavedMentors(savedMentors.filter(id => id !== mentorId));
+    } else {
+      setSavedMentors([...savedMentors, mentorId]);
+    }
+  };
+  
+  // Continue course
+  const continueCourse = (courseId) => {
+    // In a real app, this would navigate to the course
+    alert(`Continuing course #${courseId}`);
+  };
+  
+  // Toggle notifications panel
+  const toggleNotifications = () => {
+    setShowNotificationsPanel(!showNotificationsPanel);
+  };
+  
+  // View job opportunities
+  const viewJobOpportunities = () => {
+    navigate("/jobs");
+  };
+
   return (
-    <div className="pb-12">
+    <div className="pb-12 relative">
       <div className="container-custom">
         {/* Stats overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="glass-card rounded-xl p-6 animate-fade-in">
+          <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToMentors}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Mentors Connected</h3>
               <Users className="h-6 w-6 text-primary" />
@@ -106,7 +173,7 @@ const StudentDashboardPage = () => {
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100">
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100 cursor-pointer" onClick={viewJobOpportunities}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Job Opportunities</h3>
               <Briefcase className="h-6 w-6 text-primary" />
@@ -117,7 +184,7 @@ const StudentDashboardPage = () => {
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200">
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200 cursor-pointer" onClick={goToCourses}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Learning Hours</h3>
               <BookOpen className="h-6 w-6 text-primary" />
@@ -128,7 +195,7 @@ const StudentDashboardPage = () => {
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300">
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={goToEvents}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Upcoming Sessions</h3>
               <Calendar className="h-6 w-6 text-primary" />
@@ -169,11 +236,20 @@ const StudentDashboardPage = () => {
                         </div>
                       </div>
                       <p className="text-xs text-primary mt-2">Next lesson: {course.nextLesson}</p>
+                      <button 
+                        className="mt-3 px-4 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
+                        onClick={() => continueCourse(course.id)}
+                      >
+                        Continue Learning
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
-              <button className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center">
+              <button 
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                onClick={goToCourses}
+              >
                 View all courses
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
@@ -200,10 +276,25 @@ const StudentDashboardPage = () => {
                         {event.category}
                       </span>
                     </div>
+                    <div className="mt-3 flex justify-end">
+                      <button 
+                        className={`px-4 py-1.5 ${
+                          registeredEvents.includes(event.id) 
+                            ? "bg-primary text-white" 
+                            : "bg-primary/10 text-primary hover:bg-primary/20"
+                        } text-sm rounded-lg transition-colors`}
+                        onClick={() => registerForEvent(event.id)}
+                      >
+                        {registeredEvents.includes(event.id) ? "Registered" : "Register"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
-              <button className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center">
+              <button 
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                onClick={goToEvents}
+              >
                 View all events
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
@@ -225,7 +316,15 @@ const StudentDashboardPage = () => {
                       <GraduationCap className="h-6 w-6" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium">{mentor.name}</h4>
+                      <div className="flex justify-between">
+                        <h4 className="font-medium">{mentor.name}</h4>
+                        <button 
+                          className="text-gray-400 hover:text-primary transition-colors"
+                          onClick={() => saveMentor(mentor.id)}
+                        >
+                          <Heart className={`h-4 w-4 ${savedMentors.includes(mentor.id) ? "fill-primary text-primary" : ""}`} />
+                        </button>
+                      </div>
                       <p className="text-sm text-muted-foreground">{mentor.role}</p>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {mentor.specialties.map((specialty, idx) => (
@@ -239,39 +338,56 @@ const StudentDashboardPage = () => {
                         <span className="text-xs text-green-600">{mentor.availability}</span>
                       </div>
                     </div>
-                    <button className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors">
+                    <button 
+                      className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
+                      onClick={() => connectWithMentor(mentor.id)}
+                    >
                       Connect
                     </button>
                   </div>
                 ))}
               </div>
-              <button className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center">
+              <button 
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                onClick={goToMentors}
+              >
                 Find more mentors
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
             </div>
 
+            {/* Notifications Section */}
             <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Notifications</h3>
-                <Bell className="h-5 w-5 text-muted-foreground" />
+                <h3 className="font-medium text-lg">Recent Notifications</h3>
+                <button 
+                  className="relative group"
+                  onClick={toggleNotifications}
+                >
+                  <Bell className="h-5 w-5 text-primary" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white w-4 h-4 flex items-center justify-center text-xs rounded-full">
+                    {notifications.length}
+                  </span>
+                </button>
               </div>
-              <div className="space-y-4">
-                {notifications.map((notification) => (
-                  <div key={notification.id} className="flex items-start space-x-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors">
-                    <div className="bg-primary/10 text-primary p-2 rounded-full">
-                      <notification.icon className="h-5 w-5" />
+              <div className="space-y-3">
+                {notifications.slice(0, 3).map((notification) => (
+                  <div key={notification.id} className="flex p-3 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <div className="rounded-full bg-primary/10 p-2 mr-3">
+                      <notification.icon className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{notification.title}</p>
-                      <p className="text-sm text-muted-foreground">{notification.description}</p>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium">{notification.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{notification.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">{notification.time}</p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </div>
                 ))}
               </div>
-              <button className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center">
+              <button 
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                onClick={toggleNotifications}
+              >
                 View all notifications
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
@@ -279,6 +395,37 @@ const StudentDashboardPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Notifications Panel */}
+      {showNotificationsPanel && (
+        <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 animate-slide-in-right">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Notifications</h3>
+              <button 
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={toggleNotifications}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {notifications.map((notification) => (
+                <div key={notification.id} className="flex p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <div className="rounded-full bg-primary/10 p-2 mr-4">
+                    <notification.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium">{notification.title}</h4>
+                    <p className="text-sm text-muted-foreground mt-1">{notification.description}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{notification.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
