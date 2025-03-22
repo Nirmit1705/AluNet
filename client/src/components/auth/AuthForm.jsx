@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Briefcase, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
-const AuthForm = ({ type }) => {
+const AuthForm = ({ type, onSuccess, onSwitchType }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState("student");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
 
   const togglePasswordVisibility = () => {
@@ -32,12 +34,32 @@ const AuthForm = ({ type }) => {
       toast.error("Please fill in all required fields");
       return;
     }
+
+    if (type === "register") {
+      if (!name) {
+        toast.error("Please enter your name");
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+    }
     
     // In a real app, this would be an API call to authenticate the user
     // For now, we'll simulate successful authentication
     
-    // Store user role in localStorage (in a real app, this would come from the backend)
+    // Generate a mock token
+    const mockToken = `mock-token-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
+    // Store user data in localStorage
+    localStorage.setItem("token", mockToken);
     localStorage.setItem("userRole", role);
+    localStorage.setItem("userEmail", email);
+    if (type === "register" && name) {
+      localStorage.setItem("userName", name);
+    }
     
     if (type === "register") {
       toast.success("Account created successfully!");
@@ -45,11 +67,23 @@ const AuthForm = ({ type }) => {
       toast.success("Logged in successfully!");
     }
     
+    // Call the onSuccess callback if provided
+    if (onSuccess) {
+      onSuccess();
+    }
+    
     // Navigate to the appropriate home page based on role
     if (role === "student") {
       navigate("/student-dashboard");
     } else {
       navigate("/alumni-dashboard");
+    }
+  };
+
+  // Switch between login and register forms
+  const handleSwitchType = () => {
+    if (onSwitchType) {
+      onSwitchType(type === "login" ? "register" : "login");
     }
   };
 
@@ -84,6 +118,8 @@ const AuthForm = ({ type }) => {
                   required
                   className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                 />
               </div>
             </div>
@@ -264,6 +300,8 @@ const AuthForm = ({ type }) => {
                 required
                 className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                 placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
           </div>
@@ -283,12 +321,12 @@ const AuthForm = ({ type }) => {
       <div className="mt-6 text-center">
         <p className="text-sm text-muted-foreground">
           {type === "login" ? "Don't have an account?" : "Already have an account?"}
-          <Link
-            to={type === "login" ? "/register" : "/login"}
+          <button
+            onClick={handleSwitchType}
             className="ml-1 font-medium text-primary hover:text-primary/80"
           >
             {type === "login" ? "Sign up" : "Sign in"}
-          </Link>
+          </button>
         </p>
       </div>
     </div>

@@ -1,10 +1,36 @@
-import React from "react";
-import Navbar from "../components/layout/Navbar";
+import React, { useState } from "react";
+import LandingNavbar from "../components/layout/LandingNavbar";
 import Hero from "../components/home/Hero";
+import AuthModal from "../components/auth/AuthModal";
 import { ArrowRight, Users, MessageCircle, Briefcase, Award, Zap, BarChart2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Index = () => {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authType, setAuthType] = useState("login"); // "login" or "register"
+
+  // Open login modal
+  const openLoginModal = () => {
+    setAuthType("login");
+    setAuthModalOpen(true);
+  };
+
+  // Open register modal
+  const openRegisterModal = () => {
+    setAuthType("register");
+    setAuthModalOpen(true);
+  };
+
+  // Close auth modal
+  const closeAuthModal = () => {
+    setAuthModalOpen(false);
+  };
+
+  // Switch between login and register types
+  const handleSwitchAuthType = (newType) => {
+    setAuthType(newType);
+  };
+
   // Feature sections
   const features = [
     {
@@ -47,11 +73,19 @@ const Index = () => {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <LandingNavbar onLoginClick={openLoginModal} />
       
       <main>
-        {/* Hero section */}
-        <Hero />
+        {/* Hero section with registration/login handlers */}
+        <Hero onRegisterClick={openRegisterModal} onLoginClick={openLoginModal} />
+        
+        {/* Authentication modal */}
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={closeAuthModal} 
+          type={authType}
+          onSwitchType={handleSwitchAuthType}
+        />
         
         {/* Features section */}
         <section className="bg-gray-50 dark:bg-gray-900/50 py-24">
@@ -99,13 +133,19 @@ const Index = () => {
                     that will shape your future career.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <Link to="/register" className="button-primary inline-flex items-center justify-center gap-2">
+                    <button 
+                      onClick={openRegisterModal}
+                      className="button-primary inline-flex items-center justify-center gap-2"
+                    >
                       Get Started
                       <ArrowRight className="h-4 w-4" />
-                    </Link>
-                    <Link to="/login" className="button-secondary inline-flex items-center justify-center">
+                    </button>
+                    <button 
+                      onClick={openLoginModal}
+                      className="button-secondary inline-flex items-center justify-center"
+                    >
                       Sign In
-                    </Link>
+                    </button>
                   </div>
                 </div>
                 <div className="relative h-64 md:h-auto overflow-hidden bg-gradient-to-r from-blue-400 to-purple-400">

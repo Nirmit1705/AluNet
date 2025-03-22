@@ -7,6 +7,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -18,6 +19,13 @@ const Navbar = () => {
     const storedRole = localStorage.getItem("userRole");
     if (storedRole) {
       setIsLoggedIn(true);
+    }
+    
+    // Check if dark mode preference is stored
+    const isDarkMode = localStorage.getItem("darkMode") === "true";
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      setDarkMode(true);
     }
   }, []);
   
@@ -40,6 +48,43 @@ const Navbar = () => {
     }
     setUserMenuOpen(false);
   };
+  
+  // Handle logout
+  const handleLogout = () => {
+    // Clear all user data from localStorage
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userName");
+    
+    // Update state
+    setIsLoggedIn(false);
+    setUserMenuOpen(false);
+    
+    // Navigate to home page
+    navigate("/");
+    
+    // Show confirmation message using an alert for now
+    // In a real app, we would use a toast notification
+    alert("You have been signed out successfully");
+  };
+  
+  // Toggle settings modal
+  const toggleSettingsModal = () => {
+    setShowSettingsModal(!showSettingsModal);
+    setUserMenuOpen(false);
+  };
+  
+  // Switch between student and alumni role (for demo purposes)
+  const switchUserRole = () => {
+    const newRole = userRole === "student" ? "alumni" : "student";
+    localStorage.setItem("userRole", newRole);
+    setUserRole(newRole);
+    setShowSettingsModal(false);
+    
+    // Navigate to the appropriate dashboard
+    navigate(newRole === "student" ? "/student-dashboard" : "/alumni-dashboard");
+  };
 
   // Handle scroll effect
   useEffect(() => {
@@ -60,9 +105,11 @@ const Navbar = () => {
     if (darkMode) {
       document.documentElement.classList.remove("dark");
       setDarkMode(false);
+      localStorage.setItem("darkMode", "false");
     } else {
       document.documentElement.classList.add("dark");
       setDarkMode(true);
+      localStorage.setItem("darkMode", "true");
     }
   };
 
@@ -86,13 +133,16 @@ const Navbar = () => {
       if (userMenuOpen && !event.target.closest('.user-menu-container')) {
         setUserMenuOpen(false);
       }
+      if (showSettingsModal && !event.target.closest('.settings-modal')) {
+        setShowSettingsModal(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, showSettingsModal]);
 
   return (
     <nav
@@ -182,19 +232,21 @@ const Navbar = () => {
                       </div>
                       <div className="border-t border-gray-200 dark:border-gray-700 p-2">
                         <button 
-                          onClick={() => goToDashboard()}
+                          onClick={goToDashboard}
                           className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
                           <BarChart2 className="h-4 w-4" />
                           <span>Home</span>
                         </button>
                         <button 
+                          onClick={toggleSettingsModal}
                           className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
                           <Settings className="h-4 w-4" />
                           <span>Settings</span>
                         </button>
                         <button 
+                          onClick={handleLogout}
                           className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-500"
                         >
                           <LogOut className="h-4 w-4" />
@@ -256,7 +308,7 @@ const Navbar = () => {
             </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle menu"
             >
               {isOpen ? (
@@ -269,134 +321,151 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation */}
+      {/* Mobile menu, show/hide based on menu state */}
       {isOpen && (
         <div className="md:hidden bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 animate-fade-in">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          <div className="container-custom py-4 space-y-2">
             {showLoggedInNav ? (
               <>
-                <button
+                <button 
                   onClick={() => {
                     goToDashboard();
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left px-3 py-2 rounded-md font-medium ${
+                  className={`block w-full text-left py-2 ${
                     isActive("/dashboard") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                      ? "text-primary" 
+                      : "text-gray-700 dark:text-gray-300"
+                  }`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <BarChart2 className="h-5 w-5" />
-                    <span>Home</span>
-                  </div>
+                  Home
                 </button>
-                <Link
-                  to="/profile"
-                  className={`block px-3 py-2 rounded-md font-medium ${
-                    isActive("/profile") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                <Link 
+                  to="/profile" 
                   onClick={() => setIsOpen(false)}
+                  className={`block py-2 ${isActive("/profile") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <User className="h-5 w-5" />
-                    <span>Profile</span>
-                  </div>
+                  Profile
                 </Link>
-                <Link
-                  to="/messages"
-                  className={`block px-3 py-2 rounded-md font-medium ${
-                    isActive("/messages") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                <Link 
+                  to="/messages" 
                   onClick={() => setIsOpen(false)}
+                  className={`block py-2 ${isActive("/messages") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <MessageSquare className="h-5 w-5" />
-                    <span>Messages</span>
-                  </div>
+                  Messages
                 </Link>
-                <Link
-                  to="/jobs"
-                  className={`block px-3 py-2 rounded-md font-medium ${
-                    isActive("/jobs") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                <Link 
+                  to="/jobs" 
                   onClick={() => setIsOpen(false)}
+                  className={`block py-2 ${isActive("/jobs") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <Briefcase className="h-5 w-5" />
-                    <span>Jobs</span>
-                  </div>
+                  Jobs
                 </Link>
-
-                {/* Account status for mobile */}
-                <div className="mt-4 px-3 py-2 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-muted-foreground mb-2">Account Status</p>
-                  <div className="flex items-center space-x-2 px-3 py-2 bg-primary/10 rounded-md">
-                    {userRole === "student" ? (
-                      <>
-                        <User className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-primary font-medium">Student Account</span>
-                      </>
-                    ) : (
-                      <>
-                        <GraduationCap className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-primary font-medium">Alumni Account</span>
-                      </>
-                    )}
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-800 mt-2">
+                  <div className="py-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Signed in as:</p>
+                    <p className="font-medium capitalize">{userRole}</p>
                   </div>
-                  <div className="mt-2">
-                    <button 
-                      onClick={() => {
-                        goToDashboard();
-                        setIsOpen(false);
-                      }}
-                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <BarChart2 className="h-4 w-4" />
-                      <span>Go to Home</span>
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => {
+                      toggleSettingsModal();
+                      setIsOpen(false);
+                    }}
+                    className="flex items-center space-x-2 py-2 text-gray-700 dark:text-gray-300"
+                  >
+                    <Settings className="h-5 w-5" />
+                    <span>Settings</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      handleLogout();
+                      setIsOpen(false);
+                    }}
+                    className="flex items-center space-x-2 py-2 text-red-500"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    <span>Sign out</span>
+                  </button>
                 </div>
               </>
             ) : (
               <>
-                <Link
-                  to="/"
-                  className={`block px-3 py-2 rounded-md font-medium ${
-                    isActive("/") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                <Link 
+                  to="/" 
                   onClick={() => setIsOpen(false)}
+                  className={`block py-2 ${isActive("/") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Home
                 </Link>
-                <Link
-                  to="/login"
-                  className={`block px-3 py-2 rounded-md font-medium ${
-                    isActive("/login") 
-                      ? "text-primary bg-primary/10" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  } transition-colors`}
+                <Link 
+                  to="/login" 
                   onClick={() => setIsOpen(false)}
+                  className={`block py-2 ${isActive("/login") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Login
                 </Link>
-                <Link
-                  to="/register"
-                  className="block px-3 py-2 rounded-md bg-primary text-white font-medium"
+                <Link 
+                  to="/register" 
                   onClick={() => setIsOpen(false)}
+                  className="block button-primary mt-2"
                 >
                   Register
                 </Link>
               </>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="settings-modal bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-xl animate-fade-in">
+            <h3 className="text-xl font-bold mb-4">Settings</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Appearance</h4>
+                <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <span>Dark Mode</span>
+                  <button 
+                    onClick={toggleDarkMode}
+                    className="p-2 rounded-full bg-gray-100 dark:bg-gray-800"
+                  >
+                    {darkMode ? (
+                      <Sun className="h-5 w-5 text-amber-500" />
+                    ) : (
+                      <Moon className="h-5 w-5 text-indigo-500" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Account</h4>
+                <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <span>User Type</span>
+                    <span className="font-medium capitalize">{userRole}</span>
+                  </div>
+                  <button 
+                    onClick={switchUserRole}
+                    className="w-full py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    Switch to {userRole === "student" ? "Alumni" : "Student"} Account
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-6">
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

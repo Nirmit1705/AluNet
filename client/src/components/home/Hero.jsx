@@ -1,8 +1,7 @@
 import React from "react";
 import { ArrowRight, Users, BookOpen, Award, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
 
-const Hero = () => {
+const Hero = ({ onRegisterClick, onLoginClick }) => {
   return (
     <section className="pt-32 pb-20 md:pt-40 md:pb-28 relative overflow-hidden">
       {/* Background gradient */}
@@ -32,13 +31,19 @@ const Hero = () => {
           
           {/* CTA buttons */}
           <div className="animate-fade-in animate-delay-300 flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <Link to="/register" className="button-primary inline-flex items-center justify-center gap-2 px-6 py-3">
+            <button 
+              onClick={onRegisterClick}
+              className="button-primary inline-flex items-center justify-center gap-2 px-6 py-3"
+            >
               Get Started
               <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link to="/login" className="button-secondary inline-flex items-center justify-center gap-2 px-6 py-3">
+            </button>
+            <button 
+              onClick={onLoginClick}
+              className="button-secondary inline-flex items-center justify-center gap-2 px-6 py-3"
+            >
               Sign In
-            </Link>
+            </button>
           </div>
           
           {/* Stats */}
