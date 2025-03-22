@@ -1,6 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock, Zap, UserPlus, Plus, CheckCircle, Edit, Trash, X } from "lucide-react";
+import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock, X, UserPlus, Plus, CheckCircle, Edit, Trash, TrendingUp } from "lucide-react";
+
+// Sample data for student success stories
+const successStories = [
+  {
+    id: 1,
+    studentName: "Marcus Johnson",
+    achievement: "Secured internship at Google",
+    story: "With your mentorship on interview prep and resume building, I was able to secure my dream internship at Google!",
+    date: "May 15, 2023"
+  },
+  {
+    id: 2,
+    studentName: "Aisha Patel",
+    achievement: "Won hackathon first place",
+    story: "The project management and technical skills you taught me helped my team win first place at the university hackathon.",
+    date: "April 22, 2023"
+  },
+  {
+    id: 3,
+    studentName: "Tyler Rodriguez",
+    achievement: "Published research paper",
+    story: "Thanks to your guidance on research methodologies, my paper was accepted in the International Journal of Computer Science.",
+    date: "June 5, 2023"
+  }
+];
 
 // Sample data for mentee requests
 const menteeRequests = [
@@ -50,34 +75,6 @@ const currentMentees = [
   }
 ];
 
-// Sample data for volunteer opportunities
-const volunteerOpportunities = [
-  {
-    id: 1,
-    title: "Guest Lecture: Industry Insights",
-    date: "June 10, 2023",
-    time: "2:00 PM - 4:00 PM",
-    location: "Virtual",
-    department: "Computer Science"
-  },
-  {
-    id: 2,
-    title: "Career Fair Volunteer",
-    date: "July 5, 2023",
-    time: "10:00 AM - 3:00 PM",
-    location: "University Main Hall",
-    department: "University-wide"
-  },
-  {
-    id: 3,
-    title: "Capstone Project Evaluator",
-    date: "May 30, 2023",
-    time: "1:00 PM - 5:00 PM",
-    location: "Engineering Building",
-    department: "Engineering"
-  }
-];
-
 const notifications = [
   {
     id: 1,
@@ -107,6 +104,14 @@ const AlumniDashboardPage = () => {
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [endorsedStudents, setEndorsedStudents] = useState([]);
   const [jobPostModal, setJobPostModal] = useState(false);
+  const [newJobPost, setNewJobPost] = useState({
+    title: '',
+    company: '',
+    location: '',
+    type: 'Full Time',
+    description: '',
+    requirements: ''
+  });
   const [myPostedJobs, setMyPostedJobs] = useState([
     {
       id: 1,
@@ -173,13 +178,6 @@ const AlumniDashboardPage = () => {
     alert("Navigating to all courses");
   };
   
-  // Navigate to events page
-  const goToEvents = () => {
-    navigate("/events");
-    // In a real app, this would navigate to an events page
-    alert("Navigating to all events");
-  };
-  
   // Navigate to jobs page
   const goToJobs = () => {
     navigate("/jobs");
@@ -187,9 +185,7 @@ const AlumniDashboardPage = () => {
   
   // Navigate to students page
   const goToStudents = () => {
-    navigate("/students");
-    // In a real app, this would navigate to students page
-    alert("Navigating to student profiles");
+    navigate("/student-connections");
   };
   
   // Toggle notifications panel
@@ -231,14 +227,99 @@ const AlumniDashboardPage = () => {
     alert(`Viewing applicants for job #${jobId}`);
   };
 
+  // Message a mentee
+  const messageMentee = (menteeId) => {
+    navigate(`/messages?mentee=${menteeId}`);
+    // In a real app, this would navigate to the messaging interface with the specific mentee selected
+  };
+  
+  // View all mentees
+  const viewAllMentees = () => {
+    navigate("/current-mentees");
+  };
+
+  // View all success stories
+  const viewAllSuccessStories = () => {
+    navigate("/success-stories");
+    // In a real app, this would navigate to a success stories page
+    alert("Navigating to success stories");
+  };
+
+  // Navigate to mentorship opportunities
+  const goToMentorship = () => {
+    navigate("/mentorship-requests");
+  };
+
+  // Handle job form input changes
+  const handleJobFormChange = (e) => {
+    const { id, value } = e.target;
+    setNewJobPost(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  // Submit job posting
+  const submitJobPosting = () => {
+    // Validate form
+    if (!newJobPost.title || !newJobPost.company || !newJobPost.location || !newJobPost.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    // Create new job object
+    const newJob = {
+      id: Date.now(), // Using timestamp as a simple ID
+      title: newJobPost.title,
+      company: newJobPost.company,
+      location: newJobPost.location,
+      type: newJobPost.type,
+      description: newJobPost.description,
+      requirements: newJobPost.requirements.split('\n').filter(req => req.trim() !== ''),
+      datePosted: 'Just now',
+      applicants: 0,
+      skills: []
+    };
+    
+    // Add job to list
+    setMyPostedJobs(prev => [newJob, ...prev]);
+    
+    // Reset form and close modal
+    setNewJobPost({
+      title: '',
+      company: '',
+      location: '',
+      type: 'Full Time',
+      description: '',
+      requirements: ''
+    });
+    setJobPostModal(false);
+    
+    // Show success message
+    alert('Job posted successfully!');
+  };
+
+  // Mark notification as read
+  const markNotificationAsRead = (notificationId) => {
+    // In a real app, this would update the notification status in the backend
+    console.log(`Marking notification ${notificationId} as read`);
+  };
+  
+  // Mark all notifications as read
+  const markAllNotificationsAsRead = () => {
+    // In a real app, this would update all notifications status in the backend
+    console.log("Marking all notifications as read");
+    alert("All notifications marked as read");
+  };
+
   return (
     <div className="pb-12 relative">
-      <div className="container-custom">
+      <div className="container-custom pt-24">
         {/* Stats overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToStudents}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Students Following</h3>
+              <h3 className="font-medium text-lg">Student Connections</h3>
               <Users className="h-6 w-6 text-primary" />
             </div>
             <p className="text-3xl font-bold">28</p>
@@ -269,49 +350,54 @@ const AlumniDashboardPage = () => {
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={goToEvents}>
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={() => navigate("/mentored-students-history")}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Events</h3>
-              <Calendar className="h-6 w-6 text-primary" />
+              <h3 className="font-medium text-lg">Students Mentored</h3>
+              <Award className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">5</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Next: Tomorrow, 5:00 PM
+            <p className="text-3xl font-bold">7</p>
+            <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+              +2 this semester
             </p>
           </div>
         </div>
 
         {/* Quick actions */}
-        <div className="glass-card rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button 
-              onClick={toggleJobPostModal}
-              className="button-primary py-2 w-full flex items-center justify-center gap-2"
-            >
-              <Briefcase className="h-5 w-5" />
-              Post a Job
-            </button>
-            <button 
-              onClick={goToStudents}
-              className="button-secondary py-2 w-full flex items-center justify-center gap-2"
-            >
-              <Users className="h-5 w-5" />
-              Message Students
-            </button>
-            <button 
-              className="button-secondary py-2 w-full flex items-center justify-center gap-2"
-            >
-              <Award className="h-5 w-5" />
-              Mentor a Student
-            </button>
-            <button 
-              onClick={goToEvents}
-              className="button-secondary py-2 w-full flex items-center justify-center gap-2"
-            >
-              <Calendar className="h-5 w-5" />
-              Create Event
-            </button>
+        <div className="glass-card rounded-xl p-6 mb-8 animate-fade-in relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+          <div className="absolute right-0 top-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 pointer-events-none"></div>
+          <div className="relative z-10">
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-bold">Quick Actions</h2>
+              <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">Alumni Tools</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">Use these tools to connect with students and share opportunities</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button 
+                onClick={toggleJobPostModal}
+                className="button-primary py-3 px-6 w-full h-full flex flex-col items-center justify-center gap-1 rounded-lg transition-all duration-300 hover:shadow-md hover:translate-y-[-2px]"
+              >
+                <Briefcase className="h-6 w-6 mb-1" />
+                <span className="font-medium">Post a Job</span>
+                <span className="text-xs opacity-80">Share opportunities with students</span>
+              </button>
+              <button 
+                onClick={goToStudents}
+                className="button-secondary py-3 px-6 w-full h-full flex flex-col items-center justify-center gap-1 rounded-lg transition-all duration-300 hover:shadow-md hover:translate-y-[-2px] hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Users className="h-6 w-6 mb-1" />
+                <span className="font-medium">Message Students</span>
+                <span className="text-xs opacity-80">Connect with potential mentees</span>
+              </button>
+              <button 
+                onClick={goToMentorship}
+                className="button-secondary py-3 px-6 w-full h-full flex flex-col items-center justify-center gap-1 rounded-lg transition-all duration-300 hover:shadow-md hover:translate-y-[-2px] hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Award className="h-6 w-6 mb-1" />
+                <span className="font-medium">Mentor a Student</span>
+                <span className="text-xs opacity-80">Guide students in their career</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -383,42 +469,35 @@ const AlumniDashboardPage = () => {
               </button>
             </div>
 
-            {/* Volunteer Opportunities Section */}
-            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100">
+            {/* Success Stories Section */}
+            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Volunteer Opportunities</h3>
-                <Zap className="h-5 w-5 text-primary" />
+                <h3 className="font-medium text-lg">Student Success Stories</h3>
+                <TrendingUp className="h-5 w-5 text-primary" />
               </div>
               <div className="space-y-4">
-                {volunteerOpportunities.map((opportunity) => (
-                  <div key={opportunity.id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                {successStories.map((story) => (
+                  <div key={story.id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-medium">{opportunity.title}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {opportunity.date} • {opportunity.time}
+                        <h4 className="font-medium">{story.studentName}</h4>
+                        <p className="font-medium text-sm text-primary">{story.achievement}</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          "{story.story}"
                         </p>
-                        <p className="text-sm text-muted-foreground">Location: {opportunity.location}</p>
                       </div>
-                      <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                        {opportunity.department}
+                      <span className="text-xs text-muted-foreground">
+                        {story.date}
                       </span>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <button 
-                        className="px-4 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors"
-                      >
-                        Sign Up
-                      </button>
                     </div>
                   </div>
                 ))}
               </div>
               <button 
                 className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
-                onClick={goToEvents}
+                onClick={viewAllSuccessStories}
               >
-                View all opportunities
+                View all success stories
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
             </div>
@@ -426,48 +505,8 @@ const AlumniDashboardPage = () => {
 
           {/* Right sidebar - 1/3 width */}
           <div className="space-y-8">
-            {/* Current Mentees Section */}
-            <div className="glass-card rounded-xl p-6 animate-fade-in">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Current Mentees</h3>
-                <GraduationCap className="h-5 w-5 text-primary" />
-              </div>
-              <div className="space-y-4">
-                {currentMentees.map((mentee) => (
-                  <div key={mentee.id} className="flex items-start p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
-                      <Users className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium">{mentee.name}</h4>
-                      <p className="text-sm text-muted-foreground">{mentee.program} • {mentee.year}</p>
-                      <div className="flex items-center mt-2">
-                        <Clock className="h-3 w-3 text-muted-foreground mr-1" />
-                        <span className="text-xs text-muted-foreground">Last contact: {mentee.lastInteraction}</span>
-                      </div>
-                      <div className="flex items-center mt-1">
-                        <Calendar className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-xs text-green-600">Next: {mentee.nextSession}</span>
-                      </div>
-                    </div>
-                    <button 
-                      className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
-                    >
-                      Message
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button 
-                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
-              >
-                View all mentees
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </button>
-            </div>
-
             {/* Notifications Section */}
-            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100">
+            <div className="glass-card rounded-xl p-6 animate-fade-in">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-medium text-lg">Recent Notifications</h3>
                 <button 
@@ -502,6 +541,48 @@ const AlumniDashboardPage = () => {
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
             </div>
+
+            {/* Current Mentees Section */}
+            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-medium text-lg">Current Mentees</h3>
+                <GraduationCap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-4">
+                {currentMentees.map((mentee) => (
+                  <div key={mentee.id} className="flex items-start p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
+                      <Users className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium">{mentee.name}</h4>
+                      <p className="text-sm text-muted-foreground">{mentee.program} • {mentee.year}</p>
+                      <div className="flex items-center mt-2">
+                        <Clock className="h-3 w-3 text-muted-foreground mr-1" />
+                        <span className="text-xs text-muted-foreground">Last contact: {mentee.lastInteraction}</span>
+                      </div>
+                      <div className="flex items-center mt-1">
+                        <Calendar className="h-3 w-3 text-green-600 mr-1" />
+                        <span className="text-xs text-green-600">Next: {mentee.nextSession}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => messageMentee(mentee.id)}
+                      className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
+                    >
+                      Message
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={viewAllMentees}
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+              >
+                View all mentees
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -529,6 +610,8 @@ const AlumniDashboardPage = () => {
                   id="jobTitle"
                   className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="e.g. Frontend Developer"
+                  value={newJobPost.title}
+                  onChange={handleJobFormChange}
                 />
               </div>
               <div>
@@ -540,6 +623,8 @@ const AlumniDashboardPage = () => {
                   id="company"
                   className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="e.g. Tech Solutions Inc."
+                  value={newJobPost.company}
+                  onChange={handleJobFormChange}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -552,6 +637,8 @@ const AlumniDashboardPage = () => {
                     id="location"
                     className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                     placeholder="e.g. San Francisco, CA"
+                    value={newJobPost.location}
+                    onChange={handleJobFormChange}
                   />
                 </div>
                 <div>
@@ -561,6 +648,8 @@ const AlumniDashboardPage = () => {
                   <select
                     id="jobType"
                     className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                    value={newJobPost.type}
+                    onChange={handleJobFormChange}
                   >
                     <option value="Full Time">Full Time</option>
                     <option value="Part Time">Part Time</option>
@@ -578,6 +667,8 @@ const AlumniDashboardPage = () => {
                   rows={4}
                   className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="Describe the job role, responsibilities, etc."
+                  value={newJobPost.description}
+                  onChange={handleJobFormChange}
                 ></textarea>
               </div>
               <div>
@@ -589,6 +680,8 @@ const AlumniDashboardPage = () => {
                   rows={3}
                   className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="e.g. 3+ years of experience with React"
+                  value={newJobPost.requirements}
+                  onChange={handleJobFormChange}
                 ></textarea>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
@@ -602,6 +695,7 @@ const AlumniDashboardPage = () => {
                 <button
                   type="button"
                   className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  onClick={submitJobPosting}
                 >
                   Post Job
                 </button>
@@ -617,16 +711,28 @@ const AlumniDashboardPage = () => {
           <div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 animate-slide-in-right">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Notifications</h3>
-              <button 
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                onClick={toggleNotifications}
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={markAllNotificationsAsRead}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Mark all as read
+                </button>
+                <button 
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={toggleNotifications}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
             <div className="space-y-4">
               {notifications.map((notification) => (
-                <div key={notification.id} className="flex p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <div 
+                  key={notification.id} 
+                  className="flex p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                  onClick={() => markNotificationAsRead(notification.id)}
+                >
                   <div className="rounded-full bg-primary/10 p-2 mr-4">
                     <notification.icon className="h-5 w-5 text-primary" />
                   </div>
@@ -641,11 +747,7 @@ const AlumniDashboardPage = () => {
           </div>
         </div>
       )}
-      
-      {/* Debug message (can be removed in production) */}
-      <div className="text-center text-muted-foreground mt-8">
-        AlumniDashboardPage is rendering correctly! If you're seeing this, the component is working.
-      </div>
+
     </div>
   );
 };
