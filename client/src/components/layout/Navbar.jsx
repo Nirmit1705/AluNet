@@ -15,18 +15,33 @@ const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
-    // Check if user role exists in localStorage
-    const storedRole = localStorage.getItem("userRole");
-    if (storedRole) {
-      setIsLoggedIn(true);
-    }
-    
     // Check if dark mode preference is stored
     const isDarkMode = localStorage.getItem("darkMode") === "true";
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
       setDarkMode(true);
     }
+  }, []);
+  
+  // Update isLoggedIn whenever localStorage changes
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const storedRole = localStorage.getItem("userRole");
+      setIsLoggedIn(!!storedRole);
+      if (storedRole) {
+        setUserRole(storedRole);
+      }
+    };
+    
+    // Check initially
+    checkLoginStatus();
+    
+    // Listen for storage events (in case another tab changes localStorage)
+    window.addEventListener('storage', checkLoginStatus);
+    
+    return () => {
+      window.removeEventListener('storage', checkLoginStatus);
+    };
   }, []);
   
   // Check if current page is dashboard
@@ -41,32 +56,32 @@ const Navbar = () => {
 
   // Navigate to dashboard based on role
   const goToDashboard = () => {
-    if (userRole === "student") {
+    const currentRole = localStorage.getItem("userRole");
+    setUserMenuOpen(false);
+    
+    if (!currentRole) {
+      // If no role is set, go to the landing page directly
+      window.location.href = "/";
+    } else if (currentRole === "student") {
       navigate("/student-dashboard");
     } else {
       navigate("/alumni-dashboard");
     }
-    setUserMenuOpen(false);
   };
   
   // Handle logout
   const handleLogout = () => {
-    // Clear all user data from localStorage
-    localStorage.removeItem("token");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userName");
-    
-    // Update state
-    setIsLoggedIn(false);
+    // Disable any auto-redirect temporarily
     setUserMenuOpen(false);
     
-    // Navigate to home page
-    navigate("/");
-    
-    // Show confirmation message using an alert for now
-    // In a real app, we would use a toast notification
+    // First show the confirmation message
     alert("You have been signed out successfully");
+    
+    // Use window.location directly for a clean redirect to landing page
+    window.location.href = "/";
+    
+    // Clear local storage after navigation has been initiated
+    localStorage.removeItem("userRole");
   };
   
   // Toggle settings modal
@@ -124,8 +139,8 @@ const Navbar = () => {
     return location.pathname === path;
   };
 
-  // On dashboard, we always show logged in navigation options
-  const showLoggedInNav = isLoggedIn || isDashboard;
+  // On dashboard, we show logged in navigation options only if the user is actually logged in
+  const showLoggedInNav = !!localStorage.getItem("userRole") || (isDashboard && location.pathname !== "/dashboard");
 
   // Handle click outside to close user menu
   useEffect(() => {
@@ -155,12 +170,12 @@ const Navbar = () => {
       <div className="container-custom">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link 
-            to="/" 
+          <button 
+            onClick={goToDashboard}
             className="text-xl font-semibold flex items-center space-x-2 text-primary"
           >
             <span className="tracking-tight">AlumniConnect</span>
-          </Link>
+          </button>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-8">

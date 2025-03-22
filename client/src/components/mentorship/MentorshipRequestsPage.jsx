@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Users, CheckCircle, XCircle, Clock, Calendar, Search, Filter, X, Briefcase, GraduationCap, BookOpen } from "lucide-react";
+import Navbar from "../layout/Navbar";
 
 // Sample data for mentorship requests
 const mentorshipRequestsData = [
@@ -168,8 +169,9 @@ const MentorshipRequestsPage = () => {
   };
 
   return (
-    <div className="pb-12 relative">
-      <div className="container-custom pt-24">
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="container-custom pt-20">
         {/* Header with back button */}
         <div className="mb-6 flex items-center">
           <button 

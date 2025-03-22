@@ -314,7 +314,7 @@ const AlumniDashboardPage = () => {
 
   return (
     <div className="pb-12 relative">
-      <div className="container-custom pt-24">
+      <div className="container-custom pt-20">
         {/* Stats overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToStudents}>

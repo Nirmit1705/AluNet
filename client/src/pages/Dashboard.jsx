@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   // This would normally come from authentication
   // For now, simulate getting the role from localStorage or a token
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Simulate checking user role on component mount
   useEffect(() => {
@@ -16,9 +18,8 @@ const Dashboard = () => {
     if (storedRole === "student" || storedRole === "alumni") {
       setUserRole(storedRole);
     } else {
-      // Default to student if no role is set
-      setUserRole("student");
-      localStorage.setItem("userRole", "student");
+      // Don't automatically set a role if none exists
+      setUserRole(null);
     }
     setLoading(false);
   }, []);
@@ -41,11 +42,11 @@ const Dashboard = () => {
     return <Navigate to="/alumni-dashboard" replace />;
   }
 
-  // Fallback UI, though it shouldn't be rendered due to the redirects
+  // If no role is set, show the dashboard selection UI
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container-custom pt-24 pb-4">
+      <div className="container-custom pt-20 pb-4">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">Dashboard</h1>
         </div>
@@ -58,8 +59,8 @@ const Dashboard = () => {
           <div className="flex gap-4">
             <button
               onClick={() => {
-                setUserRole("student");
                 localStorage.setItem("userRole", "student");
+                navigate("/student-dashboard");
               }}
               className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
             >
@@ -67,8 +68,8 @@ const Dashboard = () => {
             </button>
             <button
               onClick={() => {
-                setUserRole("alumni");
                 localStorage.setItem("userRole", "alumni");
+                navigate("/alumni-dashboard");
               }}
               className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-600/90 transition-colors"
             >

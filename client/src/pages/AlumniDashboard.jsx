@@ -39,7 +39,7 @@ const AlumniDashboard = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container-custom pt-24 pb-4">
+        <div className="container-custom py-4">
           <div className="glass-card p-8 rounded-xl text-center">
             <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
             <p className="mb-6">This page is only available to alumni users. Your current role is: <span className="font-semibold">{userRole || "unknown"}</span></p>

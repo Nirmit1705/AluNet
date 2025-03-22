@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check, X, Clock, Users } from "lucide-react";
+import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check, X, Clock, Users, GraduationCap, Edit } from "lucide-react";
+import MentorshipRequestForm from "../mentorship/MentorshipRequestForm";
 
 const ProfileCard = ({
   name,
@@ -14,17 +15,12 @@ const ProfileCard = ({
   skills,
   education,
   interests,
+  onEditProfile,
+  bio,
 }) => {
   const [connectionSent, setConnectionSent] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isMentorshipModalOpen, setIsMentorshipModalOpen] = useState(false);
-  const [mentorshipDetails, setMentorshipDetails] = useState({
-    message: "",
-    goals: "",
-    timeRequired: "3 months", // Default time period
-    availability: "",
-    meetingMode: "online"
-  });
   const [isStudent, setIsStudent] = useState(false);
   const navigate = useNavigate();
   
@@ -58,47 +54,35 @@ const ProfileCard = ({
     }
   };
   
+  // Handle edit profile button click
+  const handleEditProfile = () => {
+    if (onEditProfile) {
+      onEditProfile();
+    }
+  };
+  
   // Handle requesting mentorship
   const handleRequestMentorship = () => {
     setIsMentorshipModalOpen(true);
   };
   
-  // Handle mentorship form input changes
-  const handleMentorshipInputChange = (e) => {
-    const { name, value } = e.target;
-    setMentorshipDetails(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
   // Submit mentorship request
-  const submitMentorshipRequest = () => {
-    // Validate form
-    if (!mentorshipDetails.message || !mentorshipDetails.goals || !mentorshipDetails.availability) {
-      alert("Please fill all required fields");
-      return;
-    }
-    
+  const handleMentorshipSubmit = (formData) => {
     // In a real app, this would send a mentorship request to the backend
-    console.log("Sending mentorship request:", mentorshipDetails);
+    console.log("Sending mentorship request:", formData);
     
     // Close modal and show confirmation
     setIsMentorshipModalOpen(false);
     alert(`Mentorship request sent to ${name}`);
-    
-    // Reset form
-    setMentorshipDetails({
-      message: "",
-      goals: "",
-      timeRequired: "3 months",
-      availability: "",
-      meetingMode: "online"
-    });
+  };
+  
+  // Cancel mentorship request
+  const cancelMentorshipRequest = () => {
+    setIsMentorshipModalOpen(false);
   };
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden animate-scale-in">
+    <div className="glass-card rounded-xl overflow-hidden">
       {/* Profile header with banner */}
       <div className="relative h-40 bg-gradient-to-r from-blue-500 to-indigo-600">
         <div className="absolute -bottom-16 left-8">
@@ -106,9 +90,20 @@ const ProfileCard = ({
             <img
               src={avatar}
               alt={name}
-              className="w-32 h-32 rounded-xl object-cover border-4 border-white shadow-md"
+              className="w-32 h-32 rounded-xl object-cover border-4 border-white dark:border-white/90 shadow-md"
             />
             <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            
+            {/* Edit button overlay */}
+            {isOwnProfile && onEditProfile && (
+              <button 
+                onClick={handleEditProfile}
+                className="absolute top-2 right-2 bg-primary text-white p-1.5 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+                aria-label="Edit Profile"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -120,111 +115,134 @@ const ProfileCard = ({
             <h3 className="text-2xl font-bold">{name}</h3>
             <p className="text-muted-foreground">{role}</p>
           </div>
-          {!isOwnProfile && (
-            <div className="flex gap-2">
+          
+          <div className="flex flex-col gap-2">
+            {isOwnProfile ? (
               <button
-                onClick={handleConnect}
-                className={`${
-                  connectionSent 
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" 
-                    : "button-primary"
-                } text-sm px-4 py-2 rounded-lg flex items-center space-x-1 transition-colors`}
+                onClick={handleEditProfile}
+                className="bg-primary/10 text-primary hover:bg-primary/20 text-sm px-4 py-2 rounded-lg flex items-center space-x-1 transition-colors"
               >
-                {connectionSent ? (
-                  <>
-                    <Check className="h-4 w-4 mr-1" />
-                    <span>Connected</span>
-                  </>
-                ) : (
-                  "Connect"
-                )}
+                <Edit className="h-4 w-4 mr-1" />
+                <span>Edit Profile</span>
               </button>
-              
-              {/* Only show Request Mentorship button for students viewing alumni profiles */}
-              {isStudent && role.toLowerCase().includes('alumni') && (
+            ) : (
+              <>
                 <button
-                  onClick={handleRequestMentorship}
-                  className="button-secondary text-sm px-4 py-2 rounded-lg flex items-center transition-colors"
+                  onClick={handleConnect}
+                  className={`${
+                    connectionSent
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" 
+                      : "button-primary"
+                  } text-sm px-4 py-2 rounded-lg flex items-center space-x-1 transition-colors`}
                 >
-                  <Users className="h-4 w-4 mr-1" />
-                  <span>Request Mentorship</span>
+                  {connectionSent ? (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      <span>Connected</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-4 w-4 mr-1" />
+                      <span>Connect</span>
+                    </>
+                  )}
                 </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-1 mb-6">
-          {company && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Briefcase className="h-4 w-4 mr-2" />
-              <span>{company}</span>
-            </div>
-          )}
-          {location && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-2" />
-              <span>{location}</span>
-            </div>
-          )}
-          {experience && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4 mr-2" />
-              <span>{experience} years of experience</span>
-            </div>
-          )}
-          {linkedIn && (
-            <div className="flex items-center text-sm text-primary">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              <a 
-                href={linkedIn} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                LinkedIn Profile
-              </a>
-            </div>
-          )}
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Mail className="h-4 w-4 mr-2" />
-            <a 
-              href={`mailto:${email}`} 
-              className="hover:text-primary transition-colors"
-            >
-              {email}
-            </a>
-          </div>
-          {education && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <BookOpen className="h-4 w-4 mr-2" />
-              <span>{education}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-6">
-          <h4 className="font-medium mb-3">Skills</h4>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((skill, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800/20 dark:text-blue-300"
-              >
-                {skill}
-              </span>
-            ))}
+                
+                {/* Only show Request Mentorship button for students viewing alumni profiles */}
+                {isStudent && role === "Alumni" && (
+                  <button
+                    onClick={handleRequestMentorship}
+                    className="button-secondary text-sm px-4 py-2 rounded-lg flex items-center transition-colors"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-1" />
+                    <span>Request Mentorship</span>
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {interests && (
-          <div>
-            <h4 className="font-medium mb-3">Interests</h4>
-            <div className="flex flex-wrap gap-2">
+        {company && (
+          <div className="flex items-center mb-2">
+            <Briefcase className="h-4 w-4 text-muted-foreground mr-2" />
+            <p className="text-sm">{company}{experience && ` • ${experience} years`}</p>
+          </div>
+        )}
+
+        {location && (
+          <div className="flex items-center mb-2">
+            <MapPin className="h-4 w-4 text-muted-foreground mr-2" />
+            <p className="text-sm">{location}</p>
+          </div>
+        )}
+
+        {(email || linkedIn) && (
+          <div className="flex items-center mb-4">
+            {email && (
+              <div className="flex items-center mr-3">
+                <Mail className="h-4 w-4 text-muted-foreground mr-1" />
+                <a href={`mailto:${email}`} className="text-sm text-primary hover:underline">
+                  {email}
+                </a>
+              </div>
+            )}
+            {linkedIn && (
+              <div className="flex items-center">
+                <ExternalLink className="h-4 w-4 text-muted-foreground mr-1" />
+                <a href={linkedIn} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                  LinkedIn
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bio/About section */}
+        {bio && (
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">About</h4>
+            <p className="text-sm text-muted-foreground">{bio}</p>
+          </div>
+        )}
+
+        {/* Skills section */}
+        {skills && skills.length > 0 && (
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">Skills</h4>
+            <div className="flex flex-wrap gap-1">
+              {skills.map((skill, index) => (
+                <span
+                  key={index}
+                  className="bg-secondary text-secondary-foreground px-2 py-1 rounded-lg text-xs"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Education section */}
+        {education && (
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">Education</h4>
+            <div className="flex items-start">
+              <GraduationCap className="h-4 w-4 text-muted-foreground mr-2 mt-0.5" />
+              <p className="text-sm">{education}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Interests section */}
+        {interests && interests.length > 0 && (
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">Interests</h4>
+            <div className="flex flex-wrap gap-1">
               {interests.map((interest, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-800/20 dark:text-purple-300"
+                  className="bg-secondary/50 text-secondary-foreground px-2 py-1 rounded-lg text-xs"
                 >
                   {interest}
                 </span>
@@ -233,128 +251,15 @@ const ProfileCard = ({
           </div>
         )}
       </div>
-      
-      {/* Mentorship Request Modal */}
+
+      {/* Mentorship request modal */}
       {isMentorshipModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl animate-fade-in max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-gray-900 px-6 py-4 border-b border-border z-10 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Request Mentorship</h2>
-              <button 
-                onClick={() => setIsMentorshipModalOpen(false)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <p className="text-muted-foreground mb-6">
-                You are requesting mentorship from <span className="font-semibold text-foreground">{name}</span>. 
-                Please provide details about what you're looking for in this mentorship.
-              </p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="message" className="block text-sm font-medium mb-2">
-                    Message to Mentor*
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={mentorshipDetails.message}
-                    onChange={handleMentorshipInputChange}
-                    placeholder="Introduce yourself and explain why you'd like mentorship from this alumni..."
-                    className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition h-32"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="goals" className="block text-sm font-medium mb-2">
-                    Mentorship Goals*
-                  </label>
-                  <textarea
-                    id="goals"
-                    name="goals"
-                    value={mentorshipDetails.goals}
-                    onChange={handleMentorshipInputChange}
-                    placeholder="What specific goals would you like to achieve through this mentorship?"
-                    className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition h-24"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="timeRequired" className="block text-sm font-medium mb-2">
-                    Mentorship Duration*
-                  </label>
-                  <select
-                    id="timeRequired"
-                    name="timeRequired"
-                    value={mentorshipDetails.timeRequired}
-                    onChange={handleMentorshipInputChange}
-                    className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition"
-                    required
-                  >
-                    <option value="1 month">1 month</option>
-                    <option value="3 months">3 months</option>
-                    <option value="6 months">6 months</option>
-                    <option value="1 year">1 year</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="availability" className="block text-sm font-medium mb-2">
-                    Your Availability*
-                  </label>
-                  <input
-                    type="text"
-                    id="availability"
-                    name="availability"
-                    value={mentorshipDetails.availability}
-                    onChange={handleMentorshipInputChange}
-                    placeholder="E.g., Weekday evenings, Friday afternoons..."
-                    className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="meetingMode" className="block text-sm font-medium mb-2">
-                    Preferred Meeting Mode
-                  </label>
-                  <select
-                    id="meetingMode"
-                    name="meetingMode"
-                    value={mentorshipDetails.meetingMode}
-                    onChange={handleMentorshipInputChange}
-                    className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition"
-                  >
-                    <option value="online">Online</option>
-                    <option value="in-person">In-person</option>
-                    <option value="hybrid">Hybrid (mix of online and in-person)</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="mt-8 flex gap-3 justify-end">
-                <button
-                  onClick={() => setIsMentorshipModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-border hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitMentorshipRequest}
-                  className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
-                >
-                  Send Request
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MentorshipRequestForm
+          mentorName={name}
+          mentorRole={role}
+          mentorEmail={email}
+          onClose={() => setIsMentorshipModalOpen(false)}
+        />
       )}
     </div>
   );
