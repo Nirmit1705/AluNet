@@ -23,6 +23,7 @@ import ConnectedMentorsPage from "./components/mentorship/ConnectedMentorsPage";
 import AlumniDirectory from "./pages/AlumniDirectory";
 import MockLogin from "./components/auth/MockLogin.jsx";
 import MentorshipsPage from "./pages/Mentorships.jsx";
+import MenteesListPage from './components/dashboard/MenteesListPage';
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/alumni-directory" element={<AlumniDirectory />} />
             <Route path="/mock-login" element={<MockLogin />} />
             <Route path="/mentorships" element={<MentorshipsPage />} />
+            <Route path="/mentees" element={<MenteesListPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
@@ -60,4 +62,4 @@ const App = () => (
   </QueryClientProvider>
 );
 
-export default App; 
+export default App;

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, BookOpen, GraduationCap, Heart, Star, Clock, X, UserPlus, Plus, CheckCircle, Edit, Trash, TrendingUp } from "lucide-react";
+import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, GraduationCap, Clock, X, Edit, Trash, UserPlus } from "lucide-react";
+import MenteeDetailsModal from './MenteeDetailsModal';
+import ScheduleSessionModal from './ScheduleSessionModal';
 
 // Sample data for student success stories
 const successStories = [
@@ -112,6 +114,9 @@ const AlumniDashboardPage = () => {
     description: '',
     requirements: ''
   });
+  // Add new state for mentee details modal
+  const [selectedMentee, setSelectedMentee] = useState(null);
+  
   const [myPostedJobs, setMyPostedJobs] = useState([
     {
       id: 1,
@@ -235,7 +240,7 @@ const AlumniDashboardPage = () => {
   
   // View all mentees
   const viewAllMentees = () => {
-    navigate("/current-mentees");
+    navigate('/mentees');
   };
 
   // View all success stories
@@ -310,6 +315,45 @@ const AlumniDashboardPage = () => {
     // In a real app, this would update all notifications status in the backend
     console.log("Marking all notifications as read");
     alert("All notifications marked as read");
+  };
+
+  // Function to view mentee details
+  const viewMenteeDetails = (mentee) => {
+    setSelectedMentee(mentee);
+  };
+
+  // Add these states to your component
+  const [selectedMenteeForScheduling, setSelectedMenteeForScheduling] = useState(null);
+  const [showDirectScheduleModal, setShowDirectScheduleModal] = useState(false);
+
+  // Add these functions to your component
+  const openScheduleModal = (mentee) => {
+    setSelectedMenteeForScheduling(mentee);
+    setShowDirectScheduleModal(true);
+  };
+
+  const handleCloseScheduleModal = () => {
+    setShowDirectScheduleModal(false);
+  };
+
+  const handleSessionScheduled = (mentee, sessionDetails) => {
+    // In a real app, this would send the session data to an API
+    console.log("Scheduling session:", {mentee, sessionDetails});
+    
+    // Give feedback
+    alert(`Session scheduled with ${mentee.name} on ${sessionDetails.date} at ${sessionDetails.time}`);
+    
+    // Update the mentee's next session in the UI (in a real app)
+    // const updatedMentees = currentMentees.map(m => {
+    //   if (m.id === mentee.id) {
+    //     return { ...m, nextSession: sessionDetails.date };
+    //   }
+    //   return m;
+    // });
+    // setCurrentMentees(updatedMentees);
+    
+    // Close modal
+    setShowDirectScheduleModal(false);
   };
 
   return (
@@ -405,6 +449,64 @@ const AlumniDashboardPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left and center sections - 2/3 width */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Current Mentees Section - Replacing Success Stories Section */}
+            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-medium text-lg">Current Mentees</h3>
+                <GraduationCap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-4">
+                {currentMentees.slice(0, 3).map((mentee) => (
+                  <div 
+                    key={mentee.id} 
+                    className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                        <Users className="h-6 w-6" />
+                      </div>
+                      
+                      <div className="flex-1 cursor-pointer" onClick={() => viewMenteeDetails(mentee)}>
+                        <h4 className="font-medium text-primary">{mentee.name}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{mentee.program} • {mentee.year}</p>
+                      </div>
+                      
+                      <div className="text-right">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation(); 
+                            openScheduleModal(mentee);
+                          }}
+                          className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-600 text-xs font-medium rounded-lg transition-colors"
+                        >
+                          Schedule
+                        </button>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Next: {mentee.nextSession}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <div className="flex items-center mt-2">
+                        <Clock className="h-3 w-3 text-muted-foreground mr-1" />
+                        <span className="text-xs text-muted-foreground">Last contact: {mentee.lastInteraction}</span>
+                      </div>
+                      <div className="flex items-center mt-1">
+                        <Calendar className="h-3 w-3 text-green-600 mr-1" />
+                        <span className="text-xs text-green-600">Next: {mentee.nextSession}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button 
+                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                onClick={viewAllMentees}
+              >
+                View all mentees
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </button>
+            </div>
+
             {/* My Job Postings Section */}
             <div className="glass-card rounded-xl p-6 animate-fade-in">
               <div className="flex items-center justify-between mb-6">
@@ -465,39 +567,6 @@ const AlumniDashboardPage = () => {
                 onClick={goToJobs}
               >
                 View all job postings
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </button>
-            </div>
-
-            {/* Success Stories Section */}
-            <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Student Success Stories</h3>
-                <TrendingUp className="h-5 w-5 text-primary" />
-              </div>
-              <div className="space-y-4">
-                {successStories.map((story) => (
-                  <div key={story.id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">{story.studentName}</h4>
-                        <p className="font-medium text-sm text-primary">{story.achievement}</p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          "{story.story}"
-                        </p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {story.date}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button 
-                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
-                onClick={viewAllSuccessStories}
-              >
-                View all success stories
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
             </div>
@@ -748,8 +817,22 @@ const AlumniDashboardPage = () => {
         </div>
       )}
 
+      {/* Mentee Details Modal */}
+      <MenteeDetailsModal
+        selectedMentee={selectedMentee}
+        setSelectedMentee={setSelectedMentee}
+        messageMentee={messageMentee}
+      />
+
+      {/* Add this at the end of your component, before the closing div */}
+      <ScheduleSessionModal 
+        isOpen={showDirectScheduleModal}
+        onClose={handleCloseScheduleModal}
+        mentee={selectedMenteeForScheduling}
+        onSchedule={handleSessionScheduled}
+      />
     </div>
   );
 };
 
-export default AlumniDashboardPage; 
+export default AlumniDashboardPage;
