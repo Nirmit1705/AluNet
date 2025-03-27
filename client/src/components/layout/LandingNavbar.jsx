@@ -57,7 +57,7 @@ const LandingNavbar = ({ onLoginClick }) => {
             to="/" 
             className="text-xl font-semibold flex items-center space-x-2 text-primary"
           >
-            <span className="tracking-tight">AlumniConnect</span>
+            <span className="tracking-tight">AluNet</span>
           </Link>
 
           {/* Right side with Sign In button and dark mode toggle */}

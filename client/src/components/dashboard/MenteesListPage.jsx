@@ -398,7 +398,7 @@ const MenteesListPage = () => {
               <div className="flex gap-2 mt-auto">
                 <button
                   onClick={(e) => openScheduleModal(mentee, e)}
-                  className="flex-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition-colors flex items-center justify-center"
+                  className="flex-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors flex items-center justify-center"
                 >
                   <Calendar className="h-4 w-4 mr-1.5" />
                   Schedule

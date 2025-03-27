@@ -174,7 +174,9 @@ const Navbar = () => {
             onClick={goToDashboard}
             className="text-xl font-semibold flex items-center space-x-2 text-primary"
           >
-            <span className="tracking-tight">AlumniConnect</span>
+            <span className="text-xl md:text-2xl font-bold text-primary">
+      <span className="text-2xl md:text-3xl">AluNet</span>
+    </span>
           </button>
 
           {/* Desktop Navigation */}

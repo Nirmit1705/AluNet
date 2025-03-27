@@ -38,36 +38,42 @@ const Index = () => {
       description: "Build meaningful professional relationships with graduates who've been in your shoes.",
       icon: Users,
       color: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
+      available: true,
     },
     {
       title: "Personal Mentorship",
       description: "Receive guidance from industry professionals through one-on-one mentoring sessions.",
       icon: Award,
       color: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300",
+      available: true,
     },
     {
       title: "Job Opportunities",
       description: "Access exclusive job postings and internships shared directly by alumni.",
       icon: Briefcase,
       color: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300",
+      available: true,
     },
     {
       title: "Real-time Messaging",
       description: "Communicate directly with mentors and alumni through our seamless chat interface.",
       icon: MessageCircle,
       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+      available: true,
     },
     {
       title: "Career Insights",
       description: "Get data-driven insights about industry trends and career paths.",
       icon: BarChart2,
       color: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300",
+      available: false,
     },
     {
       title: "AI-Powered Matching",
       description: "Our intelligent algorithm connects you with the most relevant mentors for your goals.",
       icon: Zap,
       color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300",
+      available: false,
     },
   ];
 
@@ -104,9 +110,16 @@ const Index = () => {
               {features.map((feature, index) => (
                 <div 
                   key={index} 
-                  className="glass-card rounded-xl p-6 transition-transform duration-300 hover:translate-y-[-5px] animate-fade-in"
+                  className="glass-card rounded-xl p-6 transition-transform duration-300 hover:translate-y-[-5px] animate-fade-in relative"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
+                  {!feature.available && (
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-500 to-blue-700 dark:from-blue-400 dark:to-blue-600 text-white animate-pulse">
+                        <span className="animate-pulse-opacity">Coming Soon</span>
+                      </span>
+                    </div>
+                  )}
                   <div className={`p-3 rounded-lg ${feature.color} inline-block mb-4`}>
                     <feature.icon className="h-6 w-6" />
                   </div>
@@ -168,7 +181,7 @@ const Index = () => {
         <footer className="bg-gray-100 dark:bg-gray-900 py-12">
           <div className="container-custom">
             <div className="text-center">
-              <p className="text-xl font-bold text-primary mb-2">AlumniConnect</p>
+              <p className="text-xl font-bold text-primary mb-2">AluNet</p>
               <p className="text-muted-foreground mb-6">Connecting students with alumni for career success</p>
               <div className="flex justify-center space-x-6">
                 <a href="#" className="text-gray-500 hover:text-primary transition-colors">Terms</a>
@@ -176,7 +189,7 @@ const Index = () => {
                 <a href="#" className="text-gray-500 hover:text-primary transition-colors">Contact</a>
               </div>
               <p className="mt-8 text-sm text-muted-foreground">
-                © {new Date().getFullYear()} AlumniConnect. All rights reserved.
+                © {new Date().getFullYear()} AluNet. All rights reserved.
               </p>
             </div>
           </div>
@@ -186,4 +199,4 @@ const Index = () => {
   );
 };
 
-export default Index; 
+export default Index;
