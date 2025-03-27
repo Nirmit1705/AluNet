@@ -1,37 +1,62 @@
 import mongoose from 'mongoose';
 
-const mentorshipFeedbackSchema = new mongoose.Schema({
+const mentorshipSessionSchema = new mongoose.Schema({
   mentorship: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId, 
     ref: 'Mentorship',
     required: true
   },
-  fromStudent: {
-    type: Boolean,
+  student: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Student', 
+    required: true 
+  },
+  alumni: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Alumni', 
+    required: true 
+  },
+  title: {
+    type: String,
     required: true
   },
-  rating: {
-    type: Number,
-    required: true,
-    min: 1,
-    max: 5
-  },
-  feedback: {
+  description: {
     type: String,
-    required: true,
-    minlength: 5,
-    maxlength: 500
+    required: true
   },
-  createdAt: {
+  date: {
     type: Date,
-    default: Date.now
-  }
+    required: true
+  },
+  startTime: {
+    type: String,
+    required: true
+  },
+  endTime: {
+    type: String,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['scheduled', 'completed', 'cancelled'],
+    default: 'scheduled'
+  },
+  meetingLink: {
+    type: String,
+    required: false
+  },
+  frequency: { type: String, enum: ['one-time', 'weekly', 'monthly'], 
+    default: 'one-time' }
 }, {
   timestamps: true
 });
 
-// Ensure one feedback per user per mentorship
-mentorshipFeedbackSchema.index({ mentorship: 1, fromStudent: 1 }, { unique: true });
+// Add indexes for better querying performance
+mentorshipSessionSchema.index({ mentorship: 1 });
+mentorshipSessionSchema.index({ student: 1 });
+mentorshipSessionSchema.index({ alumni: 1 });
+mentorshipSessionSchema.index({ date: 1 });
+mentorshipSessionSchema.index({ status: 1 });
 
-const MentorshipFeedback = mongoose.model('MentorshipFeedback', mentorshipFeedbackSchema);
-export default MentorshipFeedback;
+const MentorshipSession = mongoose.model('MentorshipSession', mentorshipSessionSchema);
+export default MentorshipSession;
