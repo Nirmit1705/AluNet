@@ -52,22 +52,30 @@ const mentorshipSchema = new mongoose.Schema({
     skillsToLearn: [{ 
         type: String,
         trim: true // IMPORTANT: Standardizes data by removing whitespace
+        // Skills mentees want to develop
     }],
     timeRequired: { 
         type: String,
-        required: true 
+        required: true,
+        maxlength: [100, 'Time required cannot exceed 100 characters']
+        // Preferred session duration
     },
     availability: { 
         type: String,
-        required: true 
+        required: true,
+        maxlength: [200, 'Availability cannot exceed 200 characters']
+        // Preferred availability for mentorship sessions
     },
     meetingFrequency: { 
-        type: String
+        type: String,
+        maxlength: [100, 'Meeting frequency cannot exceed 100 characters']
+        // How often mentorship sessions are held
     },
     meetingMode: { 
         type: String,
         enum: ['online', 'in-person', 'hybrid'],
         default: 'online'
+        // Preferred mode of mentorship
     },
     // Add start/end dates for proper lifecycle management
     startDate: {
@@ -82,6 +90,7 @@ const mentorshipSchema = new mongoose.Schema({
         type: Boolean,
         default: true
         // CRITICAL: Enables soft deletion strategy
+        // Indicates if the mentorship is active
     },
     // Add status history for audit trail
     statusHistory: [{
@@ -107,6 +116,7 @@ const mentorshipSchema = new mongoose.Schema({
         },
         reason: String
         // CRITICAL: Provides audit trail for compliance and dispute resolution
+        // Track changes in mentorship status
     }]
 }, {
     timestamps: true
