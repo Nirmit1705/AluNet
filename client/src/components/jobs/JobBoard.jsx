@@ -89,6 +89,7 @@ const JobBoard = () => {
   };
 
   return (
+    
     <div className="container-custom py-8">
       <h2 className="text-2xl font-bold mb-6">Job Opportunities</h2>
 

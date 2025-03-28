@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, GraduationCap, Clock, X, Edit, Trash, UserPlus, Star } from "lucide-react";
 import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
+import Footer from "../layout/Footer"; // Add this import
 
 // Sample data for student success stories
 const successStories = [
@@ -549,8 +550,8 @@ const viewApplicants = (jobId) => {
 };
 
   return (
-    <div className="pb-12 relative">
-      <div className="container-custom pt-20">
+    <div className="pb-12 relative min-h-screen flex flex-col">
+      <div className="container-custom pt-20 flex-grow">
         {/* Stats overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToStudents}>
@@ -797,14 +798,6 @@ const viewApplicants = (jobId) => {
                             <Trash className="h-4 w-4" />
                           </button>
                         </div>
-                      </div>
-                      <div className="mt-3">
-                        <button 
-                          onClick={() => viewApplicants(job.id)}
-                          className="w-full px-3 py-1.5 border border-primary/30 text-primary text-sm rounded-lg hover:bg-primary/5 transition-colors"
-                        >
-                          View Applicants
-                        </button>
                       </div>
                     </div>
                   ))
@@ -1412,6 +1405,7 @@ const viewApplicants = (jobId) => {
     </div>
   </div>
 )}
+      <Footer />
     </div>
   );
 };
