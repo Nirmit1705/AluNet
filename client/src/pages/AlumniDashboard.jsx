@@ -38,7 +38,6 @@ const AlumniDashboard = () => {
   if (!userRole || userRole !== "alumni") {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="container-custom py-4">
           <div className="glass-card p-8 rounded-xl text-center">
             <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
