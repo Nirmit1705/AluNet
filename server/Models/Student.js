@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+const mongoose = require("mongoose");
+const bcrypt = require('bcryptjs'); // ✅ Converted from ES Modules to CommonJS
 
 // Internship Schema (Embedded)
 const internshipSchema = new mongoose.Schema({
@@ -24,7 +24,7 @@ const studentSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add an email'],
         unique: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+        match: [/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Please add a valid email']
     },
     password: {
         type: String,
@@ -50,7 +50,7 @@ const studentSchema = new mongoose.Schema({
     skills: [{ type: String }],
     interests: [{ type: String }],
     bio: { type: String },
-    linkedin: { type: String },
+    linkedin: { type: String, match: /^(https?:\/\/)?(www\.)?linkedin\.com\/.*$/ },
     github: { type: String },
     resume: { type: String },
     assignedMentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
@@ -62,8 +62,8 @@ const studentSchema = new mongoose.Schema({
     internships: [internshipSchema], // Embedded array of internships
     projects: [projectSchema], // Embedded array of projects
     graduationYear: { type: Number, required: true },
-    University: { type: String, required: true },
-    College: { type: String, required: true },
+    university: { type: String, required: true },
+    college: { type: String, required: true },
     goal: { type: String },
     // Email verification fields
     isEmailVerified: {
@@ -100,6 +100,7 @@ const studentSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    isActive: { type: Boolean, default: true },
     mentorshipInterests: [{
         type: String
     }]
@@ -133,6 +134,7 @@ studentSchema.index({ currentYear: 1 });
 studentSchema.index({ skills: 1 });
 studentSchema.index({ interests: 1 });
 studentSchema.index({ assignedMentor: 1 });
+studentSchema.index({ skills: 1, graduationYear: -1 });
 
 const Student = mongoose.model('Student', studentSchema);
-export default Student;
+module.exports = Student; // ✅ Use CommonJS instead of ES Module
