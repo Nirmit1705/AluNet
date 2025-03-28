@@ -34,7 +34,13 @@ const mentorshipSessionSchema = new mongoose.Schema({
   },
   endTime: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+        validator: function (value) {
+            return new Date(`1970-01-01T${value}`) > new Date(`1970-01-01T${this.startTime}`);
+        },
+        message: 'End time must be greater than start time.'
+    }
   },
   status: {
     type: String,
@@ -44,7 +50,9 @@ const mentorshipSessionSchema = new mongoose.Schema({
   meetingLink: {
     type: String,
     required: false
-  }
+  },
+  frequency: { type: String, enum: ['one-time', 'weekly', 'monthly'], 
+    default: 'one-time' }
 }, {
   timestamps: true
 });
