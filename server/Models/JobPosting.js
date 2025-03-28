@@ -133,10 +133,66 @@ const JobPostingSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Industry is required']
         // IMPORTANT: Enables industry-based filtering
-    }
-}, {
-    timestamps: true
-});
+    },
+
+    // NEW ADDITIONS (As Per Your Request) 👇👇👇
+
+    // Add remote work classification
+    remoteWork: {
+        type: String,
+        enum: ['remote', 'hybrid', 'onsite'],
+        required: true,
+        default: 'onsite'
+        // IMPORTANT: Allows filtering based on work location preference
+    },
+
+    // Add recruiter contact information
+    recruiterContact: {
+        name: { type: String, required: true, trim: true },
+        email: { 
+            type: String, 
+            required: true,
+            validate: {
+                validator: function(v) {
+                    return /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(v);
+                },
+                message: props => `${props.value} is not a valid email`
+            }
+        },
+        phone: { type: String, trim: true }
+        // CRITICAL: Enables direct communication with recruiters
+    },
+
+    // Add application deadline
+    applicationDeadline: {
+        type: Date,
+        required: [true, 'Application deadline is required'],
+        validate: {
+            validator: function(v) {
+                return v > new Date();
+            },
+            message: 'Application deadline must be in the future'
+        }
+        // IMPORTANT: Helps candidates apply within valid time
+    },
+
+    // Track number of applications
+    applicationsReceived: {
+        type: Number,
+        default: 0
+        // CRITICAL: Provides insights on job engagement
+    },
+
+    // Store alumni referrals for job posting
+    alumniReferrals: [{
+        alumniId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Alumni'
+        },
+        referredAt: { type: Date, default: Date.now }
+        // IMPORTANT: Tracks referrals and recommendations
+    }]
+}, { timestamps: true });
 
 // Add text search index for searching jobs
 JobPostingSchema.index({ 
@@ -155,6 +211,9 @@ JobPostingSchema.index({
     industry: 1 
 });
 
+// Add index for optimized queries on applicationDeadline & remoteWork
+JobPostingSchema.index({ applicationDeadline: 1, remoteWork: 1 });
+
 // Add method to track views
 JobPostingSchema.methods.incrementViews = function() {
     this.views += 1;
@@ -167,6 +226,13 @@ JobPostingSchema.methods.incrementClicks = function() {
     this.clicks += 1;
     return this.save();
     // IMPORTANT: Tracks conversion metrics
+};
+
+// Add method to track applications
+JobPostingSchema.methods.incrementApplications = function() {
+    this.applicationsReceived += 1;
+    return this.save();
+    // CRITICAL: Tracks how many candidates applied
 };
 
 // Add method to close a job posting
@@ -196,5 +262,3 @@ JobPostingSchema.pre(/^find/, function(next) {
 
 const JobPosting = mongoose.model('JobPosting', JobPostingSchema);
 export default JobPosting;
-
-
