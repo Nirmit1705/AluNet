@@ -7,6 +7,7 @@ import {
   Calendar, 
   ArrowUpDown, 
   Clock, 
+  Star,
   Mail, 
   MessageSquare, 
   X,
@@ -41,6 +42,8 @@ const MentorshipsPage = () => {
   const [filteredMentorships, setFilteredMentorships] = useState([]);
   const [showMentorshipModal, setShowMentorshipModal] = useState(false);
   const [selectedMentorship, setSelectedMentorship] = useState(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackData, setFeedbackData] = useState({ rating: 0, feedback: "" });
 
   // Fetch mentorships data
   useEffect(() => {
@@ -59,11 +62,13 @@ const MentorshipsPage = () => {
         focusAreas: ["Machine Learning", "Career Guidance", "Data Analysis"],
         status: "active",
         progress: 42,
-        notes: "We're working on building a recommendation system project. Sarah has been extremely helpful in guiding me through best practices for data preprocessing and model selection.",
+        notes: "We're working on building a recommendation system project.",
         contact: {
           email: "sarah.chen@example.com",
           linkedin: "linkedin.com/in/sarahchen"
-        }
+        },
+        rating: 4.5, // Average rating
+        ratingCount: 10 // Number of ratings
       },
       {
         id: "m2",
@@ -77,11 +82,13 @@ const MentorshipsPage = () => {
         focusAreas: ["React", "System Design", "Career Development"],
         status: "active",
         progress: 70,
-        notes: "Michael is helping me improve my React skills and prepare for frontend engineering interviews. We're working through a portfolio project that demonstrates advanced React patterns.",
+        notes: "Michael is helping me improve my React skills.",
         contact: {
           email: "michael.r@example.com",
           linkedin: "linkedin.com/in/michaelrodriguez"
-        }
+        },
+        rating: 4.8,
+        ratingCount: 15
       },
       {
         id: "m3",
@@ -216,6 +223,57 @@ const MentorshipsPage = () => {
       setSortBy(field);
       setSortOrder("asc");
     }
+  };
+
+  const openFeedbackModal = (mentorship) => {
+    setSelectedMentorship(mentorship);
+    setFeedbackData({ rating: 0, feedback: "" }); // Reset feedback data
+    setShowFeedbackModal(true);
+  };
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setSelectedMentorship(null);
+  };
+
+  const submitFeedback = (mentorshipId) => {
+    if (!feedbackData.rating) {
+      alert("Please provide a rating before submitting feedback.");
+      return;
+    }
+    if (!feedbackData.feedback.trim()) {
+      alert("Please provide feedback before submitting.");
+      return;
+    }
+  
+    // Find the mentorship
+    const mentorshipIndex = mentorships.findIndex((m) => m.id === mentorshipId);
+    if (mentorshipIndex === -1) return;
+  
+    // Update the mentor's rating
+    const mentorship = mentorships[mentorshipIndex];
+    const newRatingCount = mentorship.ratingCount + 1;
+    const newRating =
+      (mentorship.rating * mentorship.ratingCount + feedbackData.rating) /
+      newRatingCount;
+  
+    mentorships[mentorshipIndex] = {
+      ...mentorship,
+      rating: parseFloat(newRating.toFixed(1)), // Update average rating
+      ratingCount: newRatingCount, // Update rating count
+    };
+  
+    // Update state
+    setMentorships([...mentorships]);
+    setFilteredMentorships([...mentorships]);
+  
+    alert("Thank you for your feedback!");
+  
+    // Simulate backend update (e.g., API call)
+    console.log("Updated mentor profile:", mentorship);
+  
+    // Close modal after submission
+    closeFeedbackModal();
   };
 
   return (
@@ -364,14 +422,14 @@ const MentorshipsPage = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2">
-                        <Button 
+                        {/* <Button 
                           variant="outline" 
                           size="sm" 
                           className="px-2"
                           onClick={() => navigate(`/messages/${mentorship.id}`)}
                         >
                           <MessageSquare className="h-4 w-4" />
-                        </Button>
+                        </Button> */}
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -379,6 +437,17 @@ const MentorshipsPage = () => {
                         >
                           View Details
                         </Button>
+                        {/* Add "Rate & Feedback" button for completed mentorships */}
+                        {mentorship.status === "completed" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            bg="primary"
+                            onClick={() => openFeedbackModal(mentorship)}
+                          >
+                            Rate & Feedback
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -406,7 +475,7 @@ const MentorshipsPage = () => {
         </div>
       </div>
       
-      {/* Mentorship Detail Modal */}
+            {/* Mentorship Detail Modal */}
       {showMentorshipModal && selectedMentorship && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
@@ -535,8 +604,73 @@ const MentorshipsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedMentorship && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-xl p-6 animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Rate & Feedback</h3>
+              <button
+                onClick={closeFeedbackModal}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitFeedback(selectedMentorship.id);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">Rate this mentorship</label>
+                <div className="flex items-center space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className={`h-6 w-6 ${
+                        feedbackData.rating >= star ? "text-yellow-500" : "text-gray-300"
+                      }`}
+                      onClick={() => setFeedbackData({ ...feedbackData, rating: star })}
+                    >
+                      <Star className="h-6 w-6" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Provide Feedback</label>
+                <textarea
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary/50 focus:outline-none"
+                  rows="3"
+                  placeholder="Write your feedback here..."
+                  value={feedbackData.feedback}
+                  onChange={(e) =>
+                    setFeedbackData({ ...feedbackData, feedback: e.target.value })
+                  }
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Submit Feedback
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default MentorshipsPage; 
+export default MentorshipsPage;

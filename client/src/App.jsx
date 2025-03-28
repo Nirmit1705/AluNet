@@ -24,6 +24,7 @@ import AlumniDirectory from "./pages/AlumniDirectory";
 import MockLogin from "./components/auth/MockLogin.jsx";
 import MentorshipsPage from "./pages/Mentorships.jsx";
 import MenteesListPage from './components/dashboard/MenteesListPage';
+import AlumniJobBoard from './components/jobs/AlumniJobBoard';
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/mock-login" element={<MockLogin />} />
             <Route path="/mentorships" element={<MentorshipsPage />} />
             <Route path="/mentees" element={<MenteesListPage />} />
+            <Route path="/alumni-job-board" element={<AlumniJobBoard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check, X, Clock, Users, GraduationCap, Edit } from "lucide-react";
+import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check, X, Clock, Users, GraduationCap, Edit, Star } from "lucide-react";
 import MentorshipRequestForm from "../mentorship/MentorshipRequestForm";
 
 const ProfileCard = ({
@@ -17,6 +17,8 @@ const ProfileCard = ({
   interests,
   onEditProfile,
   bio,
+  rating = 0, // Default value for rating
+  ratingCount = 0, // Default value for ratingCount
 }) => {
   const [connectionSent, setConnectionSent] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -198,6 +200,16 @@ const ProfileCard = ({
           </div>
         )}
 
+        {/* Display rating only for alumni */}
+        {role === "Alumni" && rating !== undefined && ratingCount !== undefined && (
+          <div className="flex items-center mt-2">
+            <Star className="h-5 w-5 text-yellow-500 mr-1" />
+            <span className="text-sm font-medium">
+              {rating.toFixed(1)} ({ratingCount} ratings)
+            </span>
+          </div>
+        )}
+
         {/* Bio/About section */}
         {bio && (
           <div className="mb-4">
@@ -250,6 +262,15 @@ const ProfileCard = ({
             </div>
           </div>
         )}
+
+        {/* {rating !== undefined && ratingCount !== undefined && (
+          <div className="flex items-center mt-2">
+            <Star className="h-5 w-5 text-yellow-500 mr-1" />
+            <span className="text-sm font-medium">
+              {rating.toFixed(1)} ({ratingCount} ratings)
+            </span>
+          </div>
+        )} */}
       </div>
 
       {/* Mentorship request modal */}
@@ -265,4 +286,4 @@ const ProfileCard = ({
   );
 };
 
-export default ProfileCard; 
+export default ProfileCard;

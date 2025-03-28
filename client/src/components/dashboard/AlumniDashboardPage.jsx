@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, GraduationCap, Clock, X, Edit, Trash, UserPlus } from "lucide-react";
+import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, GraduationCap, Clock, X, Edit, Trash, UserPlus, Star } from "lucide-react";
 import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
 
@@ -112,7 +112,8 @@ const AlumniDashboardPage = () => {
     location: '',
     type: 'Full Time',
     description: '',
-    requirements: ''
+    requirements: '',
+    applicationLink: ''
   });
   // Add new state for mentee details modal
   const [selectedMentee, setSelectedMentee] = useState(null);
@@ -129,6 +130,7 @@ const AlumniDashboardPage = () => {
       description: "Looking for a talented frontend developer with React experience...",
       requirements: ["3+ years React experience", "JavaScript/TypeScript", "CSS/SCSS"],
       skills: ["React", "TypeScript", "CSS"],
+      applicationLink: "https://example.com/frontend-developer"
     },
     {
       id: 2,
@@ -141,6 +143,7 @@ const AlumniDashboardPage = () => {
       description: "Seeking a UX designer to help create intuitive user experiences...",
       requirements: ["Portfolio of design work", "Figma expertise", "User research"],
       skills: ["UI/UX", "Figma", "User Research"],
+      applicationLink: "https://example.com/ux-designer"
     }
   ]);
   
@@ -222,16 +225,13 @@ const AlumniDashboardPage = () => {
   
   // Edit a job post
   const editJobPost = (jobId) => {
-    // In a real app, this would open a form with the job details
-    alert(`Editing job post #${jobId}`);
+    const jobToEdit = myPostedJobs.find((job) => job.id === jobId);
+    if (jobToEdit) {
+      setNewJobPost(jobToEdit);
+      setJobPostModal(true);
+    }
   };
   
-  // View applicants for a job
-  const viewApplicants = (jobId) => {
-    // In a real app, this would navigate to applicants view
-    alert(`Viewing applicants for job #${jobId}`);
-  };
-
   // Message a mentee
   const messageMentee = (menteeId) => {
     navigate(`/messages?mentee=${menteeId}`);
@@ -267,7 +267,7 @@ const AlumniDashboardPage = () => {
   // Submit job posting
   const submitJobPosting = () => {
     // Validate form
-    if (!newJobPost.title || !newJobPost.company || !newJobPost.location || !newJobPost.description) {
+    if (!newJobPost.title || !newJobPost.company || !newJobPost.location || !newJobPost.description || !newJobPost.applicationLink) {
       alert('Please fill in all required fields');
       return;
     }
@@ -283,7 +283,8 @@ const AlumniDashboardPage = () => {
       requirements: newJobPost.requirements.split('\n').filter(req => req.trim() !== ''),
       datePosted: 'Just now',
       applicants: 0,
-      skills: []
+      skills: [],
+      applicationLink: newJobPost.applicationLink
     };
     
     // Add job to list
@@ -296,7 +297,8 @@ const AlumniDashboardPage = () => {
       location: '',
       type: 'Full Time',
       description: '',
-      requirements: ''
+      requirements: '',
+      applicationLink: ''
     });
     setJobPostModal(false);
     
@@ -336,25 +338,215 @@ const AlumniDashboardPage = () => {
     setShowDirectScheduleModal(false);
   };
 
-  const handleSessionScheduled = (mentee, sessionDetails) => {
-    // In a real app, this would send the session data to an API
-    console.log("Scheduling session:", {mentee, sessionDetails});
+  // Replace your existing handleSessionScheduled function with this improved version:
+const handleSessionScheduled = (mentee, sessionDetails) => {
+  try {
+    if (!mentee || !sessionDetails) {
+      console.error("Missing mentee or session details");
+      return;
+    }
+    
+    // Format date correctly if it's not already a string
+    const formattedDate = typeof sessionDetails.date === 'object' 
+      ? sessionDetails.date.toISOString().split('T')[0] 
+      : sessionDetails.date;
+    
+    // Create a new session object
+    const newSession = {
+      id: Date.now(), // Simple ID generation
+      menteeId: mentee.id,
+      menteeName: mentee.name,
+      date: formattedDate,
+      time: sessionDetails.time,
+      duration: sessionDetails.duration || 30,
+      topic: sessionDetails.topic || "Mentorship Session",
+      location: sessionDetails.location || "Video Call",
+      status: "upcoming"
+    };
+    
+    // Check if there's already a session for this mentee
+    const existingSessionIndex = scheduledSessions.findIndex(
+      session => session.menteeId === mentee.id && session.status === "upcoming"
+    );
+    
+    let updatedSessions;
+    if (existingSessionIndex >= 0) {
+      // Replace existing session
+      updatedSessions = [...scheduledSessions];
+      updatedSessions[existingSessionIndex] = newSession;
+      setScheduledSessions(updatedSessions);
+      console.log("Updated existing session for mentee:", mentee.name);
+    } else {
+      // Add new session
+      updatedSessions = [...scheduledSessions, newSession];
+      setScheduledSessions(updatedSessions);
+      console.log("Added new session for mentee:", mentee.name);
+    }
+    
+    // Log current sessions for debugging
+    console.log("Current scheduled sessions:", updatedSessions);
     
     // Give feedback
-    alert(`Session scheduled with ${mentee.name} on ${sessionDetails.date} at ${sessionDetails.time}`);
-    
-    // Update the mentee's next session in the UI (in a real app)
-    // const updatedMentees = currentMentees.map(m => {
-    //   if (m.id === mentee.id) {
-    //     return { ...m, nextSession: sessionDetails.date };
-    //   }
-    //   return m;
-    // });
-    // setCurrentMentees(updatedMentees);
+    alert(`Session scheduled with ${mentee.name} on ${formattedDate} at ${sessionDetails.time}`);
     
     // Close modal
     setShowDirectScheduleModal(false);
+    setSelectedMenteeForScheduling(null);
+  } catch (error) {
+    console.error("Error scheduling session:", error);
+    alert("There was an error scheduling the session. Please try again.");
+  }
+};
+
+  // Replace your existing getActiveMenteeSession function with this improved version:
+const getActiveMenteeSession = (menteeId) => {
+  try {
+    console.log("Looking for active session for mentee ID:", menteeId);
+    console.log("Available sessions:", scheduledSessions);
+    
+    const session = scheduledSessions.find(
+      session => session.menteeId === menteeId && session.status === "upcoming"
+    );
+    
+    console.log("Found session:", session);
+    return session;
+  } catch (error) {
+    console.error("Error getting active session:", error);
+    return null;
+  }
+};
+
+  // Add these state variables at the top of your component, near your other useState declarations:
+const [showApplicantsModal, setShowApplicantsModal] = useState(false);
+const [showApplicantDetailModal, setShowApplicantDetailModal] = useState(false);
+const [currentJobId, setCurrentJobId] = useState(null);
+const [currentJobApplicants, setCurrentJobApplicants] = useState([]);
+const [selectedApplicant, setSelectedApplicant] = useState(null);
+const [scheduledSessions, setScheduledSessions] = useState([]);
+const [showEditSessionModal, setShowEditSessionModal] = useState(false);
+const [sessionToEdit, setSessionToEdit] = useState(null);
+
+// Add these handler functions:
+const closeApplicantsModal = () => {
+  setShowApplicantsModal(false);
+  setCurrentJobId(null);
+  setCurrentJobApplicants([]);
+};
+
+const viewApplicantDetails = (applicant) => {
+  setSelectedApplicant(applicant);
+  setShowApplicantDetailModal(true);
+};
+
+const closeApplicantDetailModal = () => {
+  setShowApplicantDetailModal(false);
+  setSelectedApplicant(null);
+};
+
+const handleReferralDecision = (applicantId, decision) => {
+  // Update the applicant status
+  const updatedApplicants = currentJobApplicants.map(applicant => {
+    if (applicant.id === applicantId) {
+      return {
+        ...applicant,
+        status: decision === 'refer' ? 'referred' : 'declined'
+      };
+    }
+    return applicant;
+  });
+  
+  setCurrentJobApplicants(updatedApplicants);
+  setShowApplicantDetailModal(false);
+  
+  // Show confirmation
+  alert(`You have ${decision === 'refer' ? 'provided a referral' : 'declined the request'} for this student.`);
+};
+
+// Add these functions for session editing
+const openEditSessionModal = (session) => {
+  setSessionToEdit(session);
+  setShowEditSessionModal(true);
+};
+
+const handleSessionUpdate = (updatedSession) => {
+  try {
+    const updatedSessions = scheduledSessions.map(session => 
+      session.id === updatedSession.id ? updatedSession : session
+    );
+    
+    setScheduledSessions(updatedSessions);
+    setShowEditSessionModal(false);
+    setSessionToEdit(null);
+    
+    alert(`Session with ${updatedSession.menteeName} updated successfully!`);
+  } catch (error) {
+    console.error("Error updating session:", error);
+    alert("There was an error updating the session. Please try again.");
+  }
+};
+
+const cancelSession = (sessionId) => {
+  try {
+    const updatedSessions = scheduledSessions.map(session => {
+      if (session.id === sessionId) {
+        return { ...session, status: "cancelled" };
+      }
+      return session;
+    });
+    
+    setScheduledSessions(updatedSessions);
+    setShowEditSessionModal(false);
+    setSessionToEdit(null);
+    
+    alert("Session cancelled successfully!");
+  } catch (error) {
+    console.error("Error cancelling session:", error);
+    alert("There was an error cancelling the session. Please try again.");
+  }
+};
+
+  // Instead, add a function to navigate to the alumni job board
+  const goToJobBoard = () => {
+    navigate("/alumni-job-board");
   };
+
+  // Add this function with your other handler functions:
+const viewApplicants = (jobId) => {
+  const job = myPostedJobs.find(job => job.id === jobId);
+  if (job) {
+    // Simulate applicants for now
+    const sampleApplicants = [
+      {
+        id: 1,
+        name: "Jessica Zhang",
+        email: "jessica.zhang@example.com",
+        phone: "555-123-4567",
+        program: "Computer Science",
+        year: "4th Year",
+        appliedDate: "2 days ago",
+        status: "pending",
+        coverLetter: "I'm very interested in this position at Tech Solutions Inc. I've been working with React for the past 2 years and have completed several projects...",
+        resumeUrl: "#" // In a real app, this would be an actual URL
+      },
+      {
+        id: 2,
+        name: "David Wilson",
+        email: "david.wilson@example.com",
+        phone: "555-987-6543",
+        program: "Software Engineering",
+        year: "3rd Year",
+        appliedDate: "1 week ago",
+        status: "referred",
+        coverLetter: "I believe my skills in frontend development make me a strong candidate for this position...",
+        resumeUrl: "#"
+      }
+    ];
+    
+    setCurrentJobId(jobId);
+    setCurrentJobApplicants(sampleApplicants);
+    setShowApplicantsModal(true);
+  }
+};
 
   return (
     <div className="pb-12 relative">
@@ -455,48 +647,90 @@ const AlumniDashboardPage = () => {
                 <h3 className="font-medium text-lg">Current Mentees</h3>
                 <GraduationCap className="h-5 w-5 text-primary" />
               </div>
+              {/* Update your Current Mentees section to include edit/cancel buttons */}
               <div className="space-y-4">
-                {currentMentees.slice(0, 3).map((mentee) => (
-                  <div 
-                    key={mentee.id} 
-                    className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                        <Users className="h-6 w-6" />
+                {currentMentees.slice(0, 3).map((mentee) => {
+                  // Find active session for this mentee
+                  const activeSession = scheduledSessions.find(
+                    session => session.menteeId === mentee.id && session.status === "upcoming"
+                  );
+                  
+                  return (
+                    <div 
+                      key={mentee.id} 
+                      className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                          <Users className="h-6 w-6" />
+                        </div>
+                        
+                        <div className="flex-1 cursor-pointer" onClick={() => viewMenteeDetails(mentee)}>
+                          <h4 className="font-medium text-primary">{mentee.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{mentee.program} • {mentee.year}</p>
+                        </div>
+                        
+                        <div className="text-right">
+                          {activeSession ? (
+                            <div className="flex flex-col items-end">
+                              <div className="flex space-x-1">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditSessionModal(activeSession);
+                                  }}
+                                  className="px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium rounded-lg transition-colors"
+                                  title="Edit session"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelSession(activeSession.id);
+                                  }}
+                                  className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-xs font-medium rounded-lg transition-colors"
+                                  title="Cancel session"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                Scheduled: {activeSession.date} at {activeSession.time}
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation(); 
+                                openScheduleModal(mentee);
+                              }}
+                              className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-600 text-xs font-medium rounded-lg transition-colors"
+                            >
+                              Schedule
+                            </button>
+                          )}
+                        </div>
                       </div>
                       
-                      <div className="flex-1 cursor-pointer" onClick={() => viewMenteeDetails(mentee)}>
-                        <h4 className="font-medium text-primary">{mentee.name}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{mentee.program} • {mentee.year}</p>
-                      </div>
-                      
-                      <div className="text-right">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation(); 
-                            openScheduleModal(mentee);
-                          }}
-                          className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-600 text-xs font-medium rounded-lg transition-colors"
-                        >
-                          Schedule
-                        </button>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Next: {mentee.nextSession}</div>
+                      <div className="mt-3">
+                        <div className="flex items-center mt-2">
+                          <Clock className="h-3 w-3 text-muted-foreground mr-1" />
+                          <span className="text-xs text-muted-foreground">Last contact: {mentee.lastInteraction}</span>
+                        </div>
+                        <div className="flex items-center mt-1">
+                          <Calendar className="h-3 w-3 text-green-600 mr-1" />
+                          <span className="text-xs text-green-600">Next: {mentee.nextSession}</span>
+                        </div>
+                        {activeSession && activeSession.topic && (
+                          <div className="mt-2 px-2 py-1 bg-gray-100 dark:bg-gray-700/50 rounded text-xs">
+                            Topic: {activeSession.topic}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    
-                    <div className="mt-3">
-                      <div className="flex items-center mt-2">
-                        <Clock className="h-3 w-3 text-muted-foreground mr-1" />
-                        <span className="text-xs text-muted-foreground">Last contact: {mentee.lastInteraction}</span>
-                      </div>
-                      <div className="flex items-center mt-1">
-                        <Calendar className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-xs text-green-600">Next: {mentee.nextSession}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <button 
                 className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
@@ -512,10 +746,18 @@ const AlumniDashboardPage = () => {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-medium text-lg">My Job Postings</h3>
                 <Briefcase className="h-5 w-5 text-primary" />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={goToJobBoard}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    Manage Job Postings
+                  </button>
+                </div>
               </div>
               <div className="space-y-4">
                 {myPostedJobs.length > 0 ? (
-                  myPostedJobs.map((job) => (
+                  myPostedJobs.slice(0, 2).map((job) => (
                     <div key={job.id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                       <div className="flex justify-between items-start">
                         <div>
@@ -530,6 +772,14 @@ const AlumniDashboardPage = () => {
                               {job.applicants} applicant{job.applicants !== 1 ? 's' : ''}
                             </span>
                           </div>
+                          <a
+                            href={job.applicationLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline mt-2 block"
+                          >
+                            View Job Posting
+                          </a>
                         </div>
                         <div className="flex">
                           <button 
@@ -562,13 +812,25 @@ const AlumniDashboardPage = () => {
                   <p className="text-center text-sm text-muted-foreground py-4">You haven't posted any jobs yet.</p>
                 )}
               </div>
-              <button 
-                className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
-                onClick={goToJobs}
-              >
-                View all job postings
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </button>
+              {myPostedJobs.length > 2 && (
+                <button 
+                  onClick={goToJobBoard}
+                  className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+                >
+                  View all job postings
+                </button>
+              )}
+              {myPostedJobs.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground">You haven't posted any jobs yet.</p>
+                  <button
+                    onClick={goToJobBoard}
+                    className="mt-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    Post Your First Job
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -753,6 +1015,19 @@ const AlumniDashboardPage = () => {
                   onChange={handleJobFormChange}
                 ></textarea>
               </div>
+              <div>
+                <label htmlFor="applicationLink" className="block text-sm font-medium mb-1">
+                  Application Link
+                </label>
+                <input
+                  type="url"
+                  id="applicationLink"
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="e.g. https://example.com/job-application"
+                  value={newJobPost.applicationLink}
+                  onChange={handleJobFormChange}
+                />
+              </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <button 
                   type="button"
@@ -831,6 +1106,312 @@ const AlumniDashboardPage = () => {
         mentee={selectedMenteeForScheduling}
         onSchedule={handleSessionScheduled}
       />
+
+      {/* Applicants Modal */}
+      {showApplicantsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-xl p-6 animate-fade-in max-h-[80vh] overflow-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">
+                Referral Requests
+                {currentJobId && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {myPostedJobs.find(job => job.id === currentJobId)?.title}
+                  </span>
+                )}
+              </h3>
+              <button 
+                onClick={closeApplicantsModal}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {currentJobApplicants.length > 0 ? (
+              <div className="space-y-4">
+                {currentJobApplicants.map(applicant => (
+                  <div 
+                    key={applicant.id} 
+                    className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                    onClick={() => viewApplicantDetails(applicant)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
+                          <Users className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{applicant.name}</h4>
+                          <p className="text-sm text-muted-foreground">{applicant.program} • {applicant.year}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Applied {applicant.appliedDate}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        {applicant.status === 'pending' ? (
+                          <span className="px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 text-xs rounded-full">
+                            Pending
+                          </span>
+                        ) : applicant.status === 'referred' ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full">
+                            Referred
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 text-xs rounded-full">
+                            Declined
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No referral requests for this opportunity yet.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Applicant Detail Modal */}
+      {showApplicantDetailModal && selectedApplicant && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl p-6 animate-fade-in max-h-[80vh] overflow-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Referral Request</h3>
+              <button 
+                onClick={closeApplicantDetailModal}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-6 flex items-center">
+              <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
+                <Users className="h-8 w-8" />
+              </div>
+              <div>
+                <h4 className="text-xl font-medium">{selectedApplicant.name}</h4>
+                <p className="text-muted-foreground">{selectedApplicant.program} • {selectedApplicant.year}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <h5 className="text-sm font-medium text-muted-foreground mb-1">Email</h5>
+                <p>{selectedApplicant.email}</p>
+              </div>
+              <div>
+                <h5 className="text-sm font-medium text-muted-foreground mb-1">Phone</h5>
+                <p>{selectedApplicant.phone}</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <h5 className="text-sm font-medium text-muted-foreground mb-2">Request Message</h5>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm whitespace-pre-line">{selectedApplicant.coverLetter}</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <h5 className="text-sm font-medium text-muted-foreground mb-2">Resume</h5>
+              <a 
+                href={selectedApplicant.resumeUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <line x1="10" y1="9" x2="8" y2="9"></line>
+                </svg>
+                View Resume
+              </a>
+            </div>
+            
+            {selectedApplicant.status === 'pending' ? (
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => handleReferralDecision(selectedApplicant.id, 'decline')}
+                  className="px-4 py-2 border border-red-200 text-red-600 dark:border-red-800 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                >
+                  Decline Referral
+                </button>
+                <button
+                  onClick={() => handleReferralDecision(selectedApplicant.id, 'refer')}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Provide Referral
+                </button>
+              </div>
+            ) : (
+              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-muted-foreground">
+                  You have {selectedApplicant.status === 'referred' ? 'referred' : 'declined'} this student.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add this at the end of your component, before the closing div */}
+{showEditSessionModal && sessionToEdit && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-xl p-6 animate-fade-in">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold">Edit Session with {sessionToEdit.menteeName}</h3>
+        <button 
+          onClick={() => {
+            setShowEditSessionModal(false);
+            setSessionToEdit(null);
+          }}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        try {
+          const formData = new FormData(e.target);
+          
+          // Get date and ensure it's properly formatted
+          const dateValue = formData.get('date');
+          const formattedDate = dateValue.includes('-') 
+            ? dateValue // Already formatted correctly
+            : new Date(dateValue).toISOString().split('T')[0]; // Format as YYYY-MM-DD
+          
+          const updatedSession = {
+            ...sessionToEdit,
+            date: formattedDate,
+            time: formData.get('time'),
+            duration: parseInt(formData.get('duration')),
+            topic: formData.get('topic'),
+            location: formData.get('location'),
+            status: "upcoming" // Ensure status is set to upcoming
+          };
+          
+          console.log("Updating session:", updatedSession);
+          handleSessionUpdate(updatedSession);
+        } catch (error) {
+          console.error("Error submitting form:", error);
+          alert("There was an error updating the session. Please try again.");
+        }
+      }} className="space-y-4">
+        <div>
+          <label htmlFor="date" className="block text-sm font-medium mb-1">Date</label>
+          <input 
+            type="date" 
+            id="date" 
+            name="date"
+            defaultValue={sessionToEdit.date}
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+            required
+          />
+        </div>
+        
+        <div>
+          <label htmlFor="time" className="block text-sm font-medium mb-1">Time</label>
+          <input 
+            type="time" 
+            id="time" 
+            name="time"
+            defaultValue={sessionToEdit.time}
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+            required
+          />
+        </div>
+        
+        <div>
+          <label htmlFor="duration" className="block text-sm font-medium mb-1">Duration (minutes)</label>
+          <select 
+            id="duration" 
+            name="duration"
+            defaultValue={sessionToEdit.duration}
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+          >
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">60 minutes</option>
+            <option value="90">90 minutes</option>
+          </select>
+        </div>
+        
+        <div>
+          <label htmlFor="topic" className="block text-sm font-medium mb-1">Topic</label>
+          <input 
+            type="text" 
+            id="topic" 
+            name="topic"
+            defaultValue={sessionToEdit.topic}
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+            placeholder="e.g. Resume Review, Career Planning, etc."
+          />
+        </div>
+        
+        <div>
+          <label htmlFor="location" className="block text-sm font-medium mb-1">Location</label>
+          <input 
+            type="text" 
+            id="location" 
+            name="location"
+            defaultValue={sessionToEdit.location}
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+            placeholder="e.g. Video Call, Campus Coffee Shop, etc."
+          />
+        </div>
+        
+        <div className="flex justify-between pt-4">
+          <button 
+            type="button"
+            onClick={() => {
+              try {
+                cancelSession(sessionToEdit.id);
+                setShowEditSessionModal(false);
+                setSessionToEdit(null);
+              } catch (error) {
+                console.error("Error handling cancel button:", error);
+              }
+            }}
+            className="px-4 py-2 flex items-center justify-center space-x-1 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Cancel Session
+          </button>
+          
+          <div className="flex space-x-2">
+            <button 
+              type="button"
+              onClick={() => {
+                setShowEditSessionModal(false);
+                setSessionToEdit(null);
+              }}
+              className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              Close
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 };

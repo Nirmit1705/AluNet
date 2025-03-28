@@ -195,10 +195,10 @@ const sampleMentorships = [
     startDate: "2023-11-05",
     nextSession: "2024-04-15",
     totalSessions: 10,
-    completedSessions: 9,
+    completedSessions: 10,
     focusAreas: ["Product Strategy", "UX Research", "Stakeholder Management"],
-    status: "active",
-    progress: 90,
+    status: "completed",
+    progress: 100,
     notes: "Final session will focus on preparing for product management interviews and creating a case study portfolio.",
     contact: {
       email: "aisha.j@example.com",
@@ -307,7 +307,6 @@ const StudentDashboardPage = () => {
   const navigate = useNavigate();
   const { userUniversity, setUserUniversity } = useUniversity();
   const [savedMentors, setSavedMentors] = useState([]);
-  const [registeredEvents, setRegisteredEvents] = useState([]);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
@@ -315,7 +314,12 @@ const StudentDashboardPage = () => {
   const [currentMentorships, setCurrentMentorships] = useState([]);
   const [showMentorshipModal, setShowMentorshipModal] = useState(false);
   const [selectedMentorship, setSelectedMentorship] = useState(null);
-  
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackData, setFeedbackData] = useState({
+    rating: 0,
+    feedback: "",
+  });
+
   useEffect(() => {
     // Check both if university is not set AND if user hasn't chosen to skip the prompt
     const hasSkippedPrompt = localStorage.getItem('skipUniversityPrompt') === 'true';
@@ -372,18 +376,6 @@ const StudentDashboardPage = () => {
     );
   }
   
-  // Navigate to courses page
-  const goToCourses = () => {
-    navigate("/courses");
-    // In a real app, this would navigate to a courses page
-    alert("Navigating to all courses");
-  };
-  
-  // Navigate to skills assessment
-  const goToSkillsAssessment = () => {
-    console.log("Navigating to skills assessment");
-  };
-  
   // Connect with mentor
   const connectWithMentor = (mentorId) => {
     // Check if already connected/requested
@@ -405,17 +397,6 @@ const StudentDashboardPage = () => {
   // Navigate to Alumni Directory
   const goToAlumniDirectory = () => {
     navigate("/alumni-directory");
-  };
-  
-  // Register for event function - should be updated to apply for job
-  const applyForJob = (jobId) => {
-    if (registeredEvents.includes(jobId)) {
-      setRegisteredEvents(registeredEvents.filter(id => id !== jobId));
-    } else {
-      setRegisteredEvents([...registeredEvents, jobId]);
-      // In a real app, this would initiate a job application
-      alert(`Applied for job #${jobId}`);
-    }
   };
   
   // Save/bookmark mentor
@@ -466,34 +447,70 @@ const StudentDashboardPage = () => {
     }
   };
 
-  // Add new project
-  const addNewProject = () => {
-    navigate("/profile?section=projects&action=add");
-    // In a real app, this would navigate to the profile page with the projects section active
-    alert("Adding new project");
+
+  // Handle rating change
+  const handleRatingChange = (mentorshipId, rating) => {
+    setFeedbackData((prev) =>
+      prev.map((data) =>
+        data.id === mentorshipId ? { ...data, rating } : data
+      )
+    );
   };
 
-  // Edit project
-  const editProject = (projectId) => {
-    navigate(`/profile?section=projects&action=edit&id=${projectId}`);
-    // In a real app, this would navigate to the edit project page
-    alert(`Editing project #${projectId}`);
+  // Handle feedback change
+  const handleFeedbackChange = (mentorshipId, feedback) => {
+    setFeedbackData((prev) =>
+      prev.map((data) =>
+        data.id === mentorshipId ? { ...data, feedback } : data
+      )
+    );
   };
 
-  // Add new internship
-  const addNewInternship = () => {
-    navigate("/profile?section=internships&action=add");
-    // In a real app, this would navigate to the profile page with the internships section active
-    alert("Adding new internship");
+  // Submit feedback
+  const submitFeedback = (mentorshipId) => {
+    if (!feedbackData.rating) {
+      alert("Please provide a rating before submitting feedback.");
+      return;
+    }
+    if (!feedbackData.feedback.trim()) {
+      alert("Please provide feedback before submitting.");
+      return;
+    }
+
+    // Simulate API call
+    console.log("Submitting feedback:", { mentorshipId, ...feedbackData });
+    alert("Thank you for your feedback!");
+
+    // Close modal after submission
+    closeFeedbackModal();
   };
 
-  // Edit internship
-  const editInternship = (internshipId) => {
-    navigate(`/profile?section=internships&action=edit&id=${internshipId}`);
-    // In a real app, this would navigate to the edit internship page
-    alert(`Editing internship #${internshipId}`);
+  // Open feedback modal
+  const openFeedbackModal = (mentorship) => {
+    setSelectedMentorship(mentorship);
+    setFeedbackData({ rating: 0, feedback: "" }); // Reset feedback data
+    setShowFeedbackModal(true);
   };
 
+  useEffect(() => {
+    setFeedbackData(
+      currentMentorships.map((mentorship) => ({
+        id: mentorship.id,
+        rating: 0,
+        feedback: "",
+      }))
+    );
+  }, [currentMentorships]);
+
+  const feedbackPlaceholder = "Write your feedback here...";
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    setFeedbackData({
+      rating: 0,
+      feedback: "",
+    });
+  };
 
   return (
     <div className="pt-20 py-6 container-custom bg-background text-foreground">
@@ -604,64 +621,68 @@ const StudentDashboardPage = () => {
             </div>
             
             <div className="space-y-4">
-              {currentMentorships.slice(0, 3).map((mentorship) => (
-                <div 
-                  key={mentorship.id} 
-                  className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
-                  onClick={() => viewMentorshipDetails(mentorship)}
-                >
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-12 w-12 border border-primary/20">
-                      <AvatarImage src={mentorship.mentorAvatar} alt={mentorship.mentorName} />
-                      <AvatarFallback>{mentorship.mentorName.substring(0, 2)}</AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1">
-                      <h4 className="font-medium text-primary">{mentorship.mentorName}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{mentorship.mentorTitle}</p>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Next Session</div>
-                      <div className="text-sm font-medium">
-                        {new Date(mentorship.nextSession).toLocaleDateString()}
+              {currentMentorships
+                .filter((mentorship) => mentorship.progress < 100) // Exclude completed mentorships
+                .slice(0, 2) // Limit to 2 mentorships
+                .map((mentorship) => (
+                  <div 
+                    key={mentorship.id} 
+                    className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                    onClick={() => viewMentorshipDetails(mentorship)}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Avatar className="h-12 w-12 border border-primary/20">
+                        <AvatarImage src={mentorship.mentorAvatar} alt={mentorship.mentorName} />
+                        <AvatarFallback>{mentorship.mentorName.substring(0, 2)}</AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1">
+                        <h4 className="font-medium text-primary">{mentorship.mentorName}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{mentorship.mentorTitle}</p>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Next Session</div>
+                        <div className="text-sm font-medium">
+                          {new Date(mentorship.nextSession).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      <span>Progress</span>
-                      <span>{mentorship.completedSessions}/{mentorship.totalSessions} Sessions</span>
+                    
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <span>Progress</span>
+                        <span>{mentorship.completedSessions}/{mentorship.totalSessions} Sessions</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full" 
+                          style={{ width: `${mentorship.progress}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full" 
-                        style={{ width: `${mentorship.progress}%` }}
-                      ></div>
+                    
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {mentorship.focusAreas.map((area, index) => (
+                        <span 
+                          key={index} 
+                          className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
+                        >
+                          {area}
+                        </span>
+                      ))}
+                      {mentorship.focusAreas.length > 2 && (
+                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                          +{mentorship.focusAreas.length - 2} more
+                        </span>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {mentorship.focusAreas.slice(0, 2).map((area, index) => (
-                      <span 
-                        key={index} 
-                        className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
-                      >
-                        {area}
-                      </span>
-                    ))}
-                    {mentorship.focusAreas.length > 2 && (
-                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
-                        +{mentorship.focusAreas.length - 2} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
             
-            {currentMentorships.length > 3 && (
+            {/* Show "View All Mentorships" button if there are more than 2 mentorships */}
+            {currentMentorships.filter((mentorship) => mentorship.progress < 100).length > 2 && (
               <button
                 onClick={viewAllMentorships}
                 className="w-full mt-4 py-2 bg-white dark:bg-slate-800 text-primary hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors font-medium flex items-center justify-center gap-2"
@@ -671,7 +692,8 @@ const StudentDashboardPage = () => {
               </button>
             )}
             
-            {currentMentorships.length === 0 && (
+            {/* Show message if there are no active mentorships */}
+            {currentMentorships.filter((mentorship) => mentorship.progress < 100).length === 0 && (
               <div className="text-center py-8">
                 <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                 <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-2">No Active Mentorships</h4>
@@ -807,109 +829,7 @@ const StudentDashboardPage = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Projects & Internships Section */}
-          <div className="glass-card rounded-xl p-6 animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-medium text-lg">Projects & Internships</h3>
-              <div className="flex space-x-2">
-                <Briefcase className="h-5 w-5 text-primary" />
-                <Code className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-            
-            {/* Projects sub-section */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Your Projects</h4>
-                <button 
-                  className="text-xs flex items-center text-primary hover:text-primary/80"
-                  onClick={addNewProject}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add Project
-                </button>
-              </div>
-              <div className="space-y-4">
-                {userProjects.map((project) => (
-                  <div 
-                    key={project.id} 
-                    className={`bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm ${
-                      project.isHighlighted ? "border-l-4 border-primary" : ""
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <h4 className="font-medium text-primary">{project.name}</h4>
-                      <div className="flex space-x-1">
-                        <button 
-                          className="text-gray-400 hover:text-primary"
-                          onClick={() => editProject(project.id)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
-                      {project.description}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {project.technologies.map((tech, index) => (
-                        <span 
-                          key={index} 
-                          className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Internships sub-section */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Your Internships</h4>
-                <button 
-                  className="text-xs flex items-center text-primary hover:text-primary/80"
-                  onClick={addNewInternship}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add Internship
-                </button>
-              </div>
-              <div className="space-y-4">
-                {userInternships.map((internship) => (
-                  <div key={internship.id} className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium text-primary">{internship.role}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{internship.company} • {internship.duration}</p>
-                      </div>
-                      {internship.current && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-3">
-                      {internship.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <button
-              onClick={() => navigate("/profile")}
-              className="w-full mt-6 py-2 bg-white dark:bg-slate-800 text-primary hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors font-medium flex items-center justify-center gap-2"
-            >
-              <User className="h-4 w-4" />
-              Manage Your Profile
-            </button>
-          </div>
+          )}          
         </div>
 
         {/* Right sidebar - Takes 1 column on large screens */}
@@ -1019,10 +939,10 @@ const StudentDashboardPage = () => {
               </button>
             </div>
             <div className="space-y-3">
-              {notifications.slice(0, 3).map((notification) => (
+              {notifications.map((notification) => (
                 <div key={notification.id} className="flex p-3 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                   <div className="rounded-full bg-primary/10 p-2 mr-3">
-                    <notification.icon className="h-4 w-4 text-primary" />
+                    {React.createElement(notification.icon, { className: "h-4 w-4 text-primary" })}
                   </div>
                   <div className="flex-1">
                     <h4 className="text-sm font-medium">{notification.title}</h4>
