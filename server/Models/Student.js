@@ -102,8 +102,37 @@ const studentSchema = new mongoose.Schema({
     },
     isActive: { type: Boolean, default: true },
     mentorshipInterests: [{
-        type: String
-    }]
+        type: String // Areas of interest for mentorship
+    }],
+    assignedMentor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Alumni'
+    },
+    mentorRequests: [{
+        mentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
+        status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+    }],
+    internships: [{
+        company: String,
+        role: String,
+        duration: String,
+        description: String
+    }],
+    projects: [{
+        title: String,
+        description: String,
+        technologies: [String],
+        link: String
+    }],
+    careerGoals: String,
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    schemaVersion: {
+        type: Number,
+        default: 1
+    }
 }, {
     timestamps: true,
     collection: 'Students'
