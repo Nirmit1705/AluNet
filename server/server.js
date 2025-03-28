@@ -25,6 +25,7 @@ import mentorshipRoutes from "./Routes/mentorshipRoutes.js";
 import jobPostingRoutes from "./Routes/jobPostingRoutes.js";
 import messageRoutes from "./Routes/messageRoutes.js";
 import notificationRoutes from "./Routes/notificationRoutes.js";
+import authRoutes from './Routes/authRoutes.js'; // Ensure this is imported
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import { protect } from "./middleware/authMiddleware.js";
 import mongoose from "mongoose";
@@ -43,6 +44,7 @@ app.use("/api/mentorship", mentorshipRoutes);
 app.use("/api/jobs", jobPostingRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use('/api/auth', authRoutes); // Ensure this is registered
 
 app.get("/", (req, res) => {
     res.send("Alumni-Student Interaction Platform API is running...");

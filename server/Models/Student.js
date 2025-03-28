@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const bcrypt = require('bcryptjs'); // ✅ Converted from ES Modules to CommonJS
+import mongoose from "mongoose"; // ✅ Converted from ES Modules to CommonJS
+import bcrypt from "bcryptjs"; // ✅ Converted from ES Modules to CommonJS
 
 // Internship Schema (Embedded)
 const internshipSchema = new mongoose.Schema({
@@ -157,7 +157,7 @@ studentSchema.methods.matchPassword = async function(enteredPassword) {
 
 // Add indexes for better search performance
 studentSchema.index({ name: 'text', branch: 'text' });
-studentSchema.index({ registrationNumber: 1 });
+// studentSchema.index({ registrationNumber: 1 });
 studentSchema.index({ branch: 1 });
 studentSchema.index({ currentYear: 1 });
 studentSchema.index({ skills: 1 });
@@ -166,4 +166,4 @@ studentSchema.index({ assignedMentor: 1 });
 studentSchema.index({ skills: 1, graduationYear: -1 });
 
 const Student = mongoose.model('Student', studentSchema);
-module.exports = Student; // ✅ Use CommonJS instead of ES Module
+export default Student; // ✅ Use CommonJS instead of ES Module

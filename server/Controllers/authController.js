@@ -3,6 +3,10 @@ import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
 import { generateEmailVerificationToken, generatePasswordResetToken } from '../Utils/tokenGenerator.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../Utils/emailService.js';
+import { OAuth2Client } from 'google-auth-library';
+import { generateToken } from '../Utils/generateToken.js';
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, `${process.env.BACKEND_URL}/api/auth/google/callback`);
 
 /**
  * Verify email token
@@ -202,9 +206,60 @@ const resendVerification = asyncHandler(async (req, res) => {
   });
 });
 
+// Redirect to Google OAuth2
+const googleOAuthRedirect = (req, res) => {
+  const redirectUrl = client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['profile', 'email'],
+  });
+  res.redirect(redirectUrl);
+};
+
+// Handle Google OAuth2 callback
+const googleOAuthCallback = async (req, res) => {
+  const { code } = req.query;
+
+  try {
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, sub: googleId } = payload;
+
+    // Check if user exists
+    let user = await Alumni.findOne({ email }) || await Student.findOne({ email });
+
+    if (!user) {
+      // Create a new user (default to student role)
+      user = await Student.create({
+        name,
+        email,
+        googleId,
+        isEmailVerified: true, // Google accounts are verified
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    // Redirect to frontend with token
+    res.redirect(`${process.env.FRONTEND_URL}/auth-success?token=${token}`);
+  } catch (error) {
+    console.error('Google OAuth2 error:', error);
+    res.status(500).send('Authentication failed');
+  }
+};
+
 export {
   verifyEmail,
   forgotPassword,
   resetPassword,
-  resendVerification
+  resendVerification,
+  googleOAuthRedirect,
+  googleOAuthCallback
 };
