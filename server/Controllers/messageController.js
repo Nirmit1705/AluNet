@@ -4,169 +4,144 @@ import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
 import { createNotification } from './notificationController.js';
 
-// @desc    Send a new message
+// @desc    Send a message
 // @route   POST /api/messages
 // @access  Private
 const sendMessage = asyncHandler(async (req, res) => {
-  const { receiverId, content, receiverModel } = req.body;
-
-  if (!receiverId || !content || !receiverModel) {
+  const { recipientId, content } = req.body;
+  
+  if (!content.trim()) {
     res.status(400);
-    throw new Error('Please provide receiverId, content, and receiverModel');
+    throw new Error('Message content cannot be empty');
   }
-
-  // Determine sender type based on the authenticated user
-  let senderModel;
-  if (req.user.constructor.modelName === 'Student') {
-    senderModel = 'Student';
-  } else if (req.user.constructor.modelName === 'Alumni') {
-    senderModel = 'Alumni';
-  } else {
-    res.status(400);
-    throw new Error('Invalid sender type');
-  }
-
-  // Check if receiver exists
-  let receiver;
-  if (receiverModel === 'Student') {
-    receiver = await Student.findById(receiverId);
-  } else if (receiverModel === 'Alumni') {
-    receiver = await Alumni.findById(receiverId);
-  }
-
-  if (!receiver) {
+  
+  // Determine sender and recipient models
+  const senderId = req.user._id;
+  const senderModel = req.user.registrationNumber ? 'Student' : 'Alumni';
+  
+  // Check if recipient exists
+  const recipientModel = senderModel === 'Student' ? 'Alumni' : 'Student';
+  const RecipientModel = recipientModel === 'Student' ? Student : Alumni;
+  
+  const recipient = await RecipientModel.findById(recipientId);
+  if (!recipient) {
     res.status(404);
-    throw new Error('Receiver not found');
+    throw new Error('Recipient not found');
   }
-
-  // Create new message
-  const newMessage = await Message.create({
-    sender: req.user._id,
-    senderModel: req.user.constructor.modelName,
-    receiver: receiverId,
-    receiverModel,
-    content
+  
+  // Create message
+  const message = await Message.create({
+    sender: senderId,
+    senderModel,
+    recipient: recipientId,
+    recipientModel,
+    content,
+    readStatus: false
   });
-
-  // Create notification for the receiver
-  try {
+  
+  if (message) {
+    // Create notification for recipient
     await createNotification(
-      receiverId,
-      receiverModel,
+      recipientId,
+      recipientModel,
       'message',
       'New Message',
       `You have received a new message from ${req.user.name}`,
-      newMessage._id
+      message._id
     );
-  } catch (error) {
-    console.error('Failed to create notification:', error.message);
-    // Continue with the response even if notification fails
+    
+    res.status(201).json(message);
+  } else {
+    res.status(400);
+    throw new Error('Failed to send message');
   }
-
-  res.status(201).json(newMessage);
 });
 
-// @desc    Get conversation with another user
+// @desc    Get conversation between two users
 // @route   GET /api/messages/:userId
 // @access  Private
 const getConversation = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const userId = req.params.userId;
+  const currentUserId = req.user._id;
   
-  const conversation = await Message.getConversation(req.user._id, userId)
-    .populate('sender', 'name email')
-    .populate('receiver', 'name email');
+  const messages = await Message.find({
+    $or: [
+      { sender: currentUserId, recipient: userId },
+      { sender: userId, recipient: currentUserId }
+    ]
+  }).sort('createdAt');
   
-  res.json(conversation);
+  // Mark messages as read
+  await Message.updateMany(
+    { sender: userId, recipient: currentUserId, readStatus: false },
+    { readStatus: true }
+  );
+  
+  res.json(messages);
 });
 
-// @desc    Get all conversations for the current user
+// @desc    Get all conversations for current user
 // @route   GET /api/messages
 // @access  Private
 const getConversations = asyncHandler(async (req, res) => {
-  // Find all messages where the current user is either sender or receiver
-  const messages = await Message.find({
-    $or: [
-      { sender: req.user._id },
-      { receiver: req.user._id }
-    ]
-  }).sort({ createdAt: -1 });
+  const currentUserId = req.user._id;
   
-  // Extract unique conversation partners
-  const conversationPartners = new Set();
+  // Find all unique conversations
+  const sent = await Message.find({ sender: currentUserId })
+    .distinct('recipient');
+  
+  const received = await Message.find({ recipient: currentUserId })
+    .distinct('sender');
+  
+  // Combine unique recipients
+  const conversationUserIds = [...new Set([...sent, ...received])];
+  
+  // Get details of conversation partners and last message
   const conversations = [];
   
-  messages.forEach(message => {
-    // Determine the conversation partner (the other user)
-    const partnerId = message.sender.equals(req.user._id) 
-      ? message.receiver.toString() 
-      : message.sender.toString();
-      
-    const partnerModel = message.sender.equals(req.user._id)
-      ? message.receiverModel
-      : message.senderModel;
+  for (const userId of conversationUserIds) {
+    // Find last message in conversation
+    const lastMessage = await Message.findOne({
+      $or: [
+        { sender: currentUserId, recipient: userId },
+        { sender: userId, recipient: currentUserId }
+      ]
+    }).sort('-createdAt');
     
-    // Create a unique identifier for this conversation
-    const conversationKey = `${partnerId}-${partnerModel}`;
+    // Determine user model
+    const userModel = lastMessage.senderModel === 'Student' && lastMessage.sender.equals(userId) || 
+                      lastMessage.recipientModel === 'Student' && lastMessage.recipient.equals(userId) 
+                      ? Student : Alumni;
     
-    // If we haven't processed this conversation partner yet
-    if (!conversationPartners.has(conversationKey)) {
-      conversationPartners.add(conversationKey);
-      
+    // Get user details
+    const user = await userModel.findById(userId).select('name profilePicture');
+    
+    if (user) {
       // Count unread messages
-      const unreadCount = messages.filter(msg => 
-        msg.receiver.equals(req.user._id) && 
-        msg.sender.toString() === partnerId && 
-        !msg.isRead
-      ).length;
-      
-      // Get the most recent message
-      const latestMessage = messages.find(msg => 
-        (msg.sender.equals(req.user._id) && msg.receiver.toString() === partnerId) ||
-        (msg.receiver.equals(req.user._id) && msg.sender.toString() === partnerId)
-      );
+      const unreadCount = await Message.countDocuments({
+        sender: userId, 
+        recipient: currentUserId,
+        readStatus: false
+      });
       
       conversations.push({
-        partnerId,
-        partnerModel,
-        unreadCount,
-        latestMessage: {
-          content: latestMessage.content,
-          createdAt: latestMessage.createdAt,
-          isFromMe: latestMessage.sender.equals(req.user._id)
-        }
+        userId,
+        name: user.name,
+        profilePicture: user.profilePicture?.url || null,
+        lastMessage: {
+          content: lastMessage.content,
+          timestamp: lastMessage.createdAt,
+          sentByMe: lastMessage.sender.equals(currentUserId)
+        },
+        unreadCount
       });
     }
-  });
+  }
+  
+  // Sort by last message timestamp
+  conversations.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
   
   res.json(conversations);
 });
 
-// @desc    Mark message as read
-// @route   PUT /api/messages/:messageId/read
-// @access  Private
-const markMessageAsRead = asyncHandler(async (req, res) => {
-  const message = await Message.findById(req.params.messageId);
-  
-  if (!message) {
-    res.status(404);
-    throw new Error('Message not found');
-  }
-  
-  // Only the receiver can mark a message as read
-  if (!message.receiver.equals(req.user._id)) {
-    res.status(401);
-    throw new Error('Not authorized to mark this message as read');
-  }
-  
-  message.isRead = true;
-  await message.save();
-  
-  res.json({ message: 'Message marked as read' });
-});
-
-export {
-  sendMessage,
-  getConversation,
-  getConversations,
-  markMessageAsRead
-}; 
+export { sendMessage, getConversation, getConversations };

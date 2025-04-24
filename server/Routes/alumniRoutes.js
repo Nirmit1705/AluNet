@@ -8,7 +8,8 @@ import {
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
-  uploadAlumniProfilePicture
+  uploadAlumniProfilePicture,
+  registerAlumniWithGoogle,
 } from "../Controllers/alumniController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -29,5 +30,6 @@ router.route("/profile")
 
 // Profile picture upload route
 router.post("/profile/upload-picture", protect, uploadAlumniProfilePicture);
+router.post('/register-google', registerAlumniWithGoogle);
 
 export default router;

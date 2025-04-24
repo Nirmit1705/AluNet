@@ -112,6 +112,12 @@ app.get("/api/test/db", async (req, res) => {
     }
 });
 
+// Add this to your server.js file
+app.get("/api/test/hello", (req, res) => {
+    console.log("Hello route accessed");
+    res.json({ message: "Hello World" });
+  });
+
 // Error handling middleware
 app.use(notFound);
 app.use(errorHandler);

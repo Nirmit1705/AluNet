@@ -23,7 +23,10 @@ const AlumniSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: [true, 'Please add a password'],
+        required: function() {
+            // Password is only required if there's no googleId
+            return !this.googleId;
+        },
         minlength: [6, 'Password must be at least 6 characters'],
         select: false
     },
@@ -127,6 +130,11 @@ const AlumniSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
         // IMPORTANT: Provides user engagement metrics for analytics
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     }
 }, {
     timestamps: true

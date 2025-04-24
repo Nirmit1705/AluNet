@@ -44,6 +44,69 @@ const registerAlumni = asyncHandler(async (req, res) => {
   }
 });
 
+// Replace or modify your existing registerAlumniWithGoogle function
+const registerAlumniWithGoogle = asyncHandler(async (req, res) => {
+  const { 
+    name, 
+    email, 
+    googleId, 
+    graduationYear, 
+    branch, 
+    university, 
+    college, 
+    company, 
+    position,
+    skills 
+  } = req.body;
+
+  try {
+    // Check if alumni already exists with this email or Google ID
+    const alumniExists = await Alumni.findOne({ 
+      $or: [{ email }, { googleId }] 
+    });
+
+    if (alumniExists) {
+      res.status(400);
+      throw new Error("Alumni already registered with this email or Google account");
+    }
+
+    // Create alumni document WITHOUT password validation
+    const alumni = new Alumni({
+      name,
+      email,
+      googleId,
+      graduationYear,
+      branch,
+      university,
+      college,
+      company: company || "",
+      position: position || "",
+      skills: skills || [],
+      isEmailVerified: true // Skip email verification for Google accounts
+    });
+
+    // Save manually to bypass password validation
+    await alumni.save({ validateBeforeSave: false });
+
+    if (alumni) {
+      res.status(201).json({
+        _id: alumni._id,
+        name: alumni.name,
+        email: alumni.email,
+        token: generateToken(alumni._id),
+        isEmailVerified: alumni.isEmailVerified
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid alumni data");
+    }
+  } catch (error) {
+    console.error("Error creating alumni with Google:", error.message);
+    res.status(400);
+    throw new Error(error.message);
+  }
+});
+
 // @desc    Auth user & get token
 // @route   POST /api/alumni/login
 // @access  Public
@@ -101,20 +164,54 @@ const getAlumniProfile = asyncHandler(async (req, res) => {
 const updateAlumniProfile = asyncHandler(async (req, res) => {
   const alumni = await Alumni.findById(req.user._id);
 
-  if (alumni) {
-    // Update fields if provided in request
-    Object.keys(req.body).forEach(key => {
-      if (req.body[key] !== undefined) {
-        alumni[key] = req.body[key];
-      }
-    });
-
-    const updatedAlumni = await alumni.save();
-    res.json(formatAlumniResponse(updatedAlumni, true));
-  } else {
+  if (!alumni) {
     res.status(404);
     throw new Error("Alumni not found");
   }
+
+  const {
+    name,
+    phone,
+    graduationYear,
+    degree,
+    specialization,
+    currentPosition,
+    company,
+    linkedin,
+    experience,
+    skills,
+    interests,
+    mentorshipAvailable,
+    mentorshipAreas,
+    bio,
+    location,
+    industry,
+    university,
+    college
+  } = req.body;
+
+  // Update fields if provided
+  if (name) alumni.name = name;
+  if (phone) alumni.phone = phone;
+  if (graduationYear) alumni.graduationYear = graduationYear;
+  if (degree) alumni.degree = degree;
+  if (specialization) alumni.specialization = specialization;
+  if (currentPosition) alumni.currentPosition = currentPosition;
+  if (company) alumni.company = company;
+  if (linkedin) alumni.linkedin = linkedin;
+  if (experience) alumni.experience = experience;
+  if (skills) alumni.skills = skills;
+  if (interests) alumni.interests = interests;
+  if (mentorshipAvailable !== undefined) alumni.mentorshipAvailable = mentorshipAvailable;
+  if (mentorshipAreas) alumni.mentorshipAreas = mentorshipAreas;
+  if (bio) alumni.bio = bio;
+  if (location) alumni.location = location;
+  if (industry) alumni.industry = industry;
+  if (university) alumni.university = university;
+  if (college) alumni.college = college;
+
+  const updatedAlumni = await alumni.save();
+  res.json(formatAlumniResponse(updatedAlumni, true));
 });
 
 // @desc    Get all alumni
@@ -144,24 +241,35 @@ const deleteAlumni = asyncHandler(async (req, res) => {
 // @route   GET /api/alumni/search
 // @access  Public
 const searchAlumni = asyncHandler(async (req, res) => {
-  const { name, degree, specialization, skills, mentorshipAvailable } = req.query;
+  const {
+    name,
+    company,
+    specialization,
+    skills,
+    graduationYear,
+    mentorshipAvailable,
+    university,
+    location,
+    industry
+  } = req.query;
   
   const query = {};
   
   if (name) query.name = { $regex: name, $options: 'i' };
-  if (degree) query.degree = { $regex: degree, $options: 'i' };
+  if (company) query.company = { $regex: company, $options: 'i' };
   if (specialization) query.specialization = { $regex: specialization, $options: 'i' };
-  if (skills) query.skills = { $in: skills.split(',').map(skill => skill.trim()) };
-  if (mentorshipAvailable !== undefined) query.mentorshipAvailable = mentorshipAvailable === 'true';
+  if (skills) query.skills = { $in: skills.split(',').map(skill => new RegExp(skill.trim(), 'i')) };
+  if (graduationYear) query.graduationYear = graduationYear;
+  if (mentorshipAvailable) query.mentorshipAvailable = mentorshipAvailable === 'true';
+  if (university) query.university = { $regex: university, $options: 'i' };
+  if (location) query.location = { $regex: location, $options: 'i' };
+  if (industry) query.industry = { $regex: industry, $options: 'i' };
 
-  const alumni = await Alumni.find(query);
+  const alumni = await Alumni.find(query)
+    .select('name email profilePicture company position experience specialization graduationYear skills interests university bio location linkedin')
+    .sort('-lastActive');
   
-  if (alumni.length > 0) {
-    res.json(alumni);
-  } else {
-    res.status(404);
-    throw new Error("No alumni found matching the search criteria");
-  }
+  res.json(alumni);
 });
 
 // @desc    Get alumni by graduation year
@@ -256,6 +364,7 @@ const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
 
 export {
   registerAlumni,
+  registerAlumniWithGoogle, // Add this export
   authAlumni,
   getAlumniProfile,
   updateAlumniProfile,

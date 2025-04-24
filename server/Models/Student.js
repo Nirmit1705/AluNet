@@ -28,8 +28,11 @@ const studentSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: [true, 'Please add a password'],
-        minlength: 6,
+        required: function() {
+            // Password is only required if there's no googleId
+            return !this.googleId;
+        },
+        minlength: [6, 'Password must be at least 6 characters'],
         select: false
     },
     phone: { type: String },
@@ -132,6 +135,11 @@ const studentSchema = new mongoose.Schema({
     schemaVersion: {
         type: Number,
         default: 1
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     }
 }, {
     timestamps: true,

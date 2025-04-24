@@ -9,9 +9,23 @@ import fs from 'fs';
 // @route   POST /api/students/register
 // @access  Public
 const registerStudent = asyncHandler(async (req, res) => {
+  console.log("Student registration request received");
+  console.log("Request body:", req.body);
+  // Log each required field
+  console.log("name:", req.body.name);
+  console.log("email:", req.body.email);
+  console.log("password:", req.body.password ? "provided" : "missing");
+  console.log("registrationNumber:", req.body.registrationNumber);
+  console.log("currentYear:", req.body.currentYear);
+  console.log("branch:", req.body.branch);
+  console.log("university:", req.body.university);
+  console.log("college:", req.body.college);
+  console.log("graduationYear:", req.body.graduationYear);
+
   const {
     name,
     email,
+    password, // ADDED password field
     phone,
     registrationNumber,
     currentYear,
@@ -23,8 +37,9 @@ const registerStudent = asyncHandler(async (req, res) => {
     linkedin,
     github,
     resume,
-    University,
-    College
+    university, // Changed from University
+    college,    // Changed from College
+    graduationYear // ADDED graduationYear field
   } = req.body;
 
   const studentExists = await Student.findOne({ email });
@@ -34,29 +49,104 @@ const registerStudent = asyncHandler(async (req, res) => {
     throw new Error("Student already registered");
   }
 
-  const student = await Student.create({
-    name,
-    email,
-    phone,
-    registrationNumber,
-    currentYear,
-    branch,
-    cgpa,
-    skills,
-    interests,
-    bio,
-    linkedin,
-    github,
-    resume,
-    University,
-    College
-  });
+  try {
+    const student = await Student.create({
+      name,
+      email,
+      password, // ADDED password field
+      phone,
+      registrationNumber,
+      currentYear,
+      branch,
+      cgpa,
+      skills: skills || [], // Provide default empty array
+      interests: interests || [], // Provide default empty array
+      bio,
+      linkedin,
+      github,
+      resume,
+      university, // Changed from University
+      college,    // Changed from College
+      graduationYear // ADDED graduationYear field
+    });
 
-  if (student) {
-    res.status(201).json(formatStudentResponse(student, true));
-  } else {
+    if (student) {
+      // Log successful creation
+      console.log("Student created successfully:", student._id);
+      res.status(201).json(formatStudentResponse(student, true));
+    } else {
+      res.status(400);
+      throw new Error("Invalid student data");
+    }
+  } catch (error) {
+    // Log any errors during creation
+    console.error("Error creating student:", error.message);
     res.status(400);
-    throw new Error("Invalid student data");
+    throw new Error(error.message);
+  }
+});
+
+// Replace or modify your existing registerStudentWithGoogle function
+const registerStudentWithGoogle = asyncHandler(async (req, res) => {
+  const { 
+    name, 
+    email, 
+    googleId, 
+    registrationNumber, 
+    currentYear, 
+    branch, 
+    university, 
+    college, 
+    graduationYear,
+    skills
+  } = req.body;
+
+  try {
+    // Check if student already exists with this email or Google ID
+    const studentExists = await Student.findOne({ 
+      $or: [{ email }, { googleId }] 
+    });
+
+    if (studentExists) {
+      res.status(400);
+      throw new Error("Student already registered with this email or Google account");
+    }
+
+    // Create a student document WITHOUT password validation
+    // This is key to avoiding the password validation error
+    const student = new Student({
+      name,
+      email,
+      googleId,
+      registrationNumber,
+      currentYear,
+      branch,
+      university,
+      college,
+      graduationYear,
+      skills: skills || [],
+      isEmailVerified: true // Skip email verification for Google accounts
+    });
+
+    // Save the student manually to bypass the password validation
+    await student.save({ validateBeforeSave: false });
+
+    if (student) {
+      res.status(201).json({
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        token: generateToken(student._id),
+        isEmailVerified: student.isEmailVerified
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid student data");
+    }
+  } catch (error) {
+    console.error("Error creating student with Google:", error.message);
+    res.status(400);
+    throw new Error(error.message);
   }
 });
 
@@ -117,20 +207,48 @@ const getStudentProfile = asyncHandler(async (req, res) => {
 const updateStudentProfile = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user._id);
 
-  if (student) {
-    // Update fields if provided in request
-    Object.keys(req.body).forEach(key => {
-      if (req.body[key] !== undefined) {
-        student[key] = req.body[key];
-      }
-    });
-
-    const updatedStudent = await student.save();
-    res.json(formatStudentResponse(updatedStudent, true));
-  } else {
+  if (!student) {
     res.status(404);
     throw new Error("Student not found");
   }
+
+  const {
+    name,
+    phone,
+    currentYear,
+    branch,
+    cgpa,
+    skills,
+    interests,
+    bio,
+    linkedin,
+    github,
+    careerGoals,
+    projects,
+    internships,
+    university,
+    college
+  } = req.body;
+
+  // Update fields if provided
+  if (name) student.name = name;
+  if (phone) student.phone = phone;
+  if (currentYear) student.currentYear = currentYear;
+  if (branch) student.branch = branch;
+  if (cgpa) student.cgpa = cgpa;
+  if (skills) student.skills = skills;
+  if (interests) student.interests = interests;
+  if (bio) student.bio = bio;
+  if (linkedin) student.linkedin = linkedin;
+  if (github) student.github = github;
+  if (careerGoals) student.careerGoals = careerGoals;
+  if (projects) student.projects = projects;
+  if (internships) student.internships = internships;
+  if (university) student.university = university;
+  if (college) student.college = college;
+
+  const updatedStudent = await student.save();
+  res.json(formatStudentResponse(updatedStudent, true));
 });
 
 // @desc    Get all students
@@ -330,6 +448,7 @@ const uploadStudentResume = asyncHandler(async (req, res) => {
 
 export {
   registerStudent,
+  registerStudentWithGoogle, // Add this export
   authStudent,
   getStudentProfile,
   updateStudentProfile,

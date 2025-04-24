@@ -9,7 +9,8 @@ import {
   getStudentsByBranch,
   getStudentsByYear,
   uploadStudentProfilePicture,
-  uploadStudentResume
+  uploadStudentResume,
+  registerStudentWithGoogle
 } from "../Controllers/studentController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -18,6 +19,7 @@ const router = express.Router();
 // Public routes
 router.post("/register", registerStudent);
 router.post("/login", authStudent);
+router.post('/register-google', registerStudentWithGoogle);
 router.get("/", getAllStudents);
 router.get("/search", searchStudents);
 router.get("/branch/:branch", getStudentsByBranch);

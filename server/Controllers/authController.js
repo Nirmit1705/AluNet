@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
 import { generateEmailVerificationToken, generatePasswordResetToken } from '../Utils/tokenGenerator.js';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../Utils/emailService.js';
+import { sendPasswordResetEmail } from '../Utils/emailService.js';
 import { OAuth2Client } from 'google-auth-library';
 import { generateToken } from '../Utils/generateToken.js';
 
@@ -21,10 +21,8 @@ const verifyEmail = asyncHandler(async (req, res) => {
     throw new Error('Invalid verification token');
   }
   
-  // Determine the model to use
   const Model = userType.toLowerCase() === 'student' ? Student : Alumni;
   
-  // Find user with this token and token not expired
   const user = await Model.findOne({
     emailVerificationToken: token,
     emailVerificationExpires: { $gt: Date.now() }
@@ -39,12 +37,9 @@ const verifyEmail = asyncHandler(async (req, res) => {
   user.isEmailVerified = true;
   user.emailVerificationToken = undefined;
   user.emailVerificationExpires = undefined;
-  
   await user.save();
   
-  res.status(200).json({
-    message: 'Email verified successfully. You can now log in.'
-  });
+  res.redirect(`${process.env.FRONTEND_URL}/login?verified=true&userType=${userType}`);
 });
 
 /**
@@ -229,30 +224,55 @@ const googleOAuthCallback = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, sub: googleId } = payload;
+    const { email, name, sub: googleId, picture } = payload;
 
-    // Check if user exists
-    let user = await Alumni.findOne({ email }) || await Student.findOne({ email });
-
-    if (!user) {
-      // Create a new user (default to student role)
-      user = await Student.create({
-        name,
-        email,
-        googleId,
-        isEmailVerified: true, // Google accounts are verified
-      });
-    }
-
-    // Generate JWT token
-    const token = generateToken(user._id);
-
-    // Redirect to frontend with token
-    res.redirect(`${process.env.FRONTEND_URL}/auth-success?token=${token}`);
+    // Don't create a user yet - just return the Google data to the frontend
+    // so the user can complete their profile information
+    
+    // Return user data to client via a script that posts a message to the opener window
+    const script = `
+      <script>
+        window.opener.postMessage({
+          type: 'googleAuthSuccess',
+          userData: ${JSON.stringify({
+            name,
+            email,
+            googleId, // Ensure this is correct
+            picture,
+            token: tokens.id_token
+          })}
+        }, '${process.env.FRONTEND_URL}');
+        window.close();
+      </script>
+    `;
+    
+    res.send(script);
   } catch (error) {
     console.error('Google OAuth2 error:', error);
     res.status(500).send('Authentication failed');
   }
+};
+
+// Enhance email verification with better templates
+const sendVerificationEmail = async (email, name, token, userType) => {
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-account/${userType.toLowerCase()}/${token}`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="color: #4361ee;">Student-Alumni Interaction Platform</h1>
+      </div>
+      <h2>Welcome, ${name}!</h2>
+      <p>Thank you for registering as a ${userType} on our platform. Please verify your email address to continue.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationUrl}" style="background-color: #4361ee; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email Address</a>
+      </div>
+      <p>This link will expire in 24 hours.</p>
+      <p style="color: #666; font-size: 14px;">If you did not create an account, please ignore this email.</p>
+    </div>
+  `;
+
+  return sendEmail(email, 'Verify Your Email Address', html);
 };
 
 export {

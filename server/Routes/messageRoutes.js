@@ -2,8 +2,7 @@ import express from 'express';
 import {
   sendMessage,
   getConversation,
-  getConversations,
-  markMessageAsRead
+  getConversations
 } from '../Controllers/messageController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -21,6 +20,6 @@ router.route('/')
 router.get('/:userId', getConversation);
 
 // Mark message as read
-router.put('/:messageId/read', markMessageAsRead);
+// router.put('/:messageId/read', markMessageAsRead);
 
 export default router; 

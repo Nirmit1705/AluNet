@@ -138,9 +138,35 @@ const getReceivedFeedback = asyncHandler(async (req, res) => {
   const feedback = await MentorshipFeedback.find({
     mentorship: { $in: mentorships.map(m => m._id) },
     fromStudent: !isStudent
-  }).populate('mentorship');
+  }).populate({
+    path: 'mentorship',
+    populate: {
+      path: isStudent ? 'alumni' : 'student',
+      select: 'name email profilePicture'
+    }
+  });
   
-  res.json(feedback);
+  // Format the response to include details about the feedback provider
+  const formattedFeedback = feedback.map(item => {
+    const otherParty = isStudent ? item.mentorship.alumni : item.mentorship.student;
+    
+    return {
+      _id: item._id,
+      mentorshipId: item.mentorship._id,
+      rating: item.rating,
+      feedback: item.feedback,
+      createdAt: item.createdAt,
+      fromStudent: item.fromStudent,
+      provider: {
+        _id: otherParty._id,
+        name: otherParty.name,
+        email: otherParty.email,
+        profilePicture: otherParty.profilePicture?.url || null
+      }
+    };
+  });
+  
+  res.json(formattedFeedback);
 });
 
 // @desc    Get feedback statistics for a user
