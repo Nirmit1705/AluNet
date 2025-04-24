@@ -25,165 +25,175 @@ import {
 import { useUniversity } from "../../context/UniversityContext";
 
 // Sample alumni data (in a real app, this would come from an API call)
-const alumniData = [
-  {
-    id: 1,
-    name: "Dr. Emily Rodriguez",
-    role: "Senior Software Engineer",
-    company: "Google",
-    experience: 8,
-    location: "San Francisco, CA",
-    avatar: null,
-    specialization: "Machine Learning",
-    graduationYear: 2016,
-    email: "emily.rodriguez@example.com",
-    linkedin: "https://linkedin.com/in/emilyrodriguez",
-    skills: ["Machine Learning", "Python", "TensorFlow"],
-    education: "Ph.D. Computer Science, Stanford University",
-    interests: ["AI Ethics", "Mentoring", "Open Source"],
-    bio: "Experienced ML engineer with a passion for helping students navigate the tech industry. Specializes in career guidance for those interested in AI and data science."
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    role: "Technical Product Manager",
-    company: "Microsoft",
-    experience: 6,
-    location: "Seattle, WA",
-    avatar: null,
-    specialization: "Product Management",
-    graduationYear: 2018,
-    email: "michael.chen@example.com",
-    linkedin: "https://linkedin.com/in/michaelchen",
-    skills: ["Product Management", "UX Design", "Agile"],
-    education: "M.S. Computer Science, University of Washington",
-    interests: ["Product Strategy", "Agile Development", "User Research"],
-    bio: "Product manager with engineering background who helps students understand the intersection of technology and business. Can provide guidance on technical product roles."
-  },
-  {
-    id: 3,
-    name: "Sarah Johnson",
-    role: "Frontend Engineering Lead",
-    company: "Meta",
-    experience: 7,
-    location: "Remote",
-    avatar: null,
-    specialization: "Web Development",
-    graduationYear: 2017,
-    email: "sarah.johnson@example.com",
-    linkedin: "https://linkedin.com/in/sarahjohnson",
-    skills: ["React", "JavaScript", "UI Architecture"],
-    education: "B.S. Computer Science, MIT",
-    interests: ["Web Performance", "Design Systems", "Developer Experience"],
-    bio: "Frontend expert who loves helping students build impressive portfolios and prepare for technical interviews. Specializes in modern JavaScript frameworks and UI architecture."
-  },
-  {
-    id: 4,
-    name: "David Williams",
-    role: "Data Science Director",
-    company: "Amazon",
-    experience: 10,
-    location: "New York, NY",
-    avatar: null,
-    specialization: "Data Science",
-    graduationYear: 2014,
-    email: "david.williams@example.com",
-    linkedin: "https://linkedin.com/in/davidwilliams",
-    skills: ["Data Science", "Python", "Machine Learning", "SQL"],
-    education: "Ph.D. Statistics, Columbia University",
-    interests: ["Large Language Models", "Data Ethics", "Causal Inference"],
-    bio: "Data science leader passionate about mentoring the next generation of data professionals. Can provide guidance on projects, career paths, and advanced techniques."
-  },
-  {
-    id: 5,
-    name: "Jessica Kim",
-    role: "Security Engineering Manager",
-    company: "IBM",
-    experience: 9,
-    location: "Austin, TX",
-    avatar: null,
-    specialization: "Cybersecurity",
-    graduationYear: 2015,
-    email: "jessica.kim@example.com",
-    linkedin: "https://linkedin.com/in/jessicakim",
-    skills: ["Cybersecurity", "Network Security", "Ethical Hacking"],
-    education: "M.S. Information Security, Carnegie Mellon University",
-    interests: ["Security Education", "Ethical Hacking", "Privacy"],
-    bio: "Cybersecurity expert who helps students navigate the complex world of information security. Provides guidance on security careers, certifications, and practical skills."
-  },
-  {
-    id: 6,
-    name: "James Wilson",
-    role: "Backend Developer",
-    company: "Netflix",
-    experience: 5,
-    location: "Los Angeles, CA",
-    avatar: null,
-    specialization: "Distributed Systems",
-    graduationYear: 2019,
-    email: "james.wilson@example.com",
-    linkedin: "https://linkedin.com/in/jameswilson",
-    skills: ["Java", "Microservices", "AWS", "Spring Boot"],
-    education: "B.S. Computer Engineering, UCLA",
-    interests: ["System Design", "Cloud Architecture", "Performance Optimization"],
-    bio: "Backend developer specialized in building scalable systems. Enjoys mentoring students in system design and server-side technologies."
-  },
-  {
-    id: 7,
-    name: "Olivia Garcia",
-    role: "UX Research Lead",
-    company: "Airbnb",
-    experience: 7,
-    location: "San Francisco, CA",
-    avatar: null,
-    specialization: "User Research",
-    graduationYear: 2017,
-    email: "olivia.garcia@example.com",
-    linkedin: "https://linkedin.com/in/oliviagarcia",
-    skills: ["User Research", "Usability Testing", "Design Thinking"],
-    education: "M.S. Human-Computer Interaction, Carnegie Mellon University",
-    interests: ["Accessible Design", "Behavioral Economics", "Design Ethics"],
-    bio: "UX researcher passionate about creating user-centered experiences. Mentors students interested in UX careers and research methodologies."
-  },
-  {
-    id: 8,
-    name: "Robert Taylor",
-    role: "Mobile Developer",
-    company: "Spotify",
-    experience: 6,
-    location: "Stockholm, Sweden",
-    avatar: null,
-    specialization: "Mobile Development",
-    graduationYear: 2018,
-    email: "robert.taylor@example.com",
-    linkedin: "https://linkedin.com/in/roberttaylor",
-    skills: ["iOS", "Swift", "Android", "Kotlin"],
-    education: "M.S. Mobile Computing, KTH Royal Institute of Technology",
-    interests: ["App Architecture", "UI Animation", "Cross-platform Development"],
-    bio: "Mobile developer with experience in both iOS and Android platforms. Helps students understand mobile development best practices and career paths."
-  }
-];
+// const alumniData = [
+//   {
+//     id: 1,
+//     name: "Dr. Emily Rodriguez",
+//     role: "Senior Software Engineer",
+//     company: "Google",
+//     experience: 8,
+//     location: "San Francisco, CA",
+//     avatar: null,
+//     specialization: "Machine Learning",
+//     graduationYear: 2016,
+//     email: "emily.rodriguez@example.com",
+//     linkedin: "https://linkedin.com/in/emilyrodriguez",
+//     skills: ["Machine Learning", "Python", "TensorFlow"],
+//     education: "Ph.D. Computer Science, Stanford University",
+//     interests: ["AI Ethics", "Mentoring", "Open Source"],
+//     bio: "Experienced ML engineer with a passion for helping students navigate the tech industry. Specializes in career guidance for those interested in AI and data science."
+//   },
+//   {
+//     id: 2,
+//     name: "Michael Chen",
+//     role: "Technical Product Manager",
+//     company: "Microsoft",
+//     experience: 6,
+//     location: "Seattle, WA",
+//     avatar: null,
+//     specialization: "Product Management",
+//     graduationYear: 2018,
+//     email: "michael.chen@example.com",
+//     linkedin: "https://linkedin.com/in/michaelchen",
+//     skills: ["Product Management", "UX Design", "Agile"],
+//     education: "M.S. Computer Science, University of Washington",
+//     interests: ["Product Strategy", "Agile Development", "User Research"],
+//     bio: "Product manager with engineering background who helps students understand the intersection of technology and business. Can provide guidance on technical product roles."
+//   },
+//   {
+//     id: 3,
+//     name: "Sarah Johnson",
+//     role: "Frontend Engineering Lead",
+//     company: "Meta",
+//     experience: 7,
+//     location: "Remote",
+//     avatar: null,
+//     specialization: "Web Development",
+//     graduationYear: 2017,
+//     email: "sarah.johnson@example.com",
+//     linkedin: "https://linkedin.com/in/sarahjohnson",
+//     skills: ["React", "JavaScript", "UI Architecture"],
+//     education: "B.S. Computer Science, MIT",
+//     interests: ["Web Performance", "Design Systems", "Developer Experience"],
+//     bio: "Frontend expert who loves helping students build impressive portfolios and prepare for technical interviews. Specializes in modern JavaScript frameworks and UI architecture."
+//   },
+//   {
+//     id: 4,
+//     name: "David Williams",
+//     role: "Data Science Director",
+//     company: "Amazon",
+//     experience: 10,
+//     location: "New York, NY",
+//     avatar: null,
+//     specialization: "Data Science",
+//     graduationYear: 2014,
+//     email: "david.williams@example.com",
+//     linkedin: "https://linkedin.com/in/davidwilliams",
+//     skills: ["Data Science", "Python", "Machine Learning", "SQL"],
+//     education: "Ph.D. Statistics, Columbia University",
+//     interests: ["Large Language Models", "Data Ethics", "Causal Inference"],
+//     bio: "Data science leader passionate about mentoring the next generation of data professionals. Can provide guidance on projects, career paths, and advanced techniques."
+//   },
+//   {
+//     id: 5,
+//     name: "Jessica Kim",
+//     role: "Security Engineering Manager",
+//     company: "IBM",
+//     experience: 9,
+//     location: "Austin, TX",
+//     avatar: null,
+//     specialization: "Cybersecurity",
+//     graduationYear: 2015,
+//     email: "jessica.kim@example.com",
+//     linkedin: "https://linkedin.com/in/jessicakim",
+//     skills: ["Cybersecurity", "Network Security", "Ethical Hacking"],
+//     education: "M.S. Information Security, Carnegie Mellon University",
+//     interests: ["Security Education", "Ethical Hacking", "Privacy"],
+//     bio: "Cybersecurity expert who helps students navigate the complex world of information security. Provides guidance on security careers, certifications, and practical skills."
+//   },
+//   {
+//     id: 6,
+//     name: "James Wilson",
+//     role: "Backend Developer",
+//     company: "Netflix",
+//     experience: 5,
+//     location: "Los Angeles, CA",
+//     avatar: null,
+//     specialization: "Distributed Systems",
+//     graduationYear: 2019,
+//     email: "james.wilson@example.com",
+//     linkedin: "https://linkedin.com/in/jameswilson",
+//     skills: ["Java", "Microservices", "AWS", "Spring Boot"],
+//     education: "B.S. Computer Engineering, UCLA",
+//     interests: ["System Design", "Cloud Architecture", "Performance Optimization"],
+//     bio: "Backend developer specialized in building scalable systems. Enjoys mentoring students in system design and server-side technologies."
+//   },
+//   {
+//     id: 7,
+//     name: "Olivia Garcia",
+//     role: "UX Research Lead",
+//     company: "Airbnb",
+//     experience: 7,
+//     location: "San Francisco, CA",
+//     avatar: null,
+//     specialization: "User Research",
+//     graduationYear: 2017,
+//     email: "olivia.garcia@example.com",
+//     linkedin: "https://linkedin.com/in/oliviagarcia",
+//     skills: ["User Research", "Usability Testing", "Design Thinking"],
+//     education: "M.S. Human-Computer Interaction, Carnegie Mellon University",
+//     interests: ["Accessible Design", "Behavioral Economics", "Design Ethics"],
+//     bio: "UX researcher passionate about creating user-centered experiences. Mentors students interested in UX careers and research methodologies."
+//   },
+//   {
+//     id: 8,
+//     name: "Robert Taylor",
+//     role: "Mobile Developer",
+//     company: "Spotify",
+//     experience: 6,
+//     location: "Stockholm, Sweden",
+//     avatar: null,
+//     specialization: "Mobile Development",
+//     graduationYear: 2018,
+//     email: "robert.taylor@example.com",
+//     linkedin: "https://linkedin.com/in/roberttaylor",
+//     skills: ["iOS", "Swift", "Android", "Kotlin"],
+//     education: "M.S. Mobile Computing, KTH Royal Institute of Technology",
+//     interests: ["App Architecture", "UI Animation", "Cross-platform Development"],
+//     bio: "Mobile developer with experience in both iOS and Android platforms. Helps students understand mobile development best practices and career paths."
+//   }
+// ];
 
 // Component definition starts here
 const AlumniDirectory = () => {
-  const navigate = useNavigate();
-  const { 
-    userUniversity,
-    filterByUniversity,
-    extractUniversity 
-  } = useUniversity();
-  
-  const [allAlumni, setAllAlumni] = useState(alumniData);
+  const [allAlumni, setAllAlumni] = useState([]);
   const [alumni, setAlumni] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    companies: [],
-    specializations: [],
-    graduationYears: [],
-    skills: [],
-    universities: []
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  // ...other state variables
+
+  // Fetch alumni data when component mounts
+  useEffect(() => {
+    const fetchAlumni = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/alumni');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch alumni data');
+        }
+        
+        const data = await response.json();
+        setAllAlumni(data);
+        setAlumni(data);
+      } catch (error) {
+        console.error('Error fetching alumni:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAlumni();
+  }, []);
   const [selectedAlumni, setSelectedAlumni] = useState(null);
   const [savedAlumni, setSavedAlumni] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);

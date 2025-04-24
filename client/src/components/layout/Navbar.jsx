@@ -256,13 +256,6 @@ const Navbar = () => {
                           <span>Home</span>
                         </button>
                         <button 
-                          onClick={toggleSettingsModal}
-                          className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          <Settings className="h-4 w-4" />
-                          <span>Settings</span>
-                        </button>
-                        <button 
                           onClick={handleLogout}
                           className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-500"
                         >

@@ -25,6 +25,8 @@ import MockLogin from "./components/auth/MockLogin.jsx";
 import MentorshipsPage from "./pages/Mentorships.jsx";
 import MenteesListPage from './components/dashboard/MenteesListPage';
 import AlumniJobBoard from './components/jobs/AlumniJobBoard';
+import VerificationPending from './pages/VerificationPending';
+import ResendVerification from './pages/ResendVerification';
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/mentorships" element={<MentorshipsPage />} />
             <Route path="/mentees" element={<MenteesListPage />} />
             <Route path="/alumni-job-board" element={<AlumniJobBoard />} />
+            <Route path="/verification-pending" element={<VerificationPending />} />
+            <Route path="/resend-verification" element={<ResendVerification />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
