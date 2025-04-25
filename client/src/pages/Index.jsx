@@ -39,6 +39,8 @@ const Index = () => {
   // Close auth modal
   const closeAuthModal = () => {
     setAuthModalOpen(false);
+    // Clear any state parameters to prevent reopening
+    window.history.replaceState({}, document.title, window.location.pathname);
   };
 
   // Switch between login and register types
@@ -101,12 +103,14 @@ const Index = () => {
         <Hero onRegisterClick={openRegisterModal} onLoginClick={openLoginModal} />
         
         {/* Authentication modal */}
-        <AuthModal 
-          isOpen={authModalOpen} 
-          onClose={closeAuthModal} 
-          type={authType}
-          onSwitchType={handleSwitchAuthType}
-        />
+        {authModalOpen && (
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={closeAuthModal}
+            type={authType}
+            onSwitchType={handleSwitchAuthType}
+          />
+        )}
         
         {/* Features section */}
         <section className="bg-gray-50 dark:bg-gray-900/50 py-24">

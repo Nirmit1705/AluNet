@@ -6,7 +6,7 @@ import {
   Users, 
   GraduationCap, 
   Briefcase, 
-  Shield, 
+  Shield,
   FileCheck,
   Filter,
   Search,
@@ -46,7 +46,8 @@ const AdminDashboardPage = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userRole");
-    navigate("/login");
+    navigate("/");
+    toast.success("Logged out successfully");
   };
 
   // Check admin role on component mount
@@ -70,7 +71,6 @@ const AdminDashboardPage = () => {
         // Validate token format
         if (token !== 'null' && token !== 'undefined' && token !== '') {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log("Using token:", token.substring(0, 10) + "...");
         } else {
           console.error('Invalid token format:', token);
         }
@@ -98,41 +98,44 @@ const AdminDashboardPage = () => {
   );
 
   // Fetch dashboard stats
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Check token before making request
-        const token = localStorage.getItem("token");
-        if (!token || token === 'null' || token === 'undefined' || token === '') {
-          console.error("No valid authentication token found");
-          setError("Authentication failed. Please log in with valid admin credentials.");
-          setIsLoading(false);
-          return;
-        }
-        
-        // Skip the test endpoint and go directly to dashboard stats
-        const response = await api.get('/admin/dashboard-stats');
-        setStats(response.data);
-        
-        // Also fetch verifications
-        await fetchVerifications();
+  const fetchDashboardStats = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Check token before making request
+      const token = localStorage.getItem("token");
+      if (!token || token === 'null' || token === 'undefined' || token === '') {
+        console.error("No valid authentication token found");
+        setError("Authentication failed. Please log in with valid admin credentials.");
         setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        // Show a more user-friendly error message
-        if (error.response?.status === 401) {
-          setError("Access denied. Please log in with valid admin credentials.");
-        } else if (error.response?.status === 403) {
-          setError("You don't have permission to access the admin dashboard.");
-        } else {
-          setError(error.response?.data?.message || error.message || "Failed to load admin dashboard");
-        }
-        setIsLoading(false);
+        return;
       }
-    };
-    
+      
+      // Call the API
+      const response = await api.get('/admin/dashboard-stats');
+      
+      console.log("Dashboard stats response:", response.data);
+      
+      // Update the stats state with data from the API
+      setStats({
+        totalUsers: response.data.totalUsers || 0,
+        totalStudents: response.data.totalStudents || 0,
+        totalAlumni: response.data.totalAlumni || 0,
+        pendingVerifications: response.data.pendingVerifications || 0
+      });
+      
+      // Also fetch verifications
+      await fetchVerifications();
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      setError(error.response?.data?.message || "Failed to load admin dashboard");
+      setIsLoading(false);
+    }
+  };
+
+  // Use this function in the useEffect
+  useEffect(() => {
     fetchDashboardStats();
   }, []);
 
@@ -159,13 +162,23 @@ const AdminDashboardPage = () => {
     }
   }, [filterStatus, searchQuery]);
 
+  // Handle verification view details
+  const viewVerificationDetails = (verification) => {
+    setSelectedVerification(verification);
+    setShowVerificationModal(true);
+  };
+
   // Handle verification status update
   const handleVerificationAction = async (id, action, rejectReason) => {
     try {
-      await api.put(`/admin/verifications/${id}`, { 
+      console.log(`Admin requesting ${action} for verification ${id}`);
+      
+      const response = await api.put(`/admin/verifications/${id}`, { 
         status: action,
-        rejectReason 
+        rejectionReason: rejectReason 
       });
+      
+      console.log("Server response:", response.data);
       
       // Update the verifications list
       const updatedVerifications = verifications.map(v => 
@@ -184,9 +197,18 @@ const AdminDashboardPage = () => {
       // Close the modal
       setShowVerificationModal(false);
       setSelectedVerification(null);
+      
+      // Show success message
+      toast.success(`Verification ${action} successfully`);
+      
+      // Refresh data to ensure we're in sync with the server
+      setTimeout(() => {
+        fetchVerifications();
+        fetchDashboardStats();
+      }, 1000);
     } catch (error) {
       console.error(`Error ${action} verification:`, error);
-      alert(`Error: ${error.response?.data?.message || error.message}`);
+      toast.error(`Error: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -208,8 +230,6 @@ const AdminDashboardPage = () => {
     navigate("/admin/logs");
   };
   
-  // Update the adminLogin function to ensure proper redirection
-
   const adminLogin = async (e) => {
     e.preventDefault();
     try {
@@ -303,7 +323,6 @@ const AdminDashboardPage = () => {
     );
   }
 
-  // Rest of the component remains unchanged
   return (
     <div className="pb-12 relative min-h-screen flex flex-col">
       {/* Logout Button */}
@@ -331,20 +350,20 @@ const AdminDashboardPage = () => {
               <h3 className="font-medium text-lg">Students</h3>
               <GraduationCap className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">{stats.totalStudents}</p>
-            <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-              +8 new registrations
+            <p className="text-3xl font-bold">{stats.totalStudents || 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Total registered students
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200 cursor-pointer">
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Alumni</h3>
               <Briefcase className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">{stats.totalAlumni}</p>
-            <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-              +3 verified this month
+            <p className="text-3xl font-bold">{stats.totalAlumni || 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Verified alumni members
             </p>
           </div>
 
@@ -353,8 +372,8 @@ const AdminDashboardPage = () => {
               <h3 className="font-medium text-lg">Pending Verifications</h3>
               <Shield className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">{stats.pendingVerifications}</p>
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+            <p className="text-3xl font-bold">{stats.pendingVerifications || 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">
               Awaiting review
             </p>
           </div>
@@ -399,7 +418,7 @@ const AdminDashboardPage = () => {
           </div>
         </div>
 
-        {/* Main dashboard content */}
+        {/* Pending verifications section */}
         <div className="glass-card rounded-xl p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-medium text-lg">Pending Alumni Verifications</h3>
@@ -437,10 +456,10 @@ const AdminDashboardPage = () => {
           <div className="space-y-4 mt-6">
             {verifications.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No verification requests found.
+                No verification requests found matching your criteria.
               </div>
             ) : (
-              verifications.map((verification) => (
+              verifications.slice(0, 5).map((verification) => (
                 <div 
                   key={verification._id} 
                   className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
@@ -479,15 +498,17 @@ const AdminDashboardPage = () => {
           </div>
           
           {/* View more button */}
-          <div className="mt-6 flex justify-center">
-            <button 
-              onClick={viewAllVerifications}
-              className="button-secondary flex items-center gap-2"
-            >
-              View All Verification Requests
-              <ExternalLink className="h-4 w-4" />
-            </button>
-          </div>
+          {verifications.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <button 
+                onClick={viewAllVerifications}
+                className="button-secondary flex items-center gap-2"
+              >
+                View All Verification Requests
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
       

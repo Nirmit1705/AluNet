@@ -85,8 +85,8 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
         onClick={onClose}
       ></div>
       
-      <div className="relative z-10 bg-white dark:bg-gray-900 max-w-md w-full rounded-xl shadow-xl animate-fade-in-up">
-        <div className="p-1 absolute right-2 top-2">
+      <div className="relative z-10 bg-white dark:bg-gray-900 max-w-md w-full rounded-xl shadow-xl animate-fade-in-up max-h-[90vh] overflow-y-auto my-4">
+        <div className="p-1 absolute right-2 top-2 z-20">
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -97,7 +97,7 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
         </div>
 
         {(authMethod || isWaitingForGoogle) && (
-          <div className="p-1 absolute left-2 top-2">
+          <div className="p-1 absolute left-2 top-2 z-20">
             <button
               onClick={handleBack}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1"
@@ -108,7 +108,7 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
           </div>
         )}
 
-        <div className="px-8 py-10">
+        <div className="px-6 py-8 overflow-y-auto">
           {!authMethod && !isWaitingForGoogle && (
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold">

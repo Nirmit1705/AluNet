@@ -2,7 +2,6 @@ import React, { useState, forwardRef, useImperativeHandle, useEffect } from "rea
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Briefcase, ChevronDown, Calendar, BookOpen, Building, School, Hash, FileText, X } from "lucide-react";
 import { toast } from "sonner";
-import { handleAdminLogin } from "../../utils/loginHelper";
 import { directAdminLogin } from "../../utils/adminAuth";
 import axios from "axios";
 
@@ -26,8 +25,9 @@ const AuthForm = forwardRef(({
   const [googleAuthData, setGoogleAuthData] = useState(initialGoogleData || null);
   const [alumniDocument, setAlumniDocument] = useState(null);
   const [documentError, setDocumentError] = useState("");
-  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [registrationComplete, setIsRegistrationComplete] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // ADD THIS MISSING STATE
   const [formData, setFormData] = useState({
     branch: "",
     university: "",
@@ -215,17 +215,25 @@ const AuthForm = forwardRef(({
   // Handler for login
   const handleLogin = async () => {
     try {
+      // Show loading state
+      setIsSubmitting(true);
+      
+      console.log("Login attempt:", { email, role });
+      
       // Check if it's admin login
       if (email === "verify@admin.com") {
         // Use the direct admin login utility which handles everything
-        directAdminLogin(email, password);
+        await directAdminLogin(email, password);
+        if (onSuccess) {
+          onSuccess();
+        }
         return; // Important to prevent execution of the rest of the function
       }
       
       // Alumni login flow
       if (role === "alumni") {
         try {
-          // Import and use the alumni login helper (if not already imported at the top)
+          // Import the alumni login helper (if not already imported at the top)
           const { handleAlumniLogin } = await import("../../utils/loginHelper.js");
           const success = await handleAlumniLogin(navigate, email, password, onSuccess);
           if (success) {
@@ -245,7 +253,7 @@ const AuthForm = forwardRef(({
       };
       
       // Simulate API call
-      console.log("Logging in with:", userData);
+      console.log("Standard login with:", userData);
       
       // Store user data in localStorage
       localStorage.setItem("token", `mock-token-${Date.now()}`);
@@ -260,11 +268,14 @@ const AuthForm = forwardRef(({
         onSuccess();
       }
       
-      // Force direct navigation for all roles
+      // Force direct navigation to the appropriate dashboard using window.location
+      // This ensures a full page reload and proper state reset
       window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to log in. Please check your credentials.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -293,15 +304,23 @@ const AuthForm = forwardRef(({
     return true;
   };
 
-  // Update the handleFinalSubmit function for better alumni profile handling
+  // Fix the handleFinalSubmit function to use alumniForm.documentURL as a fallback
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
     
+    // Check documentURL from both states to ensure we have the value
+    if (role === "alumni" && !formData.documentURL && !alumniForm.documentURL) {
+      toast.error("Please upload a verification document");
+      return;
+    }
+    
+    // Show loading state
+    setIsSubmitting(true);
+    
     try {
-      // Basic validation
-      if (role === "alumni" && !validateDocument(alumniDocument)) {
-        return;
-      }
+      // Log form data for debugging
+      console.log("Submitting form data:", formData);
+      console.log("Alumni form data:", alumniForm);
       
       // Convert form values to proper types
       let formattedData;
@@ -327,44 +346,38 @@ const AuthForm = forwardRef(({
           skills: studentForm.skills || [],
         };
       } else { // Alumni
-        // Alumni validation
+        // Alumni validation - ensure fields are passed correctly
         if (!alumniForm.graduationYear) {
           toast.error("Graduation year is required");
+          setIsSubmitting(false);
           return;
         }
         
         if (!alumniForm.branch) {
           toast.error("Branch is required");
+          setIsSubmitting(false);
           return;
         }
         
-        if (!alumniForm.university) {
-          toast.error("University is required");
-          return;
-        }
-        
-        if (!alumniForm.college) {
-          toast.error("College is required");
-          return;
-        }
-        
+        // Create alumni data object with all required fields at the top level
         formattedData = {
           name,
           email,
           // For Google auth, include googleId and omit password entirely
-          ...(googleAuthData ? { googleId: googleAuthData.googleId } : { password }),
-          education: { // Structure education data properly
-            branch: alumniForm.branch,
-            university: alumniForm.university,
-            college: alumniForm.college,
-            graduationYear: parseInt(alumniForm.graduationYear) || 2020
-          },
+          ...(googleAuthData ? { googleAuthData: googleAuthData.googleId } : { password }),
+          // Important: These fields need to be at the top level, not in a nested object
+          graduationYear: parseInt(alumniForm.graduationYear) || 2020,
+          branch: alumniForm.branch,
+          university: alumniForm.university || "",
+          college: alumniForm.college || "",
+          documentURL: formData.documentURL || alumniForm.documentURL, 
           currentPosition: alumniForm.position || "",
           company: alumniForm.company || "",
           skills: alumniForm.skills || [],
-          isAlumni: true // Explicitly mark as alumni
         };
       }
+      
+      console.log("Formatted data being sent:", formattedData);
       
       // Endpoint URL based on role and auth type
       let url;
@@ -377,8 +390,6 @@ const AuthForm = forwardRef(({
           ? "http://localhost:5000/api/students/register" 
           : "http://localhost:5000/api/alumni/register";
       }
-      
-      console.log("Sending registration data:", formattedData); // Log the data being sent
       
       // Make the API call
       const response = await fetch(url, {
@@ -403,33 +414,25 @@ const AuthForm = forwardRef(({
       }
       
       if (response.ok) {
-        // Store basic user info for UI needs
-        localStorage.setItem("userRole", role);
-        localStorage.setItem("userEmail", email);
-        localStorage.setItem("userName", name);
+        // Add more debugging logs
+        console.log("Registration response received:", data);
         
-        // Store token if provided
-        if (data.token) {
+        if (data.success) {
+          setIsRegistrationComplete(true);
+          toast.success("Registration successful!");
+          
+          // Store authentication data
           localStorage.setItem("token", data.token);
-        }
-        
-        // Check if email is already verified (Google auth flow)
-        if (data.isEmailVerified || googleAuthData) {
-          toast.success("Account created successfully! You can now log in.");
+          localStorage.setItem("userRole", role);
+          localStorage.setItem("userEmail", formData.email);
+          localStorage.setItem("userName", formData.name);
           
-          // Call the onSuccess callback if provided
-          if (onSuccess) {
-            onSuccess();
-          }
-          
-          // Navigate directly to dashboard
-          navigate(role === "student" ? "/student-dashboard" : "/alumni-dashboard");
+          // Redirect after a short delay
+          setTimeout(() => {
+            window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
+          }, 1500);
         } else {
-          // Show verification pending message
-          toast.success("Account created successfully! Please check your email to verify your account.");
-          
-          // Navigate to verification pending page
-          navigate("/verification-pending");
+          toast.error(data.message || "Registration failed");
         }
       } else {
         // Extract and display meaningful error messages
@@ -453,6 +456,8 @@ const AuthForm = forwardRef(({
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("An unexpected error occurred. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -465,44 +470,72 @@ const AuthForm = forwardRef(({
     }
   };
 
-  // Add this function in the appropriate location in the component
+  // Fix the handleAlumniVerificationUpload function
   const handleAlumniVerificationUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Validate file first
+    if (!validateDocument(file)) {
+      return;
+    }
+
+    // Add visual feedback that upload is starting
+    toast.info("Uploading document...");
     setIsUploading(true);
 
     try {
       // Create a FormData object to send the file
       const formData = new FormData();
-      formData.append('document', file);
+      formData.append('verificationDocument', file);
 
-      // Upload to your backend or a cloud storage service
-      const response = await axios.post('/api/upload/verification', formData, {
+      console.log("Uploading file:", file.name, file.type, file.size);
+
+      // Use absolute URL to ensure we're hitting the right endpoint
+      const response = await axios.post('http://localhost:5000/api/upload/verification', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
         }
       });
 
-      // Store the document URL from the response
-      setFormData({
-        ...formData,
-        documentURL: response.data.documentURL
-      });
+      console.log("Upload response:", response.data);
 
-      toast.success('Document uploaded successfully');
+      if (response.data && response.data.documentURL) {
+        const documentURL = response.data.documentURL;
+        
+        // Update both state objects with the document URL
+        setAlumniForm(prev => ({
+          ...prev,
+          documentURL: documentURL
+        }));
+        
+        setFormData(prev => ({
+          ...prev,
+          documentURL: documentURL
+        }));
+        
+        // Provide clear feedback to the user
+        toast.success('Document uploaded successfully');
+        console.log("Document URL set to:", documentURL);
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       console.error('Error uploading document:', error);
-      toast.error('Failed to upload document');
+      toast.error(error.response?.data?.message || 'Failed to upload document');
+      
+      // Clear the file input in case of error
+      const fileInput = document.getElementById('verification-document');
+      if (fileInput) fileInput.value = '';
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto glass-card rounded-2xl p-8 sm:p-10 animate-scale-in">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">
+    <div className="w-full mx-auto rounded-xl animate-scale-in">
+      <div className="text-center mb-5">
+        <h2 className="text-xl font-bold mb-1">
           {type === "login" 
             ? "Welcome Back" 
             : step === 1 
@@ -511,7 +544,7 @@ const AuthForm = forwardRef(({
                 ? "Student Registration" 
                 : "Alumni Registration"}
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {type === "login" 
             ? "Enter your credentials to access your account" 
             : step === 1 
@@ -745,131 +778,82 @@ const AuthForm = forwardRef(({
 
       {/* Step 2: Student Registration Form */}
       {type === "register" && step === 2 && role === "student" && (
-        <form className="space-y-6" onSubmit={handleFinalSubmit}>
-          {/* Registration Number */}
-          <div className="space-y-2">
-            <label htmlFor="registrationNumber" className="text-sm font-medium">
-              Registration Number <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Hash className="h-5 w-5 text-gray-400" />
+        <form className="space-y-4" onSubmit={handleFinalSubmit}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Registration Number */}
+            <div className="space-y-1">
+              <label htmlFor="registrationNumber" className="text-xs font-medium">
+                Registration No. <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <Hash className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  id="registrationNumber"
+                  name="registrationNumber"
+                  type="text"
+                  required
+                  className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="ST12345"
+                  value={studentForm.registrationNumber}
+                  onChange={handleStudentFormChange}
+                />
               </div>
-              <input
-                id="registrationNumber"
-                name="registrationNumber"
-                type="text"
-                required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="ST12345"
-                value={studentForm.registrationNumber}
-                onChange={handleStudentFormChange}
-              />
+            </div>
+
+            {/* Current Year */}
+            <div className="space-y-1">
+              <label htmlFor="currentYear" className="text-xs font-medium">
+                Current Year <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                </div>
+                <select
+                  id="currentYear"
+                  name="currentYear"
+                  required
+                  className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  value={studentForm.currentYear}
+                  onChange={handleStudentFormChange}
+                >
+                  <option value="">Select Year</option>
+                  <option value="1">1st Year</option>
+                  <option value="2">2nd Year</option>
+                  <option value="3">3rd Year</option>
+                  <option value="4">4th Year</option>
+                  <option value="5">5th Year</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Current Year */}
-          <div className="space-y-2">
-            <label htmlFor="currentYear" className="text-sm font-medium">
-              Current Year <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Calendar className="h-5 w-5 text-gray-400" />
-              </div>
-              <select
-                id="currentYear"
-                name="currentYear"
-                required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                value={studentForm.currentYear}
-                onChange={handleStudentFormChange}
-              >
-                <option value="">Select Year</option>
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-                <option value="5">5th Year</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Branch */}
-          <div className="space-y-2">
-            <label htmlFor="branch" className="text-sm font-medium">
-              Branch <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <BookOpen className="h-5 w-5 text-gray-400" />
-              </div>
+          {/* University & College Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Branch */}
+            <div className="space-y-1">
+              <label htmlFor="branch" className="text-xs font-medium">
+                Branch <span className="text-red-500">*</span>
+              </label>
               <input
                 id="branch"
                 name="branch"
                 type="text"
                 required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                 placeholder="Computer Science"
                 value={studentForm.branch}
                 onChange={handleStudentFormChange}
               />
             </div>
-          </div>
 
-          {/* University */}
-          <div className="space-y-2">
-            <label htmlFor="university" className="text-sm font-medium">
-              University <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <School className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="university"
-                name="university"
-                type="text"
-                required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="Your University"
-                value={studentForm.university}
-                onChange={handleStudentFormChange}
-              />
-            </div>
-          </div>
-
-          {/* College */}
-          <div className="space-y-2">
-            <label htmlFor="college" className="text-sm font-medium">
-              College <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Building className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="college"
-                name="college"
-                type="text"
-                required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="Your College"
-                value={studentForm.college}
-                onChange={handleStudentFormChange}
-              />
-            </div>
-          </div>
-
-          {/* Graduation Year */}
-          <div className="space-y-2">
-            <label htmlFor="graduationYear" className="text-sm font-medium">
-              Expected Graduation Year <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Calendar className="h-5 w-5 text-gray-400" />
-              </div>
+            {/* Graduation Year */}
+            <div className="space-y-1">
+              <label htmlFor="graduationYear" className="text-xs font-medium">
+                Expected Graduation <span className="text-red-500">*</span>
+              </label>
               <input
                 id="graduationYear"
                 name="graduationYear"
@@ -877,7 +861,7 @@ const AuthForm = forwardRef(({
                 min={new Date().getFullYear()}
                 max={new Date().getFullYear() + 5}
                 required
-                className="block w-full pl-10 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                 placeholder={new Date().getFullYear() + 4}
                 value={studentForm.graduationYear}
                 onChange={handleStudentFormChange}
@@ -885,35 +869,55 @@ const AuthForm = forwardRef(({
             </div>
           </div>
 
-          {/* Skills */}
-          <div className="space-y-2">
-            <label htmlFor="skills" className="text-sm font-medium">
-              Skills
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {studentForm.skills.map((skill, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                >
-                  {skill}
-                  <button
-                    type="button"
-                    onClick={() => removeSkill(skill, true)}
-                    className="ml-1 hover:text-red-500"
-                  >
-                    &times;
-                  </button>
-                </span>
-              ))}
+          {/* University & College */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* University */}
+            <div className="space-y-1">
+              <label htmlFor="university" className="text-xs font-medium">
+                University <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="university"
+                name="university"
+                type="text"
+                required
+                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="Your University"
+                value={studentForm.university}
+                onChange={handleStudentFormChange}
+              />
             </div>
+
+            {/* College */}
+            <div className="space-y-1">
+              <label htmlFor="college" className="text-xs font-medium">
+                College <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="college"
+                name="college"
+                type="text"
+                required
+                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="Your College"
+                value={studentForm.college}
+                onChange={handleStudentFormChange}
+              />
+            </div>
+          </div>
+
+          {/* Skills - Simplified */}
+          <div className="space-y-1">
+            <label htmlFor="skills" className="text-xs font-medium">
+              Skills (Optional)
+            </label>
             <div className="flex gap-2">
               <input
                 id="newSkill"
                 name="newSkill"
                 type="text"
-                className="flex-1 px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="Add a skill..."
+                className="flex-1 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="Add skills (press Enter)"
                 value={studentForm.newSkill}
                 onChange={handleStudentFormChange}
                 onKeyDown={(e) => handleKeyDown(e, true)}
@@ -921,333 +925,33 @@ const AuthForm = forwardRef(({
               <button
                 type="button"
                 onClick={() => addSkill(true)}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="flex-1 py-2.5 bg-gray-200 dark:bg-gray-700 text-foreground rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              className="flex-1 button-primary py-2.5 relative overflow-hidden group"
-            >
-              <span className="relative z-10">Create Account</span>
-              <div className="absolute inset-0 bg-white/10 translate-y-[101%] group-hover:translate-y-0 transition-transform duration-300"></div>
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Step 2: Alumni Registration Form */}
-      {type === "register" && step === 2 && role === "alumni" && (
-        <form className="space-y-4" onSubmit={handleFinalSubmit}>
-          {/* Educational Background */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <h3 className="font-medium text-blue-800 dark:text-blue-300 text-sm mb-2">Educational Background</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Branch */}
-              <div className="space-y-1">
-                <label htmlFor="branch" className="text-xs font-medium">
-                  Field of Study <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <BookOpen className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="branch"
-                    name="branch"
-                    type="text"
-                    required
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="Computer Science, etc."
-                    value={alumniForm.branch}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-
-              {/* Graduation Year */}
-              <div className="space-y-1">
-                <label htmlFor="graduationYear" className="text-xs font-medium">
-                  Graduation Year <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="graduationYear"
-                    name="graduationYear"
-                    type="number"
-                    min={1950}
-                    max={new Date().getFullYear()}
-                    required
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="2020"
-                    value={alumniForm.graduationYear}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-              {/* University */}
-              <div className="space-y-1">
-                <label htmlFor="university" className="text-xs font-medium">
-                  University <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <School className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="university"
-                    name="university"
-                    type="text"
-                    required
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="University name"
-                    value={alumniForm.university}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-
-              {/* College */}
-              <div className="space-y-1">
-                <label htmlFor="college" className="text-xs font-medium">
-                  College <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Building className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="college"
-                    name="college"
-                    type="text"
-                    required
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="College name"
-                    value={alumniForm.college}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Professional Information */}
-          <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-            <h3 className="font-medium text-green-800 dark:text-green-300 text-sm mb-2">Professional Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Current Company */}
-              <div className="space-y-1">
-                <label htmlFor="company" className="text-xs font-medium">
-                  Current Company
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Building className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="company"
-                    name="company"
-                    type="text"
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="Google, Microsoft, etc."
-                    value={alumniForm.company}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-
-              {/* Current Position */}
-              <div className="space-y-1">
-                <label htmlFor="position" className="text-xs font-medium">
-                  Current Position
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Briefcase className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="position"
-                    name="position"
-                    type="text"
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="Software Engineer, etc."
-                    value={alumniForm.position}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-              {/* Years of Experience */}
-              <div className="space-y-1">
-                <label htmlFor="experience" className="text-xs font-medium">
-                  Years of Experience
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="experience"
-                    name="experience"
-                    type="number"
-                    min={0}
-                    max={50}
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="5"
-                    value={alumniForm.experience || ""}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-
-              {/* Industry */}
-              <div className="space-y-1">
-                <label htmlFor="industry" className="text-xs font-medium">
-                  Industry
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Building className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="industry"
-                    name="industry"
-                    type="text"
-                    className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="Technology, Finance, etc."
-                    value={alumniForm.industry || ""}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Skills */}
-          <div className="space-y-1">
-            <label htmlFor="skills" className="text-xs font-medium">
-              Professional Skills
-            </label>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {alumniForm.skills.map((skill, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                >
-                  {skill}
-                  <button
-                    type="button"
-                    onClick={() => removeSkill(skill, false)}
-                    className="ml-1 hover:text-red-500"
-                  >
-                    &times;
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                id="newSkill"
-                name="newSkill"
-                type="text"
-                className="flex-1 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="Add skills (JavaScript, Python, etc.)"
-                value={alumniForm.newSkill}
-                onChange={handleAlumniFormChange}
-                onKeyDown={(e) => handleKeyDown(e, false)}
-              />
-              <button
-                type="button"
-                onClick={() => addSkill(false)}
                 className="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
               >
                 Add
               </button>
             </div>
+            {studentForm.skills.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {studentForm.skills.map((skill, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  >
+                    {skill}
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(skill, true)}
+                      className="ml-1 hover:text-red-500"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Bio / About - Optional and collapsible */}
-          <details className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-            <summary className="text-xs font-medium cursor-pointer">
-              Professional Bio (Optional)
-            </summary>
-            <textarea
-              id="bio"
-              name="bio"
-              rows={2}
-              className="mt-2 block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-              placeholder="Tell students about your professional journey..."
-              value={alumniForm.bio || ""}
-              onChange={handleAlumniFormChange}
-            ></textarea>
-          </details>
-
-          {/* Mentorship Areas */}
-          <details className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-            <summary className="text-xs font-medium cursor-pointer">
-              Areas You Can Mentor In (Optional)
-            </summary>
-            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-              {[
-                'Career Guidance',
-                'Technical Skills',
-                'Interview Preparation',
-                'Resume Review',
-                'Industry Insights',
-                'Project Feedback',
-                'Networking',
-                'Graduate Studies'
-              ].map((area) => (
-                <label key={area} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    name="mentorshipAreas"
-                    value={area}
-                    checked={alumniForm.mentorshipAreas?.includes(area) || false}
-                    onChange={(e) => {
-                      const areas = alumniForm.mentorshipAreas || [];
-                      if (e.target.checked) {
-                        setAlumniForm(prev => ({
-                          ...prev,
-                          mentorshipAreas: [...areas, area]
-                        }));
-                      } else {
-                        setAlumniForm(prev => ({
-                          ...prev,
-                          mentorshipAreas: areas.filter(a => a !== area)
-                        }));
-                      }
-                    }}
-                    className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-xs">{area}</span>
-                </label>
-              ))}
-            </div>
-          </details>
-
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={() => setStep(1)}
@@ -1257,62 +961,224 @@ const AuthForm = forwardRef(({
             </button>
             <button
               type="submit"
-              className="flex-1 button-primary py-2 text-sm relative overflow-hidden group"
+              className="flex-1 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
             >
-              <span className="relative z-10">Create Profile</span>
-              <div className="absolute inset-0 bg-white/10 translate-y-[101%] group-hover:translate-y-0 transition-transform duration-300"></div>
+              Create Account
             </button>
           </div>
         </form>
       )}
 
-      {/* Add this to the alumni registration form (step 2) */}
+      {/* Step 2: Alumni Registration Form - COMPLETELY REDESIGNED */}
       {type === "register" && step === 2 && role === "alumni" && (
-        <div className="space-y-3">
-          <div>
-            <label htmlFor="verification-document" className="block text-sm font-medium mb-1">
-              Verification Document <span className="text-red-500">*</span>
-            </label>
-            <div className="border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4">
-              <input
-                type="file"
-                id="verification-document"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleAlumniVerificationUpload}
-              />
-              <label
-                htmlFor="verification-document"
-                className="cursor-pointer flex flex-col items-center justify-center gap-2"
-              >
-                <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                  <FileText className="h-6 w-6" />
+        <form className="space-y-3" onSubmit={handleFinalSubmit}>
+          <div className="space-y-3">
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg">
+              <h3 className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">Education</h3>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label htmlFor="branch" className="text-xs font-medium">Field of Study *</label>
+                  <input
+                    id="branch"
+                    name="branch"
+                    type="text"
+                    required
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="Computer Science"
+                    value={alumniForm.branch}
+                    onChange={handleAlumniFormChange}
+                  />
                 </div>
-                <div className="text-sm text-center">
-                  <p className="font-medium">Upload verification document</p>
-                  <p className="text-muted-foreground">Degree certificate, student ID, or other proof of alumni status</p>
+                
+                <div className="space-y-1">
+                  <label htmlFor="graduationYear" className="text-xs font-medium">Graduation Year *</label>
+                  <input
+                    id="graduationYear"
+                    name="graduationYear"
+                    type="number"
+                    min={1950}
+                    max={new Date().getFullYear()}
+                    required
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="2020"
+                    value={alumniForm.graduationYear}
+                    onChange={handleAlumniFormChange}
+                  />
                 </div>
-                <button className="mt-2 px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors">
-                  {formData.documentURL ? 'Change Document' : 'Select Document'}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="space-y-1">
+                  <label htmlFor="university" className="text-xs font-medium">University *</label>
+                  <input
+                    id="university"
+                    name="university"
+                    type="text"
+                    required
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="University name"
+                    value={alumniForm.university}
+                    onChange={handleAlumniFormChange}
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label htmlFor="college" className="text-xs font-medium">College *</label>
+                  <input
+                    id="college"
+                    name="college"
+                    type="text"
+                    required
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="College name"
+                    value={alumniForm.college}
+                    onChange={handleAlumniFormChange}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg">
+              <h3 className="text-xs font-medium text-green-800 dark:text-green-300 mb-2">Professional Information</h3>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label htmlFor="company" className="text-xs font-medium">Company</label>
+                  <input
+                    id="company"
+                    name="company"
+                    type="text"
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="E.g., Google"
+                    value={alumniForm.company}
+                    onChange={handleAlumniFormChange}
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label htmlFor="position" className="text-xs font-medium">Position</label>
+                  <input
+                    id="position"
+                    name="position"
+                    type="text"
+                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                    placeholder="E.g., Software Engineer"
+                    value={alumniForm.position}
+                    onChange={handleAlumniFormChange}
+                  />
+                </div>
+              </div>
+            </div>
+          
+            {/* Skills - Simplified */}
+            <div className="space-y-1">
+              <label htmlFor="newSkill" className="text-xs font-medium">Skills (Optional)</label>
+              <div className="flex gap-2">
+                <input
+                  id="newSkill"
+                  name="newSkill"
+                  type="text"
+                  className="flex-1 px-3 py-2 text-xs bg-background border border-input rounded-md"
+                  placeholder="Add skills (press Enter)"
+                  value={alumniForm.newSkill}
+                  onChange={handleAlumniFormChange}
+                  onKeyDown={(e) => handleKeyDown(e, false)}
+                />
+                <button
+                  type="button"
+                  onClick={() => addSkill(false)}
+                  className="px-3 py-2 text-xs bg-primary text-white rounded-md"
+                >
+                  Add
                 </button>
-              </label>
+              </div>
+              {alumniForm.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {alumniForm.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => removeSkill(skill, false)}
+                        className="ml-1 hover:text-red-500"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          
+            {/* Verification Document - Simplified */}
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label htmlFor="verification-document" className="block text-xs font-medium mb-1">
+                    Verification Document <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-500">Upload degree certificate or alumni ID</p>
+                </div>
+                <label
+                  htmlFor="verification-document"
+                  className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                    isUploading 
+                      ? "bg-gray-200 text-gray-500" 
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                  }`}
+                >
+                  {isUploading 
+                    ? "Uploading..." 
+                    : formData.documentURL 
+                      ? 'Change' 
+                      : 'Upload'}
+                </label>
+                <input
+                  type="file"
+                  id="verification-document"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleAlumniVerificationUpload}
+                  disabled={isUploading}
+                />
+              </div>
               {formData.documentURL && (
-                <div className="mt-3 flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div className="flex items-center">
-                    <FileText className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
-                    <span className="text-sm text-green-600 dark:text-green-400">Document uploaded successfully</span>
-                  </div>
-                  <button
-                    onClick={() => setFormData({ ...formData, documentURL: '' })}
-                    className="p-1 rounded-full hover:bg-green-100 dark:hover:bg-green-800/50"
-                  >
-                    <X className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </button>
+                <div className="mt-2 flex items-center p-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <FileText className="h-3 w-3 text-green-600 dark:text-green-400 mr-1.5" />
+                  <span className="text-xs text-green-600 dark:text-green-400">Document uploaded</span>
                 </div>
               )}
             </div>
           </div>
-        </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="flex-1 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-foreground rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
+              disabled={isUploading || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin h-3 w-3 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                  Creating Profile...
+                </>
+              ) : (
+                "Create Profile"
+              )}
+            </button>
+          </div>
+        </form>
       )}
 
       {/* Add this for showing completion message for alumni registration */}
@@ -1351,9 +1217,9 @@ const AuthForm = forwardRef(({
         </div>
       )}
 
-      {/* Switch between login and register forms */}
-      <div className="mt-6 text-center">
-        <p className="text-sm text-muted-foreground">
+      {/* Switch between login and register forms
+      <div className="mt-5 text-center">
+        <p className="text-xs text-muted-foreground">
           {type === "login" 
             ? "Don't have an account?" 
             : "Already have an account?"}{" "}
@@ -1364,7 +1230,7 @@ const AuthForm = forwardRef(({
             {type === "login" ? "Sign up" : "Sign in"}
           </button>
         </p>
-      </div>
+      </div> */}
     </div>
   );
 });

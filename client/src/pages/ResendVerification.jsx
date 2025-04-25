@@ -24,10 +24,10 @@ const ResendVerification = () => {
     try {
       // Create a FormData object to send the file
       const formData = new FormData();
-      formData.append('document', file);
+      formData.append('verificationDocument', file);
 
-      // Upload to your backend or a cloud storage service
-      const response = await axios.post('/api/upload/verification', formData, {
+      // Use the direct URL to the backend
+      const response = await axios.post('http://localhost:5000/api/upload/verification', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -35,11 +35,15 @@ const ResendVerification = () => {
       });
 
       // Store the document URL from the response
-      setDocumentURL(response.data.documentURL);
-      toast.success('Document uploaded successfully');
+      if (response.data && response.data.documentURL) {
+        setDocumentURL(response.data.documentURL);
+        toast.success('Document uploaded successfully');
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       console.error('Error uploading document:', error);
-      toast.error('Failed to upload document');
+      toast.error(error.response?.data?.message || 'Failed to upload document');
     } finally {
       setIsUploading(false);
     }

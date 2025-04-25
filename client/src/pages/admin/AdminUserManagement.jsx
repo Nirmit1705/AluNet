@@ -12,11 +12,11 @@ import {
   User,
   GraduationCap,
   Briefcase,
-  Mail,
   Shield,
   Ban,
   AlertTriangle,
-  Clock  // Add this missing import
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,6 +28,8 @@ const AdminUserManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
 
   // Setup axios instance with authorization header
   const api = axios.create({
@@ -54,21 +56,41 @@ const AdminUserManagement = () => {
     }
     
     fetchUsers();
-  }, [navigate, filterRole, searchQuery]);
+  }, [navigate, filterRole, searchQuery, filterStatus]);
 
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
-      // Construct query parameters
+      // Construct API query parameters
       const params = {};
       if (filterRole !== 'all') params.role = filterRole;
+      if (filterStatus !== 'all') params.status = filterStatus;
       if (searchQuery) params.search = searchQuery;
       
+      console.log("Fetching users with params:", params);
+      
+      // Get users from the server
       const response = await api.get('/admin/users', { params });
       
       if (response.data) {
-        setUsers(response.data);
+        console.log("Received users data:", response.data);
+        
+        // Ensure all users have a valid status
+        const processedUsers = response.data.map(user => {
+          if (!user.status || !['active', 'inactive', 'pending'].includes(user.status)) {
+            // Set default status based on role
+            if (user.role === 'alumni') {
+              user.status = user.isVerified ? 'active' : 'pending';
+            } else {
+              user.status = 'active'; // Default for students and admins
+            }
+          }
+          return user;
+        });
+        
+        setUsers(processedUsers);
       } else {
         throw new Error('No data received from server');
       }
@@ -90,35 +112,79 @@ const AdminUserManagement = () => {
     navigate('/admin-dashboard');
   };
   
+  // Update the toggleUserStatus function to persist changes to the database
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      await api.put(`/admin/users/${userId}/status`, { status: newStatus });
+      let newStatus;
       
-      // Update the user in the local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user._id === userId ? { ...user, status: newStatus } : user
-        )
-      );
+      // Handle unknown status by defaulting to 'active'
+      if (!currentStatus || currentStatus === 'unknown' || !['active', 'inactive', 'pending'].includes(currentStatus)) {
+        currentStatus = 'active';
+      }
       
-      toast.success(`User status updated to ${newStatus}`);
+      // Cycle through statuses: active -> inactive -> pending -> active
+      if (currentStatus === 'active') {
+        newStatus = 'inactive';
+      } else if (currentStatus === 'inactive') {
+        newStatus = 'pending';
+      } else {
+        newStatus = 'active';
+      }
+      
+      console.log(`Client: Updating user ${userId} status from ${currentStatus} to ${newStatus}`);
+      
+      // Call API to update user status in the database
+      const response = await api.put(`/admin/users/${userId}/status`, { 
+        status: newStatus 
+      });
+      
+      console.log('API Response:', response.data);
+      
+      if (response.data && response.data.user) {
+        // Update the user in the local state with the data from the server
+        setUsers(prevUsers => 
+          prevUsers.map(user => {
+            if (user._id === userId) {
+              console.log(`Updating local user state for ${user.name}:`, {
+                oldStatus: user.status,
+                newStatus: response.data.user.status
+              });
+              return { 
+                ...user, 
+                status: response.data.user.status,
+                // If the user is alumni, also update the isVerified property accordingly
+                ...(user.role === 'alumni' && { isVerified: response.data.user.isVerified })
+              };
+            }
+            return user;
+          })
+        );
+        
+        toast.success(`User status updated to ${response.data.user.status}`);
+        
+        // Force refetch to ensure we have the latest data
+        setTimeout(() => fetchUsers(), 1000);
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       console.error("Error updating user status:", error);
-      toast.error("Failed to update user status");
+      toast.error(error.response?.data?.message || "Failed to update user status");
     }
   };
-  
+
   const deleteUser = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
       try {
+        // Call API to delete the user
         await api.delete(`/admin/users/${userId}`);
+        
         // Remove the user from the local state
         setUsers(prevUsers => prevUsers.filter(user => user._id !== userId));
         toast.success("User deleted successfully");
       } catch (error) {
         console.error("Error deleting user:", error);
-        toast.error("Failed to delete user");
+        toast.error(error.response?.data?.message || "Failed to delete user");
       }
     }
   };
@@ -126,19 +192,25 @@ const AdminUserManagement = () => {
   const resetPassword = async (userId) => {
     if (window.confirm("Are you sure you want to reset this user's password?")) {
       try {
+        // Call API to reset the user's password
         const response = await api.post(`/admin/users/${userId}/reset-password`);
-        toast.success(response.data.message || "Password reset successful");
+        
+        toast.success(response.data?.message || "Password reset successful");
       } catch (error) {
         console.error("Error resetting password:", error);
-        toast.error("Failed to reset password");
+        toast.error(error.response?.data?.message || "Failed to reset password");
       }
     }
   };
   
   const viewUserDetails = (userId) => {
-    // Navigate to a detailed user view 
-    // This would be implemented in a real application
-    navigate(`/admin/users/${userId}`);
+    // In a real app, this would navigate to a detailed user view
+    const user = users.find(u => u._id === userId);
+    if (user) {
+      toast.info(`Viewing details for ${user.name}`);
+      // For now, we'll just show a modal or alert with user details
+      alert(`User Details for ${user.name}:\nEmail: ${user.email}\nRole: ${user.role}\nStatus: ${user.status}\nJoined: ${formatDate(user.createdAt)}`);
+    }
   };
 
   return (
@@ -171,8 +243,60 @@ const AdminUserManagement = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex items-center">
-            <Filter className="h-4 w-4 text-gray-500 mr-2" />
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setStatusFilterOpen(!statusFilterOpen)}
+              >
+                <Filter className="h-4 w-4 text-gray-500" />
+                <span>Status: {filterStatus === 'all' ? 'All' : filterStatus}</span>
+              </button>
+              
+              {statusFilterOpen && (
+                <div className="absolute left-0 mt-1 z-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg w-48">
+                  <div className="p-2">
+                    <button
+                      className={`w-full text-left px-3 py-1.5 rounded-md ${filterStatus === 'all' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                      onClick={() => {
+                        setFilterStatus('all');
+                        setStatusFilterOpen(false);
+                      }}
+                    >
+                      All Statuses
+                    </button>
+                    <button
+                      className={`w-full text-left px-3 py-1.5 rounded-md ${filterStatus === 'active' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                      onClick={() => {
+                        setFilterStatus('active');
+                        setStatusFilterOpen(false);
+                      }}
+                    >
+                      Active
+                    </button>
+                    <button
+                      className={`w-full text-left px-3 py-1.5 rounded-md ${filterStatus === 'inactive' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                      onClick={() => {
+                        setFilterStatus('inactive');
+                        setStatusFilterOpen(false);
+                      }}
+                    >
+                      Inactive
+                    </button>
+                    <button
+                      className={`w-full text-left px-3 py-1.5 rounded-md ${filterStatus === 'pending' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                      onClick={() => {
+                        setFilterStatus('pending');
+                        setStatusFilterOpen(false);
+                      }}
+                    >
+                      Pending
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <select 
               className="pl-2 pr-8 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
               value={filterRole}
@@ -183,6 +307,14 @@ const AdminUserManagement = () => {
               <option value="alumni">Alumni</option>
               <option value="admin">Admins</option>
             </select>
+            
+            <button
+              onClick={fetchUsers}
+              className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+              title="Refresh users list"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
           </div>
         </div>
         
@@ -277,7 +409,9 @@ const AdminUserManagement = () => {
                           ) : (
                             <Ban className="h-3 w-3 mr-1" />
                           )}
-                          {user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : 'Unknown'}
+                          {user.status === 'active' ? 'Active' : 
+                           user.status === 'pending' ? 'Pending' : 
+                           user.status === 'inactive' ? 'Inactive' : 'Unknown'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -296,25 +430,38 @@ const AdminUserManagement = () => {
                             <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-700">
                               <div className="py-1">
                                 <button
-                                  onClick={() => viewUserDetails(user._id)}
+                                  onClick={() => {
+                                    setActionMenuOpen(null);
+                                    viewUserDetails(user._id);
+                                  }}
                                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                                 >
                                   View Details
                                 </button>
                                 <button
-                                  onClick={() => toggleUserStatus(user._id, user.status)}
+                                  onClick={() => {
+                                    setActionMenuOpen(null);
+                                    toggleUserStatus(user._id, user.status || 'active');
+                                  }}
                                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                                 >
-                                  {user.status === 'active' ? 'Deactivate User' : 'Activate User'}
+                                  {user.status === 'active' ? 'Deactivate User' : 
+                                   user.status === 'inactive' ? 'Mark as Pending' : 'Activate User'}
                                 </button>
                                 <button
-                                  onClick={() => resetPassword(user._id)}
+                                  onClick={() => {
+                                    setActionMenuOpen(null);
+                                    resetPassword(user._id);
+                                  }}
                                   className="block w-full text-left px-4 py-2 text-sm text-blue-700 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                 >
                                   Reset Password
                                 </button>
                                 <button
-                                  onClick={() => deleteUser(user._id)}
+                                  onClick={() => {
+                                    setActionMenuOpen(null);
+                                    deleteUser(user._id);
+                                  }}
                                   className="block w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                 >
                                   Delete User

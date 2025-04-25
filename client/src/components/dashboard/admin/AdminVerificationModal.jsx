@@ -8,35 +8,36 @@ const AdminVerificationModal = ({ isOpen, verification, onClose, onApprove, onRe
 
   if (!isOpen || !verification) return null;
 
-  // Ensure the correct verification ID is used for API calls
+  // Handle approve verification
   const handleApprove = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     try {
-      setIsSubmitting(true);
       await onApprove(verification._id);
-      setIsSubmitting(false);
+      toast.success("Verification approved successfully");
     } catch (error) {
-      setIsSubmitting(false);
       console.error("Error approving verification:", error);
-      // Handle error
+      toast.error("Failed to approve verification");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Handle reject verification
   const handleReject = async () => {
+    if (isSubmitting || !rejectReason) return;
+    setIsSubmitting(true);
+    
     try {
-      if (!rejectReason.trim()) {
-        alert("Please provide a reason for rejection");
-        return;
-      }
-      setIsSubmitting(true);
-      // Pass both the ID and reason to the parent component
       await onReject(verification._id, rejectReason);
-      setIsRejecting(false);
-      setIsSubmitting(false);
-      setRejectReason('');
+      toast.success("Verification rejected successfully");
     } catch (error) {
-      setIsSubmitting(false);
       console.error("Error rejecting verification:", error);
-      // Handle error
+      toast.error("Failed to reject verification");
+    } finally {
+      setIsSubmitting(false);
+      setIsRejecting(false);
     }
   };
 

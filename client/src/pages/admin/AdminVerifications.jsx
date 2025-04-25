@@ -2,22 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import {
-  Shield,
-  Search,
-  Filter,
-  ChevronLeft,
-  X,
-  CheckCircle,
-  XCircle,
-  FileText,
-  Download,
-  User,
-  Briefcase,
-  GraduationCap,
-  AlertTriangle,
-  RefreshCw
-} from 'lucide-react';
+import { ChevronLeft, Calendar, Search, Filter, RefreshCw, X, XCircle, CheckCircle, Users, AlertTriangle, Shield, FileText, User, GraduationCap, Briefcase, Building, Mail } from "lucide-react";
 import AdminVerificationModal from '../../components/dashboard/admin/AdminVerificationModal';
 
 const AdminVerifications = () => {
@@ -95,9 +80,13 @@ const AdminVerifications = () => {
 
   const handleApprove = async (id) => {
     try {
+      console.log(`Approving verification: ${id}`);
+      
       const response = await api.put(`/admin/verifications/${id}`, { 
         status: 'approved'
       });
+      
+      console.log("Server response:", response.data);
       
       // Update UI
       setVerifications(prev => 
@@ -108,7 +97,7 @@ const AdminVerifications = () => {
       toast.success("Verification approved successfully");
       
       // Refresh data
-      fetchVerifications();
+      setTimeout(() => fetchVerifications(), 1000);
     } catch (error) {
       console.error("Error approving verification:", error);
       toast.error(error.response?.data?.message || "Failed to approve verification");
@@ -117,10 +106,14 @@ const AdminVerifications = () => {
 
   const handleReject = async (id, rejectReason) => {
     try {
+      console.log(`Rejecting verification: ${id} with reason: ${rejectReason}`);
+      
       const response = await api.put(`/admin/verifications/${id}`, { 
         status: 'rejected',
         rejectionReason: rejectReason
       });
+      
+      console.log("Server response:", response.data);
       
       // Update UI
       setVerifications(prev => 
@@ -131,7 +124,7 @@ const AdminVerifications = () => {
       toast.success("Verification rejected");
       
       // Refresh data
-      fetchVerifications();
+      setTimeout(() => fetchVerifications(), 1000);
     } catch (error) {
       console.error("Error rejecting verification:", error);
       toast.error(error.response?.data?.message || "Failed to reject verification");
