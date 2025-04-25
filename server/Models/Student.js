@@ -140,10 +140,26 @@ const studentSchema = new mongoose.Schema({
         type: String,
         unique: true,
         sparse: true
+    },
+    // Add status field if it doesn't exist
+    status: {
+        type: String,
+        enum: ['active', 'inactive', 'pending'],
+        default: 'active'
     }
 }, {
     timestamps: true,
     collection: 'Students'
+});
+
+// Fix: Make sure we're using studentSchema (lowercase 's')
+studentSchema.pre('validate', function(next) {
+  // If status is undefined or null, set a default status
+  if (!this.status) {
+    this.status = 'active'; // Students are generally active by default
+    console.log(`Setting default status 'active' for student ${this._id}`);
+  }
+  next();
 });
 
 // Encrypt password using bcrypt

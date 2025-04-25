@@ -55,8 +55,10 @@ const formatStudentResponse = (student, includeToken = false) => {
     linkedin: student.linkedin,
     github: student.github,
     resume: student.resume,
-    assignedMentor: student.assignedMentor,
-    mentorRequests: student.mentorRequests,
+    university: student.university,
+    college: student.college,
+    graduationYear: student.graduationYear,
+    isEmailVerified: student.isEmailVerified,
   };
 
   if (includeToken) {

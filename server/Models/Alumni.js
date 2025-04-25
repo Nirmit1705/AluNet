@@ -50,12 +50,45 @@ const AlumniSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Verification status fields
+    verificationStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+    },
+    verificationDocument: {
+        url: String,
+        public_id: String,
+        filename: String
+    },
+    verificationSubmittedAt: {
+        type: Date,
+        default: null
+    },
+    verificationApprovedAt: {
+        type: Date,
+        default: null
+    },
+    verificationApprovedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+        default: null
+    },
+    verificationRejectedAt: {
+        type: Date,
+        default: null
+    },
+    verificationRejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+        default: null
+    },
+    verificationRejectionReason: {
+        type: String,
+        default: ''
+    },
     emailVerificationToken: {
         type: String,
-        select: false
-    },
-    emailVerificationExpires: {
-        type: Date,
         select: false
     },
     // Password reset fields
@@ -140,6 +173,37 @@ const AlumniSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Set default status for any alumni document
+AlumniSchema.pre('validate', function(next) {
+  console.log(`Alumni pre-validate hook running for ${this._id}`);
+  
+  // If status is undefined or null, set a default status
+  if (!this.status) {
+    this.status = this.isVerified ? 'active' : 'pending';
+    console.log(`Setting default status '${this.status}' for alumni ${this._id}`);
+  }
+  
+  // Ensure isVerified field exists and is consistent with status
+  if (this.status === 'active' && !this.isVerified) {
+    this.isVerified = true;
+    console.log(`Setting isVerified to true for active alumni ${this._id}`);
+  }
+  
+  // Also check verificationStatus for consistency 
+  if (this.verificationStatus === 'approved' && !this.isVerified) {
+    this.isVerified = true;
+    console.log(`Setting isVerified to true based on verificationStatus for alumni ${this._id}`);
+  }
+  
+  // If verified, ensure status is active
+  if (this.isVerified && this.status !== 'active') {
+    this.status = 'active';
+    console.log(`Setting status to active for verified alumni ${this._id}`);
+  }
+  
+  next();
+});
+
 // Encrypt password using bcrypt
 AlumniSchema.pre('save', async function(next) {
     if (!this.isModified('password')) {
@@ -194,6 +258,12 @@ AlumniSchema.pre(/^find/, function(next) {
     }
     next();
     // CRITICAL: Ensures deleted records aren't accidentally accessed
+});
+
+// Add this logging middleware to see exactly what's being validated
+AlumniSchema.pre('validate', function(next) {
+  console.log('Validating alumni with data:', this.toObject());
+  next();
 });
 
 // Add indexes for better search performance

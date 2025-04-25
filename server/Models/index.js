@@ -1,12 +1,21 @@
-const mongoose = require('mongoose');
+import Student from './Student.js';
+import Alumni from './Alumni.js';
+import Message from './Message.js';
+import JobPosting from './JobPosting.js';
+import Mentorship from './Mentorship.js';
+import MentorshipSession from './MentorshipSession.js';
+import MentorshipFeedback from './MentorshipFeedback.js';
+import Notification from './Notification.js';
+import Admin from './Admin.js';
 
-const Student = require('./Student');
-const Alumni = require('./Alumni');
-const Message = require('./Message');
-const JobPosting = require('./JobPosting');
-const Mentorship = require('./Mentorship');
-const MentorshipSession = require('./MentorshipSession');
-const MentorshipFeedback = require('./MentorshipFeedback');
-const Notification = require('./Notification');
-
-module.exports = { Student, Alumni, Message, JobPosting, Mentorship,MentorshipSession ,MentorshipFeedback,Notification};
+export {
+  Student,
+  Alumni,
+  Message,
+  JobPosting,
+  Mentorship,
+  MentorshipSession,
+  MentorshipFeedback,
+  Notification,
+  Admin
+};

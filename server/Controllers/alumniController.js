@@ -1,110 +1,176 @@
 import asyncHandler from "express-async-handler";
 import Alumni from "../Models/Alumni.js";
+import VerificationRequest from "../Models/VerificationRequest.js";
 import { formatAlumniResponse } from "../Utils/responseFormatter.js";
 import { generateToken } from "../Utils/generateToken.js";
 import { uploadProfilePicture, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
 // @desc    Register a new alumni
 // @route   POST /api/alumni/register
 // @access  Public
 const registerAlumni = asyncHandler(async (req, res) => {
-  const { name, email, phone, graduationYear, University, College, degree, specialization, currentPosition, company, linkedin, experience, skills, mentorshipAvailable, bio } = req.body;
-
-  const alumniExists = await Alumni.findOne({ email });
-
-  if (alumniExists) {
-    res.status(400);
-    throw new Error("Alumni already registered");
-  }
-
-  const alumni = await Alumni.create({
-    name,
-    email,
-    phone,
-    graduationYear,
-    University,
-    College,
-    degree,
-    specialization,
-    currentPosition,
-    company,
-    linkedin,
-    experience,
-    skills,
-    mentorshipAvailable,
-    bio,
-  });
-
-  if (alumni) {
-    res.status(201).json(formatAlumniResponse(alumni, true));
-  } else {
-    res.status(400);
-    throw new Error("Invalid alumni data");
-  }
-});
-
-// Replace or modify your existing registerAlumniWithGoogle function
-const registerAlumniWithGoogle = asyncHandler(async (req, res) => {
   const { 
     name, 
     email, 
-    googleId, 
+    password, 
+    phone, 
     graduationYear, 
-    branch, 
+    branch,
     university, 
-    college, 
-    company, 
-    position,
-    skills 
+    college,
+    currentPosition, 
+    company,
+    documentURL 
   } = req.body;
 
+  console.log("Registration request body:", req.body);
+
+  // Check if alumni exists
+  const alumniExists = await Alumni.findOne({ email });
+  if (alumniExists) {
+    res.status(400);
+    throw new Error("Email already registered");
+  }
+
+  // Create alumni with unverified status
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
   try {
-    // Check if alumni already exists with this email or Google ID
-    const alumniExists = await Alumni.findOne({ 
-      $or: [{ email }, { googleId }] 
-    });
-
-    if (alumniExists) {
-      res.status(400);
-      throw new Error("Alumni already registered with this email or Google account");
-    }
-
-    // Create alumni document WITHOUT password validation
-    const alumni = new Alumni({
+    const alumni = await Alumni.create({
       name,
       email,
-      googleId,
+      password: hashedPassword,
+      phone: phone || "",
       graduationYear,
       branch,
-      university,
-      college,
+      university: university || "",
+      college: college || "",
+      currentPosition: currentPosition || "",
       company: company || "",
-      position: position || "",
-      skills: skills || [],
-      isEmailVerified: true // Skip email verification for Google accounts
+      verificationStatus: 'pending',
     });
 
-    // Save manually to bypass password validation
-    await alumni.save({ validateBeforeSave: false });
-
     if (alumni) {
+      // Create verification request
+      const verificationRequest = await VerificationRequest.create({
+        name,
+        email,
+        phone: phone || "",
+        university: university || "",
+        degree: "Not Specified",
+        branch,
+        graduationYear,
+        currentCompany: company || "",
+        currentRole: currentPosition || "",
+        documentURL,
+        userId: alumni._id,
+        status: 'pending'
+      });
+
       res.status(201).json({
         _id: alumni._id,
         name: alumni.name,
         email: alumni.email,
         token: generateToken(alumni._id),
-        isEmailVerified: alumni.isEmailVerified
+        isVerified: false,
+        status: 'pending',
+        role: 'alumni'
       });
     } else {
       res.status(400);
       throw new Error("Invalid alumni data");
     }
   } catch (error) {
-    console.error("Error creating alumni with Google:", error.message);
-    res.status(400);
+    console.error("Error creating alumni:", error);
+    res.status(500);
     throw new Error(error.message);
   }
+});
+
+// @desc    Check verification status
+// @route   GET /api/alumni/verification-status
+// @access  Private
+const checkVerificationStatus = asyncHandler(async (req, res) => {
+  const alumni = await Alumni.findById(req.user._id);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error("Alumni not found");
+  }
+  
+  // Get the verification request for more details
+  const verificationRequest = await VerificationRequest.findOne({ userId: alumni._id }).sort({ createdAt: -1 });
+  
+  // Ensure consistency between alumni model and verification request
+  let needsSync = false;
+  if (verificationRequest) {
+    if (verificationRequest.status === 'approved' && !alumni.isVerified) {
+      alumni.isVerified = true;
+      alumni.verificationStatus = 'approved';
+      alumni.status = 'active';
+      needsSync = true;
+    } else if (verificationRequest.status === 'rejected' && 
+              (alumni.verificationStatus !== 'rejected' || alumni.isVerified)) {
+      alumni.isVerified = false;
+      alumni.verificationStatus = 'rejected';
+      alumni.status = 'inactive';
+      needsSync = true;
+    }
+    
+    if (needsSync) {
+      console.log(`Syncing alumni ${alumni._id} with latest verification request status: ${verificationRequest.status}`);
+      await alumni.save();
+    }
+  }
+  
+  res.json({
+    isVerified: alumni.isVerified,
+    status: alumni.status || (alumni.isVerified ? 'active' : 'pending'),
+    verificationStatus: alumni.verificationStatus || (alumni.isVerified ? 'approved' : 'pending'),
+    rejectionReason: verificationRequest?.rejectionReason || alumni.verificationRejectionReason || null,
+    requestDate: verificationRequest?.createdAt || null
+  });
+});
+
+// @desc    Resend verification
+// @route   POST /api/alumni/resend-verification
+// @access  Private
+const resendVerification = asyncHandler(async (req, res) => {
+  const { documentURL } = req.body;
+  const alumni = await Alumni.findById(req.user._id);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error("Alumni not found");
+  }
+  
+  // Create new verification request
+  const verificationRequest = await VerificationRequest.create({
+    name: alumni.name,
+    email: alumni.email,
+    phone: alumni.phone,
+    university: alumni.university,
+    degree: alumni.degree,
+    branch: alumni.branch,
+    graduationYear: alumni.graduationYear,
+    currentCompany: alumni.currentCompany,
+    currentRole: alumni.currentRole,
+    documentURL,
+    userId: alumni._id,
+    status: 'pending'
+  });
+  
+  // Update alumni status to pending
+  alumni.status = 'pending';
+  await alumni.save();
+  
+  res.status(200).json({
+    message: "Verification request submitted successfully",
+    requestId: verificationRequest._id
+  });
 });
 
 // @desc    Auth user & get token
@@ -362,16 +428,79 @@ const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Submit verification document
+// @route   POST /api/alumni/submit-verification
+// @access  Private (alumni only)
+const submitVerificationDocument = asyncHandler(async (req, res) => {
+  // Use the uploadVerificationDocument middleware
+  uploadVerificationDocument(req, res, async (err) => {
+    if (err) {
+      res.status(400);
+      throw new Error(err.message);
+    }
+
+    // Check if file exists
+    if (!req.file) {
+      res.status(400);
+      throw new Error('Please upload a verification document (PDF only)');
+    }
+
+    try {
+      const alumni = await Alumni.findById(req.user._id);
+      
+      if (!alumni) {
+        res.status(404);
+        throw new Error('Alumni not found');
+      }
+      
+      // Update alumni record with document info
+      alumni.verificationDocument = {
+        url: req.file.path,
+        publicId: req.file.filename
+      };
+      alumni.verificationStatus = 'pending';
+      
+      await alumni.save();
+      
+      res.json({
+        success: true,
+        message: 'Verification document uploaded successfully',
+        documentUrl: req.file.path
+      });
+    } catch (error) {
+      res.status(500);
+      throw new Error(`Error uploading document: ${error.message}`);
+    }
+  });
+});
+
+// @desc    Get alumni by ID
+// @route   GET /api/alumni/:id
+// @access  Public
+const getAlumniById = asyncHandler(async (req, res) => {
+  const alumni = await Alumni.findById(req.params.id);
+  
+  if (alumni) {
+    res.json(formatAlumniResponse(alumni));
+  } else {
+    res.status(404);
+    throw new Error("Alumni not found");
+  }
+});
+
 export {
   registerAlumni,
-  registerAlumniWithGoogle, // Add this export
-  authAlumni,
+  authAlumni as loginAlumni, // Fix: Export authAlumni as loginAlumni
   getAlumniProfile,
   updateAlumniProfile,
   getAllAlumni,
+  getAlumniById, // Now properly defined
   deleteAlumni,
-  searchAlumni,
-  getAlumniByBatch,
   getAlumniByCompany,
   uploadAlumniProfilePicture,
+  checkVerificationStatus,
+  resendVerification,
+  searchAlumni,
+  getAlumniByBatch,
+  submitVerificationDocument
 };
