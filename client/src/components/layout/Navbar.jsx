@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Moon, Sun, User, MessageSquare, Briefcase, BarChart2, GraduationCap, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Menu, X, Moon, Sun, User, MessageSquare, Briefcase, BarChart2, GraduationCap, ChevronDown, LogOut, Settings, Shield } from "lucide-react";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +64,8 @@ const Navbar = () => {
       window.location.href = "/";
     } else if (currentRole === "student") {
       navigate("/student-dashboard");
+    } else if (currentRole === "admin") {
+      navigate("/admin-dashboard");
     } else {
       navigate("/alumni-dashboard");
     }
@@ -237,6 +239,11 @@ const Navbar = () => {
                               <>
                                 <User className="h-4 w-4" />
                                 <span>Student</span>
+                              </>
+                            ) : userRole === "admin" ? (
+                              <>
+                                <Shield className="h-4 w-4" />
+                                <span>Admin</span>
                               </>
                             ) : (
                               <>

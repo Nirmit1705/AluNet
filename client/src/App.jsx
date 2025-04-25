@@ -9,6 +9,7 @@ import Index from "./pages/Index.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import StudentDashboard from "./pages/StudentDashboard.jsx";
 import AlumniDashboard from "./pages/AlumniDashboard.jsx";
+import AdminDashboard from "./pages/AdminDashboard";
 import MentoredStudentsPage from "./pages/MentoredStudentsPage.jsx";
 import ConnectionsPage from "./pages/ConnectionsPage.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -30,42 +31,45 @@ import ResendVerification from './pages/ResendVerification';
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <UniversityProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/student-dashboard" element={<StudentDashboard />} />
-            <Route path="/alumni-dashboard" element={<AlumniDashboard />} />
-            <Route path="/mentored-students" element={<MentoredStudentsPage />} />
-            <Route path="/connections" element={<ConnectionsPage />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/messages/:userId" element={<Messages />} />
-            <Route path="/jobs" element={<Jobs />} />
-            <Route path="/student-connections" element={<StudentConnectionsPage />} />
-            <Route path="/mentorship-requests" element={<MentorshipRequestsPage />} />
-            <Route path="/current-mentees" element={<CurrentMenteesPage />} />
-            <Route path="/mentored-students-history" element={<MentoredStudentsHistoryPage />} />
-            <Route path="/connected-mentors" element={<ConnectedMentorsPage />} />
-            <Route path="/alumni-directory" element={<AlumniDirectory />} />
-            <Route path="/mock-login" element={<MockLogin />} />
-            <Route path="/mentorships" element={<MentorshipsPage />} />
-            <Route path="/mentees" element={<MenteesListPage />} />
-            <Route path="/alumni-job-board" element={<AlumniJobBoard />} />
-            <Route path="/verification-pending" element={<VerificationPending />} />
-            <Route path="/resend-verification" element={<ResendVerification />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Router>
-      </UniversityProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <UniversityProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/student-dashboard" element={<StudentDashboard />} />
+              <Route path="/alumni-dashboard" element={<AlumniDashboard />} />
+              <Route path="/admin-dashboard" element={<AdminDashboard />} />
+              <Route path="/mentored-students" element={<MentoredStudentsPage />} />
+              <Route path="/connections" element={<ConnectionsPage />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:userId" element={<Messages />} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/student-connections" element={<StudentConnectionsPage />} />
+              <Route path="/mentorship-requests" element={<MentorshipRequestsPage />} />
+              <Route path="/current-mentees" element={<CurrentMenteesPage />} />
+              <Route path="/mentored-students-history" element={<MentoredStudentsHistoryPage />} />
+              <Route path="/connected-mentors" element={<ConnectedMentorsPage />} />
+              <Route path="/alumni-directory" element={<AlumniDirectory />} />
+              <Route path="/mock-login" element={<MockLogin />} />
+              <Route path="/mentorships" element={<MentorshipsPage />} />
+              <Route path="/mentees" element={<MenteesListPage />} />
+              <Route path="/alumni-job-board" element={<AlumniJobBoard />} />
+              <Route path="/verification-pending" element={<VerificationPending />} />
+              <Route path="/resend-verification" element={<ResendVerification />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Router>
+        </UniversityProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

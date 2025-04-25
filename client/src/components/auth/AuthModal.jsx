@@ -109,16 +109,18 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
         )}
 
         <div className="px-8 py-10">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold">
-              {type === "login" ? "Welcome Back" : "Create Account"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {type === "login"
-                ? "Enter your credentials to access your account"
-                : "Sign up to connect with alumni and find mentors"}
-            </p>
-          </div>
+          {!authMethod && !isWaitingForGoogle && (
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold">
+                {type === "login" ? "Welcome Back" : "Create Account"}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {type === "login"
+                  ? "Enter your credentials to access your account"
+                  : "Sign up to connect with alumni and find mentors"}
+              </p>
+            </div>
+          )}
 
           {!authMethod && !isWaitingForGoogle && (
             <>

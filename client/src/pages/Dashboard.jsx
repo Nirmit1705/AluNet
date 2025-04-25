@@ -15,7 +15,7 @@ const Dashboard = () => {
     // In a real app, this would check authentication state
     // For demo, we'll check localStorage, which would be set during login
     const storedRole = localStorage.getItem("userRole");
-    if (storedRole === "student" || storedRole === "alumni") {
+    if (storedRole === "student" || storedRole === "alumni" || storedRole === "admin") {
       setUserRole(storedRole);
     } else {
       // Don't automatically set a role if none exists
@@ -40,6 +40,8 @@ const Dashboard = () => {
     return <Navigate to="/student-dashboard" replace />;
   } else if (userRole === "alumni") {
     return <Navigate to="/alumni-dashboard" replace />;
+  } else if (userRole === "admin") {
+    return <Navigate to="/admin-dashboard" replace />;
   }
 
   // If no role is set, show the dashboard selection UI
@@ -56,7 +58,7 @@ const Dashboard = () => {
           <p className="text-lg text-muted-foreground mb-4">
             Please select which dashboard you'd like to view:
           </p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4 justify-center">
             <button
               onClick={() => {
                 localStorage.setItem("userRole", "student");
@@ -74,6 +76,15 @@ const Dashboard = () => {
               className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-600/90 transition-colors"
             >
               Alumni Dashboard
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem("userRole", "admin");
+                navigate("/admin-dashboard");
+              }}
+              className="px-6 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-700/90 transition-colors"
+            >
+              Admin Dashboard
             </button>
           </div>
         </div>
