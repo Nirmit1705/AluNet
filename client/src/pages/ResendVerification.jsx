@@ -1,150 +1,178 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Mail, ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Upload, FileText, X, CheckCircle } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 const ResendVerification = () => {
-  const [email, setEmail] = useState(localStorage.getItem("userEmail") || "");
-  const [role, setRole] = useState(localStorage.getItem("userRole") || "student");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const [documentURL, setDocumentURL] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleGoBack = () => {
+    navigate('/verification-pending');
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append('document', file);
+
+      // Upload to your backend or a cloud storage service
+      const response = await axios.post('/api/upload/verification', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      // Store the document URL from the response
+      setDocumentURL(response.data.documentURL);
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast.error('Failed to upload document');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!email) {
-      toast.error("Please enter your email address");
+
+    if (!documentURL) {
+      toast.error('Please upload a verification document');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/resend-verification/${role}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast.success("Verification email sent! Please check your inbox.");
-        navigate("/verification-pending");
-      } else {
-        toast.error(data.message || "Failed to send verification email");
-      }
+      await axios.post('/api/alumni/resend-verification', 
+        { documentURL },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      setShowSuccess(true);
     } catch (error) {
-      console.error("Error resending verification:", error);
-      toast.error("An unexpected error occurred. Please try again later.");
+      console.error('Error submitting verification:', error);
+      toast.error('Failed to submit verification request');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-        <Link 
-          to="/verification-pending" 
-          className="inline-flex items-center text-sm text-muted-foreground mb-6 hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
-        </Link>
-        
-        <div className="mb-6 flex justify-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Mail className="w-8 h-8 text-primary" />
+  if (showSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="container-custom max-w-lg">
+          <div className="glass-card rounded-xl p-8 text-center">
+            <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="h-10 w-10" />
+            </div>
+            <h2 className="text-2xl font-bold mb-4">Verification Submitted</h2>
+            <p className="text-muted-foreground mb-8">
+              Your alumni verification request has been submitted successfully. 
+              Our administrators will review your submission and you'll receive an email once your account is verified.
+            </p>
+            <button
+              onClick={() => navigate('/verification-pending')}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Return to Status Page
+            </button>
           </div>
         </div>
-        
-        <h1 className="text-2xl font-bold mb-2 text-center">Resend Verification Email</h1>
-        
-        <p className="text-muted-foreground mb-6 text-center">
-          Enter your email address and we'll send you a new verification link.
-        </p>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-              placeholder="name@example.com"
-              required
-            />
-          </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="container-custom max-w-lg">
+        <div className="glass-card rounded-xl p-8">
+          <button 
+            onClick={handleGoBack}
+            className="absolute top-4 left-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Account Type</label>
-            <div className="grid grid-cols-2 gap-4 pt-1">
-              <div
-                className={`flex items-center border ${
-                  role === "student" 
-                    ? "border-primary bg-primary/5" 
-                    : "border-gray-200 dark:border-gray-700"
-                } rounded-md p-3 cursor-pointer transition-colors`}
-                onClick={() => setRole("student")}
-              >
+          <h2 className="text-2xl font-bold mb-4 text-center">Resend Verification</h2>
+          <p className="text-muted-foreground mb-8 text-center">
+            Please submit a new verification document. This should be a degree certificate, 
+            student ID, or other proof of your alumni status.
+          </p>
+          
+          <form onSubmit={handleSubmit}>
+            <div className="mb-6">
+              <label htmlFor="verification-document" className="block text-sm font-medium mb-1">
+                Verification Document <span className="text-red-500">*</span>
+              </label>
+              <div className="border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4">
                 <input
-                  type="radio"
-                  id="student-role"
-                  name="role"
-                  checked={role === "student"}
-                  onChange={() => setRole("student")}
-                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                  type="file"
+                  id="verification-document"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileUpload}
                 />
                 <label
-                  htmlFor="student-role"
-                  className="ml-2 block text-sm font-medium cursor-pointer"
+                  htmlFor="verification-document"
+                  className="cursor-pointer flex flex-col items-center justify-center gap-2"
                 >
-                  Student
+                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div className="text-sm text-center">
+                    <p className="font-medium">Upload verification document</p>
+                    <p className="text-muted-foreground">PDF, JPG, or PNG (max 5MB)</p>
+                  </div>
+                  <button type="button" className="mt-2 px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors">
+                    {documentURL ? 'Change Document' : 'Select Document'}
+                  </button>
                 </label>
-              </div>
-              <div
-                className={`flex items-center border ${
-                  role === "alumni" 
-                    ? "border-primary bg-primary/5" 
-                    : "border-gray-200 dark:border-gray-700"
-                } rounded-md p-3 cursor-pointer transition-colors`}
-                onClick={() => setRole("alumni")}
-              >
-                <input
-                  type="radio"
-                  id="alumni-role"
-                  name="role"
-                  checked={role === "alumni"}
-                  onChange={() => setRole("alumni")}
-                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
-                />
-                <label
-                  htmlFor="alumni-role"
-                  className="ml-2 block text-sm font-medium cursor-pointer"
-                >
-                  Alumni
-                </label>
+                {documentURL && (
+                  <div className="mt-3 flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-center">
+                      <FileText className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
+                      <span className="text-sm text-green-600 dark:text-green-400">Document uploaded successfully</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDocumentURL('')}
+                      className="p-1 rounded-full hover:bg-green-100 dark:hover:bg-green-800/50"
+                    >
+                      <X className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full button-primary py-2.5 relative overflow-hidden group"
-            disabled={isSubmitting}
-          >
-            <span className="relative z-10">
-              {isSubmitting ? "Sending..." : "Resend Verification Email"}
-            </span>
-            <div className="absolute inset-0 bg-white/10 translate-y-[101%] group-hover:translate-y-0 transition-transform duration-300"></div>
-          </button>
-        </form>
+            
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isUploading || isSubmitting || !documentURL}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Verification'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

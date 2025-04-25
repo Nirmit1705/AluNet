@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Moon, Sun, User, MessageSquare, Briefcase, BarChart2, GraduationCap, ChevronDown, LogOut, Settings, Shield } from "lucide-react";
+import { Menu, X, Moon, Sun, User, MessageSquare, Briefcase, BarChart2, GraduationCap, ChevronDown, LogOut, Settings, Shield, FileCheck, Users } from "lucide-react";
+import { toast } from "sonner";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +55,7 @@ const Navbar = () => {
     return localStorage.getItem("userRole") || "student";
   });
 
-  // Navigate to dashboard based on role
+  // Update the goToDashboard function to handle admin routes properly
   const goToDashboard = () => {
     const currentRole = localStorage.getItem("userRole");
     setUserMenuOpen(false);
@@ -76,14 +77,17 @@ const Navbar = () => {
     // Disable any auto-redirect temporarily
     setUserMenuOpen(false);
     
+    // Clear ALL auth-related items from localStorage
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userName");
+    
     // First show the confirmation message
-    alert("You have been signed out successfully");
+    toast.success("You have been signed out successfully");
     
     // Use window.location directly for a clean redirect to landing page
     window.location.href = "/";
-    
-    // Clear local storage after navigation has been initiated
-    localStorage.removeItem("userRole");
   };
   
   // Toggle settings modal
@@ -270,6 +274,30 @@ const Navbar = () => {
                           <span>Sign out</span>
                         </button>
                       </div>
+                      {userRole === "admin" && (
+                        <>
+                          <button 
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              navigate("/admin/verifications");
+                            }}
+                            className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <FileCheck className="h-4 w-4" />
+                            <span>Verifications</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              navigate("/admin/users");
+                            }}
+                            className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Users className="h-4 w-4" />
+                            <span>Manage Users</span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -283,9 +311,11 @@ const Navbar = () => {
                 >
                   Home
                 </Link>
+                {/* Change Link to navigation to Homepage with state parameter instead of /login */}
                 <Link 
-                  to="/login" 
-                  className={`nav-link ${isActive("/login") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
+                  to="/" 
+                  state={{ showLogin: true }}
+                  className={`nav-link text-gray-700 dark:text-gray-300`}
                 >
                   Login
                 </Link>
@@ -414,10 +444,12 @@ const Navbar = () => {
                 >
                   Home
                 </Link>
+                {/* Change Link to navigation to Homepage with state parameter instead of /login */}
                 <Link 
-                  to="/login" 
+                  to="/" 
+                  state={{ showLogin: true }}
                   onClick={() => setIsOpen(false)}
-                  className={`block py-2 ${isActive("/login") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
+                  className={`block py-2 text-gray-700 dark:text-gray-300`}
                 >
                   Login
                 </Link>

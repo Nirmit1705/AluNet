@@ -1,7 +1,10 @@
 import React, { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User, Briefcase, ChevronDown, Calendar, BookOpen, Building, School, Hash } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Briefcase, ChevronDown, Calendar, BookOpen, Building, School, Hash, FileText, X } from "lucide-react";
 import { toast } from "sonner";
+import { handleAdminLogin } from "../../utils/loginHelper";
+import { directAdminLogin } from "../../utils/adminAuth";
+import axios from "axios";
 
 // Update your AuthForm component declaration
 const AuthForm = forwardRef(({ 
@@ -24,6 +27,16 @@ const AuthForm = forwardRef(({
   const [alumniDocument, setAlumniDocument] = useState(null);
   const [documentError, setDocumentError] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [formData, setFormData] = useState({
+    branch: "",
+    university: "",
+    college: "",
+    graduationYear: "",
+    skills: [],
+    newSkill: "",
+    documentURL: ""
+  });
   const navigate = useNavigate();
   
   // Set Google auth data when it changes through props
@@ -204,76 +217,26 @@ const AuthForm = forwardRef(({
     try {
       // Check if it's admin login
       if (email === "verify@admin.com") {
+        // Use the direct admin login utility which handles everything
+        directAdminLogin(email, password);
+        return; // Important to prevent execution of the rest of the function
+      }
+      
+      // Alumni login flow
+      if (role === "alumni") {
         try {
-          console.log("Attempting admin login...");
-          
-          // First try API login
-          try {
-            // Make API call to admin login endpoint
-            const response = await fetch("http://localhost:5000/api/admin/login", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email,
-                password
-              }),
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              
-              // Store admin data and token
-              localStorage.setItem("token", data.token);
-              localStorage.setItem("userRole", "admin");
-              localStorage.setItem("userEmail", email);
-              localStorage.setItem("userName", data.name || "Admin");
-              
-              toast.success("Logged in as administrator!");
-              
-              // Call the onSuccess callback if provided
-              if (onSuccess) {
-                onSuccess();
-              }
-              
-              // Navigate to the admin dashboard
-              navigate("/admin-dashboard");
-              return;
-            }
-          } catch (apiError) {
-            console.error("API admin login failed, falling back to local:", apiError);
+          // Import and use the alumni login helper (if not already imported at the top)
+          const { handleAlumniLogin } = await import("../../utils/loginHelper.js");
+          const success = await handleAlumniLogin(navigate, email, password, onSuccess);
+          if (success) {
+            return; // The helper will handle navigation
           }
-          
-          // Fall back to local storage approach if API fails
-          if (password === "admin123") {
-            // Set admin role
-            localStorage.setItem("token", `admin-token-${Date.now()}`);
-            localStorage.setItem("userRole", "admin");
-            localStorage.setItem("userEmail", email);
-            localStorage.setItem("userName", "Admin");
-            
-            toast.success("Logged in as administrator (local)!");
-            
-            // Call the onSuccess callback if provided
-            if (onSuccess) {
-              onSuccess();
-            }
-            
-            // Navigate to the admin dashboard
-            navigate("/admin-dashboard");
-          } else {
-            toast.error("Invalid admin credentials");
-          }
-          return;
-        } catch (error) {
-          console.error("Admin login error:", error);
-          toast.error("Failed to log in as admin. Please try again.");
-          return;
+        } catch (alumniError) {
+          console.error("Alumni login attempt failed:", alumniError);
         }
       }
       
-      // Continue with existing student/alumni login logic
+      // Student login or fallback login logic
       // In a real application, this would be an API call
       const userData = {
         email,
@@ -284,10 +247,11 @@ const AuthForm = forwardRef(({
       // Simulate API call
       console.log("Logging in with:", userData);
       
-      // Store user data in localStorage (in real app, you'd store a token)
+      // Store user data in localStorage
       localStorage.setItem("token", `mock-token-${Date.now()}`);
       localStorage.setItem("userRole", role);
       localStorage.setItem("userEmail", email);
+      localStorage.setItem("userName", name || email.split('@')[0]);
       
       toast.success("Logged in successfully!");
       
@@ -296,14 +260,14 @@ const AuthForm = forwardRef(({
         onSuccess();
       }
       
-      // Navigate to the dashboard
-      navigate(role === "student" ? "/student-dashboard" : "/alumni-dashboard");
+      // Force direct navigation for all roles
+      window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to log in. Please check your credentials.");
     }
   };
-  
+
   // Add this function to validate the uploaded document
   const validateDocument = (file) => {
     if (!file) {
@@ -498,6 +462,40 @@ const AuthForm = forwardRef(({
     setStep(1);
     if (onSwitchType) {
       onSwitchType(type === "login" ? "register" : "login");
+    }
+  };
+
+  // Add this function in the appropriate location in the component
+  const handleAlumniVerificationUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append('document', file);
+
+      // Upload to your backend or a cloud storage service
+      const response = await axios.post('/api/upload/verification', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // Store the document URL from the response
+      setFormData({
+        ...formData,
+        documentURL: response.data.documentURL
+      });
+
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast.error('Failed to upload document');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -1269,33 +1267,51 @@ const AuthForm = forwardRef(({
       )}
 
       {/* Add this to the alumni registration form (step 2) */}
-      {type === "register" && step === 2 && role === "alumni" && !registrationComplete && (
-        <div className="space-y-2 mt-4">
-          <label htmlFor="alumniDocument" className="text-sm font-medium">
-            Alumni Verification Document <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <input
-              id="alumniDocument"
-              name="alumniDocument"
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              className="block w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  setAlumniDocument(e.target.files[0]);
-                  validateDocument(e.target.files[0]);
-                }
-              }}
-              required
-            />
+      {type === "register" && step === 2 && role === "alumni" && (
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="verification-document" className="block text-sm font-medium mb-1">
+              Verification Document <span className="text-red-500">*</span>
+            </label>
+            <div className="border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4">
+              <input
+                type="file"
+                id="verification-document"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleAlumniVerificationUpload}
+              />
+              <label
+                htmlFor="verification-document"
+                className="cursor-pointer flex flex-col items-center justify-center gap-2"
+              >
+                <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                  <FileText className="h-6 w-6" />
+                </div>
+                <div className="text-sm text-center">
+                  <p className="font-medium">Upload verification document</p>
+                  <p className="text-muted-foreground">Degree certificate, student ID, or other proof of alumni status</p>
+                </div>
+                <button className="mt-2 px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors">
+                  {formData.documentURL ? 'Change Document' : 'Select Document'}
+                </button>
+              </label>
+              {formData.documentURL && (
+                <div className="mt-3 flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
+                    <span className="text-sm text-green-600 dark:text-green-400">Document uploaded successfully</span>
+                  </div>
+                  <button
+                    onClick={() => setFormData({ ...formData, documentURL: '' })}
+                    className="p-1 rounded-full hover:bg-green-100 dark:hover:bg-green-800/50"
+                  >
+                    <X className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          {documentError && (
-            <p className="text-sm text-red-500 mt-1">{documentError}</p>
-          )}
-          <p className="text-xs text-muted-foreground mt-1">
-            Please upload a copy of your degree certificate, transcript, or any other document that proves you're an alumni of this institution. Supported formats: PDF, JPG, PNG (max 5MB).
-          </p>
         </div>
       )}
 
@@ -1338,7 +1354,9 @@ const AuthForm = forwardRef(({
       {/* Switch between login and register forms */}
       <div className="mt-6 text-center">
         <p className="text-sm text-muted-foreground">
-          {type === "login" ? "Don't have an account?" : "Already have an account?"}
+          {type === "login" 
+            ? "Don't have an account?" 
+            : "Already have an account?"}{" "}
           <button
             onClick={handleSwitchType}
             className="ml-1 font-medium text-primary hover:text-primary/80"

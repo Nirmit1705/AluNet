@@ -14,6 +14,11 @@ const AlumniDashboard = () => {
       try {
         const storedRole = localStorage.getItem("userRole");
         setUserRole(storedRole);
+        
+        // If role is alumni but we're not on alumni dashboard, force navigation
+        if (storedRole === "alumni" && window.location.pathname !== "/alumni-dashboard") {
+          window.location.href = "/alumni-dashboard";
+        }
       } catch (error) {
         console.error("Error retrieving user role:", error);
       } finally {
@@ -72,4 +77,4 @@ const AlumniDashboard = () => {
   );
 };
 
-export default AlumniDashboard; 
+export default AlumniDashboard;

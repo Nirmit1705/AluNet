@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import LandingNavbar from "../components/layout/LandingNavbar";
 import Hero from "../components/home/Hero";
 import AuthModal from "../components/auth/AuthModal";
@@ -8,6 +9,20 @@ import { Link } from "react-router-dom";
 const Index = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authType, setAuthType] = useState("login"); // "login" or "register"
+  const location = useLocation();
+
+  // Check if we're being redirected with auth request
+  useEffect(() => {
+    if (location.state?.showLogin) {
+      setAuthType("login");
+      setAuthModalOpen(true);
+      
+      // If it's an admin redirect, could set a flag or show a toast message
+      if (location.state.adminRedirect) {
+        // You could set additional state here or show a specific message
+      }
+    }
+  }, [location]);
 
   // Open login modal
   const openLoginModal = () => {

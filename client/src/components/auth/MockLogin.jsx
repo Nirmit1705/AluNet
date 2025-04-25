@@ -44,8 +44,8 @@ const MockLogin = () => {
     localStorage.setItem('userName', userName || 'Test User');
     localStorage.setItem('userEmail', userEmail || 'user@example.com');
     
-    // Navigate to dashboard
-    navigate(userRole === 'student' ? '/student-dashboard' : '/alumni-dashboard');
+    // Use direct window location navigation instead of React Router's navigate
+    window.location.href = userRole === 'student' ? '/student-dashboard' : '/alumni-dashboard';
   };
 
   return (
@@ -145,4 +145,4 @@ const MockLogin = () => {
   );
 };
 
-export default MockLogin; 
+export default MockLogin;

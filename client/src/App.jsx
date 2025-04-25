@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { UniversityProvider } from "./context/UniversityContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import StudentDashboard from "./pages/StudentDashboard.jsx";
@@ -29,6 +30,11 @@ import AlumniJobBoard from './components/jobs/AlumniJobBoard';
 import VerificationPending from './pages/VerificationPending';
 import ResendVerification from './pages/ResendVerification';
 
+// Admin route imports
+import AdminUserManagement from "./pages/admin/AdminUserManagement";
+import AdminVerifications from "./pages/admin/AdminVerifications";
+import AdminLogs from "./pages/admin/AdminLogs";
+
 const queryClient = new QueryClient();
 
 function App() {
@@ -40,29 +46,150 @@ function App() {
         <UniversityProvider>
           <Router>
             <Routes>
+              {/* Public routes */}
               <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/student-dashboard" element={<StudentDashboard />} />
-              <Route path="/alumni-dashboard" element={<AlumniDashboard />} />
-              <Route path="/admin-dashboard" element={<AdminDashboard />} />
-              <Route path="/mentored-students" element={<MentoredStudentsPage />} />
-              <Route path="/connections" element={<ConnectionsPage />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:userId" element={<Messages />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/student-connections" element={<StudentConnectionsPage />} />
-              <Route path="/mentorship-requests" element={<MentorshipRequestsPage />} />
-              <Route path="/current-mentees" element={<CurrentMenteesPage />} />
-              <Route path="/mentored-students-history" element={<MentoredStudentsHistoryPage />} />
-              <Route path="/connected-mentors" element={<ConnectedMentorsPage />} />
-              <Route path="/alumni-directory" element={<AlumniDirectory />} />
-              <Route path="/mock-login" element={<MockLogin />} />
-              <Route path="/mentorships" element={<MentorshipsPage />} />
-              <Route path="/mentees" element={<MenteesListPage />} />
-              <Route path="/alumni-job-board" element={<AlumniJobBoard />} />
               <Route path="/verification-pending" element={<VerificationPending />} />
               <Route path="/resend-verification" element={<ResendVerification />} />
+              <Route path="/mock-login" element={<MockLogin />} />
+              
+              {/* Protected routes with role & verification checks */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              
+              {/* Student routes */}
+              <Route path="/student-dashboard" element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentDashboard />
+                </ProtectedRoute>
+              } />
+              
+              {/* Alumni routes - require verification */}
+              <Route path="/alumni-dashboard" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <AlumniDashboard />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/mentored-students" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <MentoredStudentsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/alumni-job-board" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <AlumniJobBoard />
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin routes */}
+              <Route path="/admin-dashboard" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/verifications" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminVerifications />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/users" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminUserManagement />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/logs" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLogs />
+                </ProtectedRoute>
+              } />
+              
+              {/* Other protected routes */}
+              <Route path="/connections" element={
+                <ProtectedRoute>
+                  <ConnectionsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/messages" element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/messages/:userId" element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/jobs" element={
+                <ProtectedRoute>
+                  <Jobs />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/student-connections" element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentConnectionsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/mentorship-requests" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <MentorshipRequestsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/current-mentees" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <CurrentMenteesPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/mentored-students-history" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <MentoredStudentsHistoryPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/connected-mentors" element={
+                <ProtectedRoute requiredRole="student">
+                  <ConnectedMentorsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/alumni-directory" element={
+                <ProtectedRoute>
+                  <AlumniDirectory />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/mentorships" element={
+                <ProtectedRoute>
+                  <MentorshipsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/mentees" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <MenteesListPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Router>
