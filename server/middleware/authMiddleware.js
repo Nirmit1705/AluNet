@@ -4,11 +4,12 @@ import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
 import Admin from '../Models/Admin.js';
 
-// Protect routes - middleware to verify JWT token
+/**
+ * Protect routes - verify JWT token and set req.user
+ */
 const protect = asyncHandler(async (req, res, next) => {
   let token;
 
-  // Check if auth header exists and starts with Bearer
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       // Get token from header
@@ -17,89 +18,114 @@ const protect = asyncHandler(async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from token payload
-      if (decoded.userType === 'student') {
-        req.user = await Student.findById(decoded.id).select('-password');
-      } else if (decoded.userType === 'alumni') {
-        req.user = await Alumni.findById(decoded.id).select('-password');
-      } else if (decoded.userType === 'admin') {
-        req.user = await Admin.findById(decoded.id).select('-password');
-      } else {
-        // Handle case where no userType is specified in token
-        // Try to find user in all models
-        let user = await Student.findById(decoded.id).select('-password');
-        if (user) {
-          req.user = user;
-          req.user.role = 'student';
-        } else {
-          user = await Alumni.findById(decoded.id).select('-password');
-          if (user) {
-            req.user = user;
-            req.user.role = 'alumni';
-          } else {
-            user = await Admin.findById(decoded.id).select('-password');
-            if (user) {
-              req.user = user;
-              req.user.role = 'admin';
-            }
-          }
-        }
+      // Get user from the token
+      let user = await Student.findById(decoded.id).select('-password');
+      let userRole = 'student';
+
+      if (!user) {
+        user = await Alumni.findById(decoded.id).select('-password');
+        userRole = 'alumni';
       }
 
-      // Continue to next middleware/route handler
+      if (!user) {
+        user = await Admin.findById(decoded.id).select('-password');
+        userRole = 'admin';
+      }
+
+      if (!user) {
+        res.status(401);
+        throw new Error('Not authorized, invalid token');
+      }
+
+      // Set user and role in request
+      req.user = user;
+      req.userRole = userRole || user.role || 'user';
+      
       next();
     } catch (error) {
       console.error('Auth error:', error.message);
       res.status(401);
       throw new Error('Not authorized, token failed');
     }
-  } else {
+  }
+
+  if (!token) {
     res.status(401);
     throw new Error('Not authorized, no token');
   }
 });
 
-// Admin-only routes
+/**
+ * Admin protection middleware
+ */
 const adminProtect = asyncHandler(async (req, res, next) => {
   try {
-    // First make sure token is verified
-    if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer')) {
+    // Get token from authorization header
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      console.log("Admin auth failed: No token provided");
       res.status(401);
       throw new Error('Not authorized, no token');
     }
+
+    // Log token for debugging
+    console.log(`Admin auth token received: ${token.substring(0, 15)}...`);
     
-    const token = req.headers.authorization.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Try to find admin user
-    let admin;
-    
-    // Check if the token identifies as admin role
-    if (decoded.role === 'admin') {
-      admin = await Admin.findById(decoded.id).select('-password');
-    } else {
-      // If not explicitly an admin token, try looking up as admin
-      admin = await Admin.findById(decoded.id).select('-password');
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log(`Token decoded successfully, ID: ${decoded.id}`);
+      
+      // Get the admin user
+      const admin = await Admin.findById(decoded.id).select('-password');
+      
+      if (!admin) {
+        console.log(`Admin auth failed: No admin found with ID ${decoded.id}`);
+        
+        // Additional check - see if any admins exist
+        const adminCount = await Admin.countDocuments();
+        console.log(`Total admins in database: ${adminCount}`);
+        
+        if (adminCount > 0) {
+          // List all admin IDs to debug
+          const allAdmins = await Admin.find({}).select('_id email');
+          console.log('Available admin accounts:', allAdmins.map(a => ({ id: a._id, email: a.email })));
+        }
+        
+        res.status(403);
+        throw new Error('Not authorized as an admin');
+      }
+      
+      console.log(`Admin auth successful: ${admin.name} (${admin.email})`);
+      
+      // Set the admin user on the request object
+      req.user = admin;
+      req.user.role = 'admin';
+      
+      next();
+    } catch (jwtError) {
+      console.log(`JWT verification error: ${jwtError.message}`);
+      res.status(401);
+      throw new Error(`Token verification failed: ${jwtError.message}`);
     }
-    
-    if (!admin) {
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401);
+      throw new Error('Invalid token');
+    } else if (error.name === 'TokenExpiredError') {
+      res.status(401);
+      throw new Error('Token expired');
+    } else {
       res.status(403);
       throw new Error('Not authorized as an admin');
     }
-    
-    // Set admin user in request
-    req.user = admin;
-    req.user.role = 'admin';
-    
-    next();
-  } catch (error) {
-    console.error('Admin auth error:', error.message);
-    res.status(error.statusCode || 403);
-    throw new Error(error.message || 'Not authorized as an admin');
   }
 });
 
-// Add alias for adminProtect
+/**
+ * Admin authorization middleware (alias for adminProtect)
+ */
 const adminOnly = adminProtect;
 
 // Alumni only routes

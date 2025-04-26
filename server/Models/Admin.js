@@ -57,9 +57,20 @@ AdminSchema.pre('save', async function(next) {
   next();
 });
 
-// Match password
+// Fix the matchPassword method
 AdminSchema.methods.matchPassword = async function(enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  if (!this.password) {
+    console.error("Admin document has no password field");
+    return false;
+  }
+  
+  try {
+    // Use direct bcrypt compare for reliability
+    return await bcrypt.compare(enteredPassword, this.password);
+  } catch (error) {
+    console.error("Password comparison error:", error);
+    return false;
+  }
 };
 
 // Add this before any other middleware functions

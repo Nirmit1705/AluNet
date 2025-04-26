@@ -1,7 +1,7 @@
 import express from "express";
 import {
   registerAlumni,
-  loginAlumni,
+  authAlumni,
   getAlumniProfile,
   updateAlumniProfile,
   getAllAlumni,
@@ -20,7 +20,7 @@ const router = express.Router();
 
 // Public routes
 router.post("/register", registerAlumni);
-router.post("/login", loginAlumni);
+router.post("/login", authAlumni);
 router.get("/", getAllAlumni);
 router.get("/search", searchAlumni);
 router.get("/batch/:year", getAlumniByBatch);

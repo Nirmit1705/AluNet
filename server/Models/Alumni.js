@@ -212,28 +212,26 @@ AlumniSchema.pre('validate', function(next) {
 
 // Encrypt password using bcrypt
 AlumniSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) {
-        next();
-    }
+  if (!this.isModified('password')) {
+    return next();
+  }
 
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(new Error('Password encryption failed: ' + error.message));
-        // CRITICAL: Error handling prevents silent failures in authentication flow
-    }
+  try {
+    console.log('Hashing password for user:', this.email);
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    console.log('Password hashed successfully');
+    next();
+  } catch (error) {
+    console.error('Password encryption failed:', error.message);
+    next(error);
+  }
 });
 
 // Match user entered password to hashed password in database
+// Simplified to match the working Student model implementation
 AlumniSchema.methods.matchPassword = async function(enteredPassword) {
-    try {
-        return await bcrypt.compare(enteredPassword, this.password);
-    } catch (error) {
-        throw new Error('Password comparison failed: ' + error.message);
-        // CRITICAL: Proper error handling for authentication failures
-    }
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Update lastActive timestamp

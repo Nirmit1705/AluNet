@@ -8,156 +8,110 @@ import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import path from 'path'; // Add this import for path.basename
 
-// @desc    Register a new alumni
-// @route   POST /api/alumni/register
+// @desc    Alumni login
+// @route   POST /api/alumni/login
 // @access  Public
-const registerAlumni = asyncHandler(async (req, res) => {
-  const { 
-    name, 
-    email, 
-    password, 
-    phone, 
-    graduationYear, 
-    branch,
-    university, 
-    college,
-    currentPosition, 
-    company,
-    documentURL 
-  } = req.body;
-
-  console.log("Registration request body:", req.body);
-
-  // Check if alumni exists
-  const alumniExists = await Alumni.findOne({ email });
-  if (alumniExists) {
-    res.status(400);
-    throw new Error("Email already registered");
-  }
-
-  // Check if a verification request already exists for this email
-  const existingVerificationRequest = await VerificationRequest.findOne({ email });
-  
-  // Create alumni with unverified status
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
+const authAlumni = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
   try {
-    const alumni = await Alumni.create({
-      name,
-      email,
-      password: hashedPassword,
-      phone: phone || "",
-      graduationYear,
-      branch,
-      university: university || "",
-      college: college || "",
-      currentPosition: currentPosition || "",
-      company: company || "",
-      verificationStatus: 'pending',
+    // Find the alumni by email
+    const alumni = await Alumni.findOne({ email }).select('+password');
+
+    if (!alumni) {
+      res.status(401);
+      throw new Error('Invalid email or password');
+    }
+
+    // Check if password matches
+    const isMatch = await alumni.matchPassword(password);
+
+    if (!isMatch) {
+      res.status(401);
+      throw new Error('Invalid email or password');
+    }
+
+    // Determine verification status
+    // Be extra careful about how we check verification
+    const isVerified = 
+      alumni.isVerified === true || 
+      alumni.verificationStatus === 'approved' ||
+      alumni.status === 'active';
+    
+    console.log(`Alumni login for ${email}, verification status:`, {
+      isVerified,
+      directIsVerified: alumni.isVerified,
+      verificationStatus: alumni.verificationStatus,
+      status: alumni.status
     });
 
-    if (alumni) {
-      let verificationRequest;
-      
-      if (existingVerificationRequest) {
-        // Update the existing verification request instead of creating a new one
-        existingVerificationRequest.name = name;
-        existingVerificationRequest.phone = phone || "";
-        existingVerificationRequest.university = university || "";
-        existingVerificationRequest.degree = "Not Specified";
-        existingVerificationRequest.branch = branch;
-        existingVerificationRequest.graduationYear = graduationYear;
-        existingVerificationRequest.currentCompany = company || "";
-        existingVerificationRequest.currentRole = currentPosition || "";
-        existingVerificationRequest.documentURL = documentURL;
-        existingVerificationRequest.userId = alumni._id;
-        existingVerificationRequest.status = 'pending';
-        
-        verificationRequest = await existingVerificationRequest.save();
-        console.log("Updated existing verification request for:", email);
-      } else {
-        // Create a new verification request
-        verificationRequest = await VerificationRequest.create({
-          name,
-          email,
-          phone: phone || "",
-          university: university || "",
-          degree: "Not Specified",
-          branch,
-          graduationYear,
-          currentCompany: company || "",
-          currentRole: currentPosition || "",
-          documentURL,
-          userId: alumni._id,
-          status: 'pending'
-        });
-        console.log("Created new verification request for:", email);
-      }
+    // Generate token
+    const token = generateToken(alumni._id);
 
-      res.status(201).json({
-        _id: alumni._id,
-        name: alumni.name,
-        email: alumni.email,
-        token: generateToken(alumni._id),
-        isVerified: false,
-        status: 'pending',
-        role: 'alumni'
-      });
-    } else {
-      res.status(400);
-      throw new Error("Invalid alumni data");
-    }
+    // Return user data and token
+    res.status(200).json({
+      _id: alumni._id,
+      name: alumni.name,
+      email: alumni.email,
+      isVerified: isVerified, // This is the critical field for the frontend
+      token: token
+    });
   } catch (error) {
-    console.error("Error creating alumni:", error);
-    res.status(500);
-    throw new Error(error.message);
+    console.error('Alumni login error:', error);
+    res.status(error.statusCode || 500);
+    throw new Error(error.message || 'Server error');
   }
 });
 
-// @desc    Check verification status
+// @desc    Check alumni verification status
 // @route   GET /api/alumni/verification-status
 // @access  Private
-const checkVerificationStatus = asyncHandler(async (req, res) => {
-  const alumni = await Alumni.findById(req.user._id);
-  
-  if (!alumni) {
-    res.status(404);
-    throw new Error("Alumni not found");
-  }
-  
-  // Get the verification request for more details
-  const verificationRequest = await VerificationRequest.findOne({ userId: alumni._id }).sort({ createdAt: -1 });
-  
-  // Ensure consistency between alumni model and verification request
-  let needsSync = false;
-  if (verificationRequest) {
-    if (verificationRequest.status === 'approved' && !alumni.isVerified) {
-      alumni.isVerified = true;
-      alumni.verificationStatus = 'approved';
-      alumni.status = 'active';
-      needsSync = true;
-    } else if (verificationRequest.status === 'rejected' && 
-              (alumni.verificationStatus !== 'rejected' || alumni.isVerified)) {
-      alumni.isVerified = false;
-      alumni.verificationStatus = 'rejected';
-      alumni.status = 'inactive';
-      needsSync = true;
+const getVerificationStatus = asyncHandler(async (req, res) => {
+  try {
+    const alumni = await Alumni.findById(req.user.id);
+
+    if (!alumni) {
+      res.status(404);
+      throw new Error('Alumni not found');
+    }
+
+    // Determine verification status from multiple fields for compatibility
+    const isVerified = 
+      alumni.isVerified === true || 
+      alumni.verificationStatus === 'approved' ||
+      alumni.status === 'active';
+    
+    // Get status field with appropriate fallbacks
+    let status = 'pending';
+    if (alumni.verificationStatus) {
+      status = alumni.verificationStatus;
+    } else if (alumni.status === 'active') {
+      status = 'approved';
+    } else if (alumni.isVerified === true) {
+      status = 'approved';
     }
     
-    if (needsSync) {
-      console.log(`Syncing alumni ${alumni._id} with latest verification request status: ${verificationRequest.status}`);
-      await alumni.save();
-    }
+    console.log(`Verification status check for alumni ${alumni._id}:`, {
+      isVerified,
+      status,
+      directIsVerified: alumni.isVerified,
+      verificationStatus: alumni.verificationStatus,
+      modelStatus: alumni.status
+    });
+
+    // Send back complete verification info
+    res.status(200).json({
+      isVerified: isVerified,
+      status: status,
+      rejectionReason: alumni.verificationRejectionReason || null,
+      createdAt: alumni.createdAt,
+      updatedAt: alumni.updatedAt
+    });
+  } catch (error) {
+    console.error('Error getting verification status:', error);
+    res.status(500);
+    throw new Error('Failed to get verification status');
   }
-  
-  res.json({
-    isVerified: alumni.isVerified,
-    status: alumni.status || (alumni.isVerified ? 'active' : 'pending'),
-    verificationStatus: alumni.verificationStatus || (alumni.isVerified ? 'approved' : 'pending'),
-    rejectionReason: verificationRequest?.rejectionReason || alumni.verificationRejectionReason || null,
-    requestDate: verificationRequest?.createdAt || null
-  });
 });
 
 // @desc    Resend verification
@@ -195,43 +149,6 @@ const resendVerification = asyncHandler(async (req, res) => {
   res.status(200).json({
     message: "Verification request submitted successfully",
     requestId: verificationRequest._id
-  });
-});
-
-// @desc    Auth user & get token
-// @route   POST /api/alumni/login
-// @access  Public
-const authAlumni = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
-  // Check for user email
-  const alumni = await Alumni.findOne({ email }).select('+password');
-
-  if (!alumni) {
-    res.status(401);
-    throw new Error('Invalid credentials');
-  }
-
-  // Check if password matches
-  const isMatch = await alumni.matchPassword(password);
-  
-  if (!isMatch) {
-    res.status(401);
-    throw new Error('Invalid credentials');
-  }
-  
-  // Check if email is verified (unless verification is disabled in development)
-  if (process.env.NODE_ENV !== 'development' && !alumni.isEmailVerified) {
-    res.status(401);
-    throw new Error('Please verify your email before logging in');
-  }
-
-  res.json({
-    _id: alumni._id,
-    name: alumni.name,
-    email: alumni.email,
-    token: generateToken(alumni._id),
-    isEmailVerified: alumni.isEmailVerified
   });
 });
 
@@ -455,98 +372,68 @@ const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
 
 // @desc    Submit verification document
 // @route   POST /api/alumni/submit-verification
-// @access  Private (alumni only)
+// @access  Private
 const submitVerificationDocument = asyncHandler(async (req, res) => {
-  // Use the handleVerificationDocument middleware 
-  handleVerificationDocument(req, res, async (err) => {
-    if (err) {
-      res.status(400);
-      throw new Error(err.message);
-    }
-
-    // Check if file exists
-    if (!req.file) {
-      res.status(400);
-      throw new Error('Please upload a verification document (PDF only)');
-    }
-
-    try {
-      const alumni = await Alumni.findById(req.user._id);
-      
-      if (!alumni) {
-        res.status(404);
-        throw new Error('Alumni not found');
-      }
-
-      // Create a full URL for the document
-      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-      const documentURL = `${baseUrl}/uploads/${path.basename(req.file.path)}`;
-      
-      console.log("Generated document URL:", documentURL);
-      
-      // Update alumni record with document info
-      alumni.verificationDocument = {
-        url: documentURL,
-        publicId: req.file.filename
-      };
-      alumni.verificationStatus = 'pending';
-      
-      await alumni.save();
-      
-      // Create or update verification request
-      let verificationRequest = await VerificationRequest.findOne({ 
-        $or: [
-          { userId: alumni._id },
-          { email: alumni.email }
-        ]
-      });
-      
-      if (verificationRequest) {
-        // Update existing request
-        verificationRequest.documentURL = documentURL;
-        verificationRequest.status = 'pending';
-        verificationRequest.name = alumni.name;
-        verificationRequest.email = alumni.email;
-        verificationRequest.phone = alumni.phone || "";
-        verificationRequest.university = alumni.university || "";
-        verificationRequest.degree = alumni.degree || "Not Specified";
-        verificationRequest.branch = alumni.branch;
-        verificationRequest.graduationYear = alumni.graduationYear;
-        verificationRequest.currentCompany = alumni.company || "";
-        verificationRequest.currentRole = alumni.currentPosition || "";
-        verificationRequest.userId = alumni._id;
-        
-        await verificationRequest.save();
-        console.log("Updated verification request with document URL:", documentURL);
-      } else {
-        // Create new verification request
-        verificationRequest = await VerificationRequest.create({
-          name: alumni.name,
-          email: alumni.email,
-          phone: alumni.phone || "",
-          university: alumni.university || "",
-          degree: alumni.degree || "Not Specified",
-          branch: alumni.branch,
-          graduationYear: alumni.graduationYear,
-          currentCompany: alumni.company || "",
-          currentRole: alumni.currentPosition || "",
-          documentURL: documentURL,
-          userId: alumni._id,
-          status: 'pending'
-        });
-        console.log("Created new verification request with document URL:", documentURL);
-      }
-      
-      res.json({
-        success: true,
-        message: 'Verification document uploaded successfully',
-        documentUrl: documentURL
-      });
-    } catch (error) {
-      console.error("Error in submitVerificationDocument:", error);
-      res.status(500);
-      throw new Error(`Error uploading document: ${error.message}`);
-    }
+  const { documentURL } = req.body;
+  
+  // Log the document URL for debugging
+  console.log("Submitting verification document:", documentURL);
+  
+  if (!documentURL) {
+    res.status(400);
+    throw new Error("Please provide a verification document URL");
+  }
+  
+  const alumni = await Alumni.findById(req.user._id);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error("Alumni not found");
+  }
+  
+  // Update alumni with document URL
+  alumni.verificationDocument = {
+    url: documentURL,
+    filename: path.basename(documentURL)
+  };
+  alumni.verificationSubmittedAt = Date.now();
+  alumni.verificationStatus = 'pending';
+  
+  await alumni.save();
+  
+  // Create or update verification request
+  let verificationRequest = await VerificationRequest.findOne({ 
+    userId: alumni._id,
+    status: 'pending'
+  });
+  
+  if (verificationRequest) {
+    // Update existing request
+    verificationRequest.documentURL = documentURL;
+    await verificationRequest.save();
+    console.log("Updated existing verification request with document URL:", documentURL);
+  } else {
+    // Create new verification request
+    verificationRequest = await VerificationRequest.create({
+      name: alumni.name,
+      email: alumni.email,
+      phone: alumni.phone || "",
+      university: alumni.university || "",
+      degree: alumni.degree || "Not Specified",
+      branch: alumni.branch,
+      graduationYear: alumni.graduationYear,
+      currentCompany: alumni.company || "",
+      currentRole: alumni.currentPosition || "",
+      documentURL: documentURL,
+      userId: alumni._id,
+      status: 'pending'
+    });
+    console.log("Created new verification request with document URL:", documentURL);
+  }
+  
+  res.status(200).json({
+    message: "Verification document submitted successfully",
+    documentURL: documentURL
   });
 });
 
@@ -564,17 +451,129 @@ const getAlumniById = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Register a new alumni
+// @route   POST /api/alumni/register
+// @access  Public
+const registerAlumni = asyncHandler(async (req, res) => {
+  const { 
+    name, 
+    email, 
+    password,
+    phone, 
+    graduationYear, 
+    branch,
+    university, 
+    college,
+    currentPosition, 
+    company,
+    documentURL 
+  } = req.body;
+
+  console.log("Registration request body:", { ...req.body, password: '[REDACTED]', documentURL });
+
+  // Check if alumni exists
+  const alumniExists = await Alumni.findOne({ email });
+  if (alumniExists) {
+    res.status(400);
+    throw new Error("Email already registered");
+  }
+  
+  // Check if a verification request already exists for this email
+  const existingVerificationRequest = await VerificationRequest.findOne({ email });
+  console.log("Existing verification request:", existingVerificationRequest ? "found" : "not found");
+
+  try {
+    // Create alumni with unverified status
+    const alumni = await Alumni.create({
+      name,
+      email,
+      password,
+      phone: phone || "",
+      graduationYear,
+      branch,
+      university: university || "",
+      college: college || "",
+      currentPosition: currentPosition || "",
+      company: company || "",
+      isVerified: false,
+      verificationStatus: 'pending',
+      status: 'pending',
+      // Store document URL in alumni record
+      verificationDocument: documentURL ? {
+        url: documentURL,
+        filename: path.basename(documentURL)
+      } : undefined
+    });
+
+    if (alumni) {
+      let verificationRequest;
+      
+      if (existingVerificationRequest) {
+        // Update existing verification request
+        existingVerificationRequest.userId = alumni._id;
+        existingVerificationRequest.documentURL = documentURL;
+        existingVerificationRequest.name = name;
+        existingVerificationRequest.branch = branch;
+        existingVerificationRequest.graduationYear = graduationYear;
+        existingVerificationRequest.university = university || "";
+        existingVerificationRequest.currentCompany = company || "";
+        existingVerificationRequest.currentRole = currentPosition || "";
+        
+        verificationRequest = await existingVerificationRequest.save();
+        console.log("Updated existing verification request for:", email);
+      } else {
+        // Create a new verification request
+        verificationRequest = await VerificationRequest.create({
+          name,
+          email,
+          phone: phone || "",
+          university: university || "",
+          degree: "Not Specified",
+          branch,
+          graduationYear,
+          currentCompany: company || "",
+          currentRole: currentPosition || "",
+          documentURL,
+          userId: alumni._id,
+          status: 'pending'
+        });
+        console.log("Created new verification request for:", email);
+      }
+
+      // Generate token
+      const token = generateToken(alumni._id);
+
+      // Return success response
+      res.status(201).json({
+        _id: alumni._id,
+        name: alumni.name,
+        email: alumni.email,
+        isVerified: false,
+        token: token,
+        message: "Registration successful. Your account is pending verification."
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid alumni data");
+    }
+  } catch (error) {
+    console.error("Error in alumni registration:", error);
+    res.status(400);
+    throw new Error(error.message);
+  }
+});
+
 export {
   registerAlumni,
-  authAlumni as loginAlumni, // Fix: Export authAlumni as loginAlumni
+  authAlumni,
   getAlumniProfile,
   updateAlumniProfile,
   getAllAlumni,
-  getAlumniById, // Now properly defined
+  getAlumniById,
   deleteAlumni,
   getAlumniByCompany,
   uploadAlumniProfilePicture,
-  checkVerificationStatus,
+  getVerificationStatus as checkVerificationStatus,
   resendVerification,
   searchAlumni,
   getAlumniByBatch,

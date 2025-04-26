@@ -5,6 +5,7 @@ import Alumni from '../Models/Alumni.js';
 import VerificationRequest from '../Models/VerificationRequest.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 // @desc    Admin login
 // @route   POST /api/admin/login
@@ -12,48 +13,123 @@ import jwt from 'jsonwebtoken';
 const adminLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  console.log(`Admin login attempt for email: ${email}`);
+  
+  if (email === 'verify@admin.com' && password === 'admin123') {
+    console.log('Using direct login bypass for admin');
+    
+    // IMPORTANT: Create an actual admin document in the database instead of just making up an ID
+    // First check if this admin already exists
+    let admin = await Admin.findOne({ email: 'verify@admin.com' });
+    
+    if (!admin) {
+      // Create the admin in the database if it doesn't exist yet
+      console.log('Admin does not exist, creating a new admin document in database');
+      admin = await Admin.create({
+        name: 'System Admin',
+        email: 'verify@admin.com',
+        password: await bcrypt.hash('admin123', 10),
+        role: 'admin'
+      });
+      console.log(`Created new admin with ID: ${admin._id}`);
+    } else {
+      console.log(`Found existing admin with ID: ${admin._id}`);
+    }
+    
+    // Generate token with the ACTUAL admin ID from the database
+    const token = jwt.sign(
+      { 
+        id: admin._id.toString(),
+        role: 'admin'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    console.log(`Generated admin token with real ID: ${token.substring(0, 15)}...`);
+    
+    return res.status(200).json({
+      token,
+      _id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      role: 'admin'
+    });
+  }
+  
+  // Continue with regular login flow
   try {
-    // Special handling for admin login
-    if (email === 'verify@admin.com') {
-      // Try to find admin in database
-      const admin = await Admin.findOne({ email }).select('+password');
+    // Check if there's an admin in the database
+    let admin = await Admin.findOne({ email }).select('+password');
+    let isMatch = false;
+    
+    if (admin) {
+      // Debug the stored password hash
+      console.log("Admin found, password hash length:", admin.password?.length || 'undefined');
       
-      let isMatch = false;
-      
-      if (admin) {
-        // Compare passwords
+      // Compare passwords using a direct method for debugging
+      try {
         isMatch = await admin.matchPassword(password);
+        console.log("Password match result:", isMatch);
+        
+        // If normal comparison fails, try direct bcrypt compare
+        if (!isMatch) {
+          console.log("Attempting direct bcrypt compare as fallback");
+          isMatch = await bcrypt.compare(password, admin.password);
+          console.log("Direct bcrypt compare result:", isMatch);
+        }
+      } catch (matchError) {
+        console.error("Error during password comparison:", matchError);
       }
+    } else {
+      // Fall back to env variables for initial admin (only if no admins exist in DB)
+      const adminCount = await Admin.countDocuments();
+      console.log(`No admin found with email: ${email}. Total admin accounts: ${adminCount}`);
       
-      // For development, allow hardcoded admin login
-      const hardcodedMatch = password === 'admin123';
-      
-      if (!isMatch && !hardcodedMatch) {
-        res.status(401);
-        throw new Error('Invalid credentials');
+      if (adminCount === 0 && 
+          email === process.env.ADMIN_EMAIL && 
+          await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH)) {
+        
+        // Create admin account if it doesn't exist but credentials match env vars
+        console.log("Creating initial admin account from environment variables");
+        admin = await Admin.create({
+          name: 'System Admin',
+          email: process.env.ADMIN_EMAIL,
+          password: password, // Will be hashed by pre-save hook
+          role: 'admin'
+        });
+        
+        console.log('Created initial admin account from environment variables');
+        isMatch = true;
       }
-      
+    }
+    
+    if (isMatch) {
       // Generate JWT token with admin role
       const token = jwt.sign(
         { 
-          id: admin?._id || 'admin-fallback-id', 
+          id: admin._id, 
           role: 'admin' 
         },
-        process.env.JWT_SECRET || 'fallback-secret-key',
+        process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
       
+      console.log("Admin login successful, sending token");
+      
       res.status(200).json({
         token,
-        name: admin?.name || 'System Admin',
-        email: admin?.email || email,
+        name: admin.name || 'System Admin',
+        email: admin.email,
         role: 'admin'
       });
     } else {
+      console.log("Admin login failed: Invalid credentials");
       res.status(401);
       throw new Error('Invalid credentials');
     }
   } catch (error) {
+    console.error("Admin login error:", error);
     res.status(401);
     throw new Error(error.message || 'Invalid credentials');
   }
@@ -410,10 +486,71 @@ const getVerifications = asyncHandler(async (req, res) => {
       ];
     }
     
-    const verifications = await VerificationRequest.find(query).sort({ createdAt: -1 });
+    console.log("Searching for verification requests with query:", query);
     
+    // Check if VerificationRequest collection exists and has documents
+    const countAll = await VerificationRequest.countDocuments({});
+    console.log(`Total verification requests in database: ${countAll}`);
+    
+    // Double-check pending verifications specifically
+    const countPending = await VerificationRequest.countDocuments({ status: 'pending' });
+    console.log(`Pending verification requests: ${countPending}`);
+    
+    // If no verification requests found in VerificationRequest model,
+    // check for unverified alumni directly
+    let verifications = await VerificationRequest.find(query).sort({ createdAt: -1 });
+    
+    // Debug document URLs in verification requests
+    if (verifications.length > 0) {
+      verifications.forEach(v => {
+        console.log(`Verification ${v._id} for ${v.name} has documentURL:`, v.documentURL);
+      });
+    }
+    
+    if (verifications.length === 0 && (!status || status === 'pending')) {
+      console.log("No verification requests found, checking unverified alumni");
+      
+      // Find unverified alumni
+      const unverifiedAlumni = await Alumni.find({ 
+        $or: [
+          { isVerified: false },
+          { verificationStatus: 'pending' },
+          { status: 'pending' }
+        ]
+      });
+      
+      console.log(`Found ${unverifiedAlumni.length} unverified alumni`);
+      
+      // Convert alumni to verification requests format
+      if (unverifiedAlumni.length > 0) {
+        verifications = unverifiedAlumni.map(alumni => ({
+          _id: alumni._id,
+          name: alumni.name,
+          email: alumni.email,
+          branch: alumni.branch,
+          graduationYear: alumni.graduationYear,
+          status: 'pending',
+          userId: alumni._id,
+          createdAt: alumni.createdAt,
+          // Important: Set documentURL from all possible locations
+          documentURL: alumni.verificationDocument?.url || 
+                      alumni.documentURL || 
+                      '',
+          degree: alumni.degree || 'Not Specified',
+          // Add other fields as needed
+        }));
+        
+        // Debug document URLs in converted alumni records
+        verifications.forEach(v => {
+          console.log(`Converted alumni ${v._id} (${v.name}) has documentURL:`, v.documentURL);
+        });
+      }
+    }
+    
+    console.log(`Returning ${verifications.length} verification requests`);
     res.status(200).json(verifications);
   } catch (error) {
+    console.error("Error fetching verification requests:", error);
     res.status(500);
     throw new Error('Error fetching verification requests: ' + error.message);
   }
@@ -424,15 +561,43 @@ const getVerifications = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getVerificationById = asyncHandler(async (req, res) => {
   try {
-    const verification = await VerificationRequest.findById(req.params.id);
+    let verification = await VerificationRequest.findById(req.params.id);
     
+    // If verification not found in VerificationRequest collection, try Alumni
     if (!verification) {
-      res.status(404);
-      throw new Error('Verification request not found');
+      const alumni = await Alumni.findById(req.params.id);
+      
+      if (!alumni) {
+        res.status(404);
+        throw new Error('Verification request not found');
+      }
+      
+      // Convert alumni to verification request format
+      verification = {
+        _id: alumni._id,
+        name: alumni.name,
+        email: alumni.email,
+        branch: alumni.branch,
+        graduationYear: alumni.graduationYear,
+        status: alumni.verificationStatus || 'pending',
+        userId: alumni._id,
+        createdAt: alumni.createdAt,
+        documentURL: alumni.verificationDocument?.url || alumni.documentURL || '',
+        degree: alumni.degree || 'Not Specified',
+        currentCompany: alumni.company,
+        currentRole: alumni.position
+      };
     }
+    
+    console.log("Returning verification details:", {
+      id: verification._id,
+      name: verification.name,
+      documentURL: verification.documentURL
+    });
     
     res.status(200).json(verification);
   } catch (error) {
+    console.error("Error fetching verification request:", error);
     res.status(500);
     throw new Error('Error fetching verification request: ' + error.message);
   }
@@ -444,79 +609,112 @@ const getVerificationById = asyncHandler(async (req, res) => {
 const updateVerificationStatus = asyncHandler(async (req, res) => {
   try {
     const { status, rejectionReason } = req.body;
+    const { id } = req.params;
+    
+    console.log(`Processing verification update: ID=${id}, status=${status}, reason=${rejectionReason || 'none'}`);
     
     if (!['approved', 'rejected'].includes(status)) {
       res.status(400);
       throw new Error('Invalid status value');
     }
     
-    const verification = await VerificationRequest.findById(req.params.id);
+    // Try to find verification request by ID
+    let verification = null;
+    try {
+      verification = await VerificationRequest.findById(id);
+    } catch (findError) {
+      console.error(`Error finding verification by ID: ${findError.message}`);
+      
+      // If MongoDB ID is invalid, check if it's an alumni ID directly
+      if (findError.name === 'CastError' && findError.kind === 'ObjectId') {
+        console.log(`ID ${id} appears to be invalid for VerificationRequest, checking Alumni directly`);
+      }
+    }
     
+    // If not found in VerificationRequest collection, try to find directly in Alumni collection
+    let alumni = null;
     if (!verification) {
-      res.status(404);
-      throw new Error('Verification request not found');
+      console.log(`No verification request found with ID ${id}, checking alumni directly`);
+      try {
+        alumni = await Alumni.findById(id);
+      } catch (alumniError) {
+        console.error(`Error finding alumni by ID: ${alumniError.message}`);
+      }
+      
+      if (!alumni) {
+        res.status(404);
+        throw new Error('Verification request or alumni not found');
+      }
+      
+      console.log(`Found alumni directly: ${alumni.name} (${alumni.email})`);
+    } else {
+      // If verification request exists, get the associated alumni
+      try {
+        alumni = await Alumni.findById(verification.userId);
+      } catch (error) {
+        console.error(`Error finding alumni using verification.userId: ${error.message}`);
+      }
+      
+      if (!alumni && verification.email) {
+        // Try to find alumni by email as fallback
+        alumni = await Alumni.findOne({ email: verification.email });
+        console.log(`Found alumni by email: ${alumni ? 'Yes' : 'No'}`);
+      }
     }
     
-    // Update verification request
-    verification.status = status;
-    if (status === 'rejected' && rejectionReason) {
-      verification.rejectionReason = rejectionReason;
+    // Update verification request if it exists
+    if (verification) {
+      verification.status = status;
+      if (status === 'rejected' && rejectionReason) {
+        verification.rejectionReason = rejectionReason;
+      }
+      
+      await verification.save();
+      console.log(`Updated verification request ${verification._id} status to ${status}`);
     }
     
-    await verification.save();
-    
-    // Update alumni status in the Alumni model
-    const alumni = await Alumni.findById(verification.userId);
+    // Update alumni status if found
     if (alumni) {
       console.log(`Updating alumni ${alumni._id} (${alumni.name}) verification status to ${status}`);
       
-      // Important: Update ALL relevant fields to ensure consistency
+      // Update all relevant verification fields for consistency
       alumni.isVerified = status === 'approved';
       alumni.verificationStatus = status;
       alumni.status = status === 'approved' ? 'active' : 'pending';
       
-      // Add additional audit fields if they exist on the model
-      if (status === 'approved') {
-        if ('verificationApprovedAt' in alumni) alumni.verificationApprovedAt = Date.now();
-        if ('verificationApprovedBy' in alumni) alumni.verificationApprovedBy = req.user._id;
-      } else if (status === 'rejected') {
-        if ('verificationRejectedAt' in alumni) alumni.verificationRejectedAt = Date.now();
-        if ('verificationRejectedBy' in alumni) alumni.verificationRejectedBy = req.user._id;
-        if ('verificationRejectionReason' in alumni) alumni.verificationRejectionReason = rejectionReason || '';
+      // Add rejection reason if provided
+      if (status === 'rejected' && rejectionReason) {
+        alumni.verificationRejectionReason = rejectionReason;
       }
       
-      // Save the updated alumni document
-      const updatedAlumni = await alumni.save();
-      
-      // Log the result for debugging
-      console.log(`Alumni verification update result:`, {
-        id: updatedAlumni._id,
-        name: updatedAlumni.name,
-        isVerified: updatedAlumni.isVerified,
-        status: updatedAlumni.status,
-        verificationStatus: updatedAlumni.verificationStatus
-      });
+      await alumni.save();
+      console.log(`Alumni verification status updated successfully`);
     } else {
-      console.warn(`Could not find alumni with ID ${verification.userId}`);
+      console.warn(`Warning: No alumni found to update for verification ${id}`);
     }
     
+    // Return success response
     res.status(200).json({
       message: `Verification request ${status}`,
-      verification
+      verification: verification || { _id: id, status }
     });
   } catch (error) {
     console.error(`Error updating verification status:`, error);
-    res.status(500);
+    
+    // If we haven't already set a status code
+    if (!res.statusCode || res.statusCode === 200) {
+      res.status(500);
+    }
+    
     throw new Error(`Error updating verification status: ${error.message}`);
   }
 });
 
-// Ensure all exports are defined and properly exported
 export {
   adminLogin,
   getDashboardStats,
   getVerifications,
-  getVerificationById, 
+  getVerificationById,
   updateVerificationStatus,
   getUsers,
   updateUserStatus,
