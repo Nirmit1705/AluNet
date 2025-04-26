@@ -24,4 +24,4 @@ const Toaster = ({ ...props }) => {
   )
 }
 
-export { Toaster } 
+export { Toaster }
