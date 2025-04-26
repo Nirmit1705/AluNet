@@ -1,45 +1,88 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
+import { ArrowLeft, CheckCircle, X, RefreshCw, AlertTriangle } from "lucide-react";
 
 const VerificationPending = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState('pending');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+    const pendingVerification = localStorage.getItem('pendingVerification');
+    
+    console.log("VerificationPending: Initial state check:", { 
+      token: !!token, 
+      userRole,
+      pendingVerification 
+    });
+    
     if (!token) {
       navigate('/');
       return;
     }
+    
+    // If user is logged in but not an alumni, redirect to appropriate dashboard
+    if (userRole !== 'alumni') {
+      console.log("Non-alumni user on verification page, redirecting");
+      if (userRole === 'student') {
+        navigate('/student-dashboard');
+      } else if (userRole === 'admin') {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/');
+      }
+      return;
+    }
+    
+    // If alumni is verified (pendingVerification flag is not set), redirect to dashboard
+    if (pendingVerification !== 'true') {
+      console.log("Verified alumni on verification page, redirecting to dashboard");
+      navigate('/alumni-dashboard');
+      return;
+    }
 
-    // Check verification status
+    // Check verification status from the server
     const checkStatus = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get('/api/alumni/verification-status', {
+        const response = await axios.get('http://localhost:5000/api/alumni/verification-status', {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
+        
+        console.log("Verification status response:", response.data);
 
-        setVerificationStatus(response.data.status);
+        setVerificationStatus(response.data.status || 'pending');
         if (response.data.rejectionReason) {
           setRejectionReason(response.data.rejectionReason);
         }
         
-        // If verified, redirect to dashboard
-        if (response.data.isVerified) {
+        // If verified, update local storage and redirect to dashboard
+        if (response.data.isVerified === true) {
+          console.log("Alumni is verified according to server, updating localStorage and redirecting");
           localStorage.removeItem('pendingVerification');
           navigate('/alumni-dashboard');
         }
       } catch (error) {
         console.error('Error checking verification status:', error);
+        
+        // Explicitly handle 401/403 errors
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log("Authentication error, redirecting to login");
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
+          navigate('/login');
+          return;
+        }
+        
         setError('Failed to check verification status. Please try again later.');
       } finally {
         setIsLoading(false);

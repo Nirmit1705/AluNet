@@ -1,67 +1,121 @@
-import { toast } from "sonner";
+import axios from 'axios';
+import { toast } from 'sonner';
 
 /**
- * Direct admin login function that ensures proper redirection
- * 
- * @param {string} email - Admin email
- * @param {string} password - Admin password
- * @returns {Promise<boolean>} Success indicator
+ * Direct admin login with hardcoded credentials
  */
 export const directAdminLogin = async (email, password) => {
   try {
-    // Try API first
-    try {
-      const response = await fetch("http://localhost:5000/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Store all auth data
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem("userEmail", email);
-        localStorage.setItem("userName", data.name || "Admin");
-        
-        toast.success("Admin authentication successful");
-        
-        // Force direct navigation
-        window.location.href = "/admin-dashboard";
-        return true;
-      }
-    } catch (apiError) {
-      // Continue to fallback if API fails
-    }
+    console.log("Attempting direct admin login");
     
-    // Development fallback if API fails
-    if (email === "verify@admin.com" && password === "admin123") {
-      localStorage.setItem("token", `admin-token-${Date.now()}`);
-      localStorage.setItem("userRole", "admin");
-      localStorage.setItem("userEmail", email);
-      localStorage.setItem("userName", "System Admin");
+    const response = await axios.post('http://localhost:5000/api/admin/login', {
+      email: email || 'verify@admin.com',
+      password: password || 'admin123'
+    });
+    
+    if (response.data && response.data.token) {
+      // Log token details for debugging
+      console.log(`Received admin token: ${response.data.token.substring(0, 15)}...`);
+      console.log(`Admin token length: ${response.data.token.length}`);
       
-      toast.success("Development admin access granted");
+      // Store authentication data
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userRole', 'admin');
+      localStorage.setItem('userEmail', email || 'verify@admin.com');
+      localStorage.setItem('userName', response.data.name || 'Admin');
       
-      // Force direct navigation
-      window.location.href = "/admin-dashboard";
+      // Verify the token was saved correctly
+      const savedToken = localStorage.getItem('token');
+      console.log(`Saved token verification: ${savedToken.substring(0, 15)}...`);
+      console.log(`Saved token length: ${savedToken.length}`);
+      
+      toast.success('Logged in as administrator!');
+      
       return true;
     }
     
-    throw new Error("Invalid admin credentials");
+    return false;
   } catch (error) {
-    toast.error("Admin login failed. Please check your credentials.");
+    console.error('Admin authentication error:', error);
+    toast.error(`Admin login failed: ${error.response?.data?.message || 'Unknown error'}`);
     return false;
   }
 };
 
 /**
- * Check if user has valid admin credentials
+ * Create an authenticated API client for admin endpoints
  */
-export const validateAdminAccess = () => {
-  const role = localStorage.getItem("userRole");
-  const token = localStorage.getItem("token");
-  return role === "admin" && !!token;
+export const createAdminApiClient = () => {
+  const api = axios.create({
+    baseURL: 'http://localhost:5000/api',
+  });
+  
+  // Add token to all requests
+  api.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('token');
+      const role = localStorage.getItem('userRole');
+      
+      console.log(`Sending request with role: ${role}, token exists: ${!!token}`);
+      
+      // Make sure token exists before adding it to headers
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+  
+  // Handle admin auth errors
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      // Handle 401/403 errors for admin routes
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        const errorMessage = error.response?.data?.message || 'Authentication failed';
+        console.error(`Admin auth error: ${errorMessage}`);
+        
+        // Prevent alert loop by checking if we've shown this alert recently
+        const lastAlertTime = localStorage.getItem('lastAdminAuthAlert');
+        const currentTime = Date.now();
+        
+        // Only show alert if it's been more than 10 seconds since the last one
+        if (!lastAlertTime || (currentTime - parseInt(lastAlertTime)) > 10000) {
+          localStorage.setItem('lastAdminAuthAlert', currentTime.toString());
+          
+          // Use a timeout to prevent multiple alerts
+          setTimeout(() => {
+            const confirmLogin = window.confirm('Admin authentication failed. Would you like to log in as admin?');
+            if (confirmLogin) {
+              directAdminLogin();
+            }
+          }, 100);
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+  
+  return api;
+};
+
+/**
+ * Verify if admin token is valid by checking localStorage and token format
+ */
+export const hasValidAdminToken = () => {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('userRole');
+  
+  if (!token || !role || role !== 'admin') {
+    return false;
+  }
+  
+  // Basic check for JWT format (3 parts separated by dots)
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return false;
+  }
+  
+  return true;
 };

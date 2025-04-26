@@ -220,57 +220,135 @@ const AuthForm = forwardRef(({
       
       console.log("Login attempt:", { email, role });
       
-      // Check if it's admin login
-      if (email === "verify@admin.com") {
-        // Use the direct admin login utility which handles everything
-        await directAdminLogin(email, password);
-        if (onSuccess) {
-          onSuccess();
+      // Check if email matches known admin email pattern
+      if (email.toLowerCase() === "verify@admin.com") {
+        console.log("Admin email detected - attempting admin login directly");
+        
+        // Import and use the admin login handler
+        const { handleAdminLogin } = await import("../../utils/loginHelper.js");
+        const adminSuccess = await handleAdminLogin(navigate, email, password, onSuccess);
+        
+        if (adminSuccess) {
+          return; // Admin login handled successfully
         }
-        return; // Important to prevent execution of the rest of the function
+        
+        // If admin login fails with known admin email, don't try other roles
+        console.log("Admin login failed with admin email - stopping authentication flow");
+        setIsSubmitting(false);
+        return;
       }
+      
+      // If we reach here, it's not a known admin email, try admin login first
+      try {
+        const adminResponse = await fetch("http://localhost:5000/api/admin/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password
+          }),
+        });
+        
+        if (adminResponse.ok) {
+          const adminData = await adminResponse.json();
+          
+          console.log("Admin credentials detected - overriding selected role");
+          
+          // Store admin auth data
+          localStorage.setItem("token", adminData.token);
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("userEmail", email);
+          localStorage.setItem("userName", adminData.name || "Admin");
+          
+          toast.success("Logged in as administrator!");
+          
+          if (onSuccess) {
+            onSuccess();
+          }
+          
+          // Direct navigation to admin dashboard, regardless of selected role in the form
+          window.location.href = "/admin-dashboard";
+          return;
+        }
+        
+        // If response is not ok, proceed with normal authentication flow
+        console.log("Not admin credentials, continuing with normal authentication flow");
+      } catch (adminCheckError) {
+        // If admin check fails, log and continue with normal flow
+        console.error("Admin check error:", adminCheckError);
+        console.log("Continuing with normal authentication flow");
+      }
+      
+      // Continue with role-specific authentication
       
       // Alumni login flow
       if (role === "alumni") {
         try {
-          // Import the alumni login helper (if not already imported at the top)
+          // Import the alumni login helper
           const { handleAlumniLogin } = await import("../../utils/loginHelper.js");
           const success = await handleAlumniLogin(navigate, email, password, onSuccess);
+          
           if (success) {
             return; // The helper will handle navigation
           }
         } catch (alumniError) {
           console.error("Alumni login attempt failed:", alumniError);
+          // Don't show error yet, we might try student login as fallback in dev mode
+        }
+      } else if (role === "student") {
+        try {
+          // Student login flow
+          const { handleStudentLogin } = await import("../../utils/loginHelper.js");
+          const success = await handleStudentLogin(navigate, email, password, onSuccess);
+          
+          if (success) {
+            return; // The helper would handle navigation
+          }
+        } catch (studentError) {
+          console.error("Student login attempt failed:", studentError);
+          // Don't show error yet, we might try fallback in dev mode
         }
       }
+
+      // If we get here and haven't succeeded, show appropriate error
+      toast.error(`Invalid ${role} credentials. Please check your email and password.`);
       
-      // Student login or fallback login logic
-      // In a real application, this would be an API call
-      const userData = {
-        email,
-        password,
-        role
-      };
-      
-      // Simulate API call
-      console.log("Standard login with:", userData);
-      
-      // Store user data in localStorage
-      localStorage.setItem("token", `mock-token-${Date.now()}`);
-      localStorage.setItem("userRole", role);
-      localStorage.setItem("userEmail", email);
-      localStorage.setItem("userName", name || email.split('@')[0]);
-      
-      toast.success("Logged in successfully!");
-      
-      // Call the onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
+      // We should only reach here in development mode or if the API calls fail
+      // Add a check for development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Using development fallback login - this should NOT happen in production");
+        
+        // Fallback login logic - ONLY FOR DEVELOPMENT
+        // Check if the email follows a valid pattern at minimum
+        if (!email.includes('@') || password.length < 4) {
+          toast.error("Invalid credentials. Even in development mode, you need valid inputs.");
+          return;
+        }
+        
+        // Simulate API call
+        console.log("DEV MODE: Using mock login for:", { email, role });
+        
+        // Store user data in localStorage
+        localStorage.setItem("token", `mock-token-${Date.now()}`);
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userEmail", email);
+        localStorage.setItem("userName", name || email.split('@')[0]);
+        
+        toast.success(`[DEV MODE] Logged in as ${role}`);
+        
+        // Call the onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+        
+        // Force direct navigation to the appropriate dashboard using window.location
+        window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
+      } else {
+        // In production, if we get here, it means the API calls failed
+        toast.error("Authentication service is currently unavailable. Please try again later.");
       }
-      
-      // Force direct navigation to the appropriate dashboard using window.location
-      // This ensures a full page reload and proper state reset
-      window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to log in. Please check your credentials.");
@@ -309,7 +387,9 @@ const AuthForm = forwardRef(({
     e.preventDefault();
     
     // Check documentURL from both states to ensure we have the value
-    if (role === "alumni" && !formData.documentURL && !alumniForm.documentURL) {
+    const documentURLToSubmit = formData.documentURL || alumniForm.documentURL;
+    
+    if (role === "alumni" && !documentURLToSubmit) {
       toast.error("Please upload a verification document");
       return;
     }
@@ -321,6 +401,7 @@ const AuthForm = forwardRef(({
       // Log form data for debugging
       console.log("Submitting form data:", formData);
       console.log("Alumni form data:", alumniForm);
+      console.log("Document URL being sent:", documentURLToSubmit);
       
       // Convert form values to proper types
       let formattedData;
@@ -370,7 +451,7 @@ const AuthForm = forwardRef(({
           branch: alumniForm.branch,
           university: alumniForm.university || "",
           college: alumniForm.college || "",
-          documentURL: formData.documentURL || alumniForm.documentURL, 
+          documentURL: documentURLToSubmit, // Use the combined value
           currentPosition: alumniForm.position || "",
           company: alumniForm.company || "",
           skills: alumniForm.skills || [],
@@ -504,6 +585,9 @@ const AuthForm = forwardRef(({
 
       if (response.data && response.data.documentURL) {
         const documentURL = response.data.documentURL;
+        
+        // Save the document
+        setAlumniDocument(file);
         
         // Update both state objects with the document URL
         setAlumniForm(prev => ({
@@ -643,60 +727,58 @@ const AuthForm = forwardRef(({
             </div>
           </div>
 
-          {/* Role select is only shown for register, not for login */}
-          {type === "register" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Register as</label>
-              <div className="grid grid-cols-2 gap-4 pt-1">
-                <div
-                  className={`flex items-center border ${
-                    role === "student" 
-                      ? "border-primary bg-primary/5" 
-                      : "border-gray-200 dark:border-gray-700"
-                  } rounded-md p-3 cursor-pointer transition-colors`}
-                  onClick={() => selectRole("student")}
+          {/* Role select for both login and register */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{type === "login" ? "Login as" : "Register as"}</label>
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div
+                className={`flex items-center border ${
+                  role === "student" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-gray-200 dark:border-gray-700"
+                } rounded-md p-3 cursor-pointer transition-colors`}
+                onClick={() => selectRole("student")}
+              >
+                <input
+                  type="radio"
+                  id="student-role"
+                  name="role"
+                  checked={role === "student"}
+                  onChange={() => selectRole("student")}
+                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                />
+                <label
+                  htmlFor="student-role"
+                  className="ml-2 block text-sm font-medium cursor-pointer"
                 >
-                  <input
-                    type="radio"
-                    id="student-role"
-                    name="role"
-                    checked={role === "student"}
-                    onChange={() => selectRole("student")}
-                    className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
-                  />
-                  <label
-                    htmlFor="student-role"
-                    className="ml-2 block text-sm font-medium cursor-pointer"
-                  >
-                    Student
-                  </label>
-                </div>
-                <div
-                  className={`flex items-center border ${
-                    role === "alumni" 
-                      ? "border-primary bg-primary/5" 
-                      : "border-gray-200 dark:border-gray-700"
-                  } rounded-md p-3 cursor-pointer transition-colors`}
-                  onClick={() => selectRole("alumni")}
+                  Student
+                </label>
+              </div>
+              <div
+                className={`flex items-center border ${
+                  role === "alumni" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-gray-200 dark:border-gray-700"
+                } rounded-md p-3 cursor-pointer transition-colors`}
+                onClick={() => selectRole("alumni")}
+              >
+                <input
+                  type="radio"
+                  id="alumni-role"
+                  name="role"
+                  checked={role === "alumni"}
+                  onChange={() => selectRole("alumni")}
+                  className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                />
+                <label
+                  htmlFor="alumni-role"
+                  className="ml-2 block text-sm font-medium cursor-pointer"
                 >
-                  <input
-                    type="radio"
-                    id="alumni-role"
-                    name="role"
-                    checked={role === "alumni"}
-                    onChange={() => selectRole("alumni")}
-                    className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
-                  />
-                  <label
-                    htmlFor="alumni-role"
-                    className="ml-2 block text-sm font-medium cursor-pointer"
-                  >
-                    Alumni
-                  </label>
-                </div>
+                  Alumni
+                </label>
               </div>
             </div>
-          )}
+          </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -784,9 +866,7 @@ const AuthForm = forwardRef(({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Registration Number */}
             <div className="space-y-1">
-              <label htmlFor="registrationNumber" className="text-xs font-medium">
-                Registration No. <span className="text-red-500">*</span>
-              </label>
+              <label htmlFor="registrationNumber" className="text-xs font-medium">Registration No. <span className="text-red-500">*</span></label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                   <Hash className="h-4 w-4 text-gray-400" />
@@ -806,9 +886,7 @@ const AuthForm = forwardRef(({
 
             {/* Current Year */}
             <div className="space-y-1">
-              <label htmlFor="currentYear" className="text-xs font-medium">
-                Current Year <span className="text-red-500">*</span>
-              </label>
+              <label htmlFor="currentYear" className="text-xs font-medium">Current Year <span className="text-red-500">*</span></label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                   <Calendar className="h-4 w-4 text-gray-400" />
@@ -836,48 +914,27 @@ const AuthForm = forwardRef(({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Branch */}
             <div className="space-y-1">
-              <label htmlFor="branch" className="text-xs font-medium">
-                Branch <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="branch"
-                name="branch"
-                type="text"
-                required
-                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder="Computer Science"
-                value={studentForm.branch}
-                onChange={handleStudentFormChange}
-              />
+              <label htmlFor="branch" className="text-xs font-medium">Branch <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <BookOpen className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  id="branch"
+                  name="branch"
+                  type="text"
+                  required
+                  className="block w-full pl-8 px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="Computer Science"
+                  value={studentForm.branch}
+                  onChange={handleStudentFormChange}
+                />
+              </div>
             </div>
 
-            {/* Graduation Year */}
+            {/* University & College */}
             <div className="space-y-1">
-              <label htmlFor="graduationYear" className="text-xs font-medium">
-                Expected Graduation <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="graduationYear"
-                name="graduationYear"
-                type="number"
-                min={new Date().getFullYear()}
-                max={new Date().getFullYear() + 5}
-                required
-                className="block w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                placeholder={new Date().getFullYear() + 4}
-                value={studentForm.graduationYear}
-                onChange={handleStudentFormChange}
-              />
-            </div>
-          </div>
-
-          {/* University & College */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* University */}
-            <div className="space-y-1">
-              <label htmlFor="university" className="text-xs font-medium">
-                University <span className="text-red-500">*</span>
-              </label>
+              <label htmlFor="university" className="text-xs font-medium">University <span className="text-red-500">*</span></label>
               <input
                 id="university"
                 name="university"
@@ -890,11 +947,8 @@ const AuthForm = forwardRef(({
               />
             </div>
 
-            {/* College */}
             <div className="space-y-1">
-              <label htmlFor="college" className="text-xs font-medium">
-                College <span className="text-red-500">*</span>
-              </label>
+              <label htmlFor="college" className="text-xs font-medium">College <span className="text-red-500">*</span></label>
               <input
                 id="college"
                 name="college"
@@ -910,9 +964,7 @@ const AuthForm = forwardRef(({
 
           {/* Skills - Simplified */}
           <div className="space-y-1">
-            <label htmlFor="skills" className="text-xs font-medium">
-              Skills (Optional)
-            </label>
+            <label htmlFor="skills" className="text-xs font-medium">Skills (Optional)</label>
             <div className="flex gap-2">
               <input
                 id="newSkill"
@@ -1009,41 +1061,40 @@ const AuthForm = forwardRef(({
                   />
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="space-y-1">
-                  <label htmlFor="university" className="text-xs font-medium">University *</label>
-                  <input
-                    id="university"
-                    name="university"
-                    type="text"
-                    required
-                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
-                    placeholder="University name"
-                    value={alumniForm.university}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <label htmlFor="college" className="text-xs font-medium">College *</label>
-                  <input
-                    id="college"
-                    name="college"
-                    type="text"
-                    required
-                    className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
-                    placeholder="College name"
-                    value={alumniForm.college}
-                    onChange={handleAlumniFormChange}
-                  />
-                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="space-y-1">
+                <label htmlFor="university" className="text-xs font-medium">University *</label>
+                <input
+                  id="university"
+                  name="university"
+                  type="text"
+                  required
+                  className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                  placeholder="University name"
+                  value={alumniForm.university}
+                  onChange={handleAlumniFormChange}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="college" className="text-xs font-medium">College *</label>
+                <input
+                  id="college"
+                  name="college"
+                  type="text"
+                  required
+                  className="block w-full px-2 py-1.5 text-xs bg-white border border-input rounded-md"
+                  placeholder="College name"
+                  value={alumniForm.college}
+                  onChange={handleAlumniFormChange}
+                />
               </div>
             </div>
-            
+
             <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg">
               <h3 className="text-xs font-medium text-green-800 dark:text-green-300 mb-2">Professional Information</h3>
-              
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label htmlFor="company" className="text-xs font-medium">Company</label>
@@ -1057,7 +1108,7 @@ const AuthForm = forwardRef(({
                     onChange={handleAlumniFormChange}
                   />
                 </div>
-                
+
                 <div className="space-y-1">
                   <label htmlFor="position" className="text-xs font-medium">Position</label>
                   <input
@@ -1072,7 +1123,7 @@ const AuthForm = forwardRef(({
                 </div>
               </div>
             </div>
-          
+
             {/* Skills - Simplified */}
             <div className="space-y-1">
               <label htmlFor="newSkill" className="text-xs font-medium">Skills (Optional)</label>
@@ -1081,7 +1132,7 @@ const AuthForm = forwardRef(({
                   id="newSkill"
                   name="newSkill"
                   type="text"
-                  className="flex-1 px-3 py-2 text-xs bg-background border border-input rounded-md"
+                  className="flex-1 px-3 py-2 text-xs bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
                   placeholder="Add skills (press Enter)"
                   value={alumniForm.newSkill}
                   onChange={handleAlumniFormChange}
@@ -1115,75 +1166,90 @@ const AuthForm = forwardRef(({
                 </div>
               )}
             </div>
-          
-            {/* Verification Document - Simplified */}
-            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label htmlFor="verification-document" className="block text-xs font-medium mb-1">
-                    Verification Document <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-xs text-gray-500">Upload degree certificate or alumni ID</p>
+          </div>
+
+          {/* Verification Document - Simplified */}
+          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-3">
+            <div className="flex items-center justify-between">
+              <label htmlFor="verification-document" className="block text-xs font-medium mb-1">
+                Verification Document <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500">Upload degree certificate or alumni ID</p>
+            </div>
+            
+            {/* Add visual upload status indicator */}
+            {(formData.documentURL || alumniForm.documentURL) ? (
+              <div className="mt-2 mb-2">
+                <div className="flex items-center p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 dark:text-green-400 mr-2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <span className="text-xs text-green-700 dark:text-green-400">Document uploaded successfully</span>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, documentURL: "" }));
+                      setAlumniForm(prev => ({ ...prev, documentURL: "" }));
+                    }}
+                    className="ml-auto text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {/* Show filename if available */}
+                  {alumniDocument ? alumniDocument.name : "Document ready for submission"}
+                </p>
+              </div>
+            ) : (
+              <>
                 <label
                   htmlFor="verification-document"
                   className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                    isUploading 
-                      ? "bg-gray-200 text-gray-500" 
+                    isUploading
+                      ? "bg-gray-200 text-gray-500"
                       : "bg-primary/10 text-primary hover:bg-primary/20"
                   }`}
                 >
-                  {isUploading 
-                    ? "Uploading..." 
-                    : formData.documentURL 
-                      ? 'Change' 
-                      : 'Upload'}
+                  {isUploading ? "Uploading..." : "Upload"}
                 </label>
-                <input
-                  type="file"
-                  id="verification-document"
-                  className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleAlumniVerificationUpload}
-                  disabled={isUploading}
-                />
-              </div>
-              {formData.documentURL && (
-                <div className="mt-2 flex items-center p-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <FileText className="h-3 w-3 text-green-600 dark:text-green-400 mr-1.5" />
-                  <span className="text-xs text-green-600 dark:text-green-400">Document uploaded</span>
-                </div>
-              )}
-            </div>
+                {documentError && (
+                  <p className="text-xs text-red-500 mt-1">{documentError}</p>
+                )}
+              </>
+            )}
+            
+            <input
+              type="file"
+              id="verification-document"
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleAlumniVerificationUpload}
+              disabled={isUploading || formData.documentURL || alumniForm.documentURL}
+            />
           </div>
 
           <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="flex-1 py-2 text-xs bg-gray-200 dark:bg-gray-700 text-foreground rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="flex-1 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-foreground rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               Back
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
+              className="flex-1 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               disabled={isUploading || isSubmitting}
             >
-              {isSubmitting ? (
-                <>
-                  <span className="animate-spin h-3 w-3 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
-                  Creating Profile...
-                </>
-              ) : (
-                "Create Profile"
-              )}
+              {isSubmitting ? "Creating Profile..." : "Create Profile"}
             </button>
           </div>
         </form>
       )}
 
-      {/* Add this for showing completion message for alumni registration */}
+      {/* Registration completion message */}
       {type === "register" && step === 2 && role === "alumni" && registrationComplete && (
         <div className="space-y-6 text-center py-8">
           <div className="mx-auto rounded-full bg-green-100 dark:bg-green-900/20 p-3 w-16 h-16 flex items-center justify-center">
@@ -1205,8 +1271,8 @@ const AuthForm = forwardRef(({
               setName("");
               setConfirmPassword("");
               setAlumniDocument(null);
+              setIsRegistrationComplete(false);
               setStep(1);
-              setRegistrationComplete(false);
               if (onSwitchType) {
                 onSwitchType("login");
               }
@@ -1218,21 +1284,6 @@ const AuthForm = forwardRef(({
           </button>
         </div>
       )}
-
-      {/* Switch between login and register forms
-      <div className="mt-5 text-center">
-        <p className="text-xs text-muted-foreground">
-          {type === "login" 
-            ? "Don't have an account?" 
-            : "Already have an account?"}{" "}
-          <button
-            onClick={handleSwitchType}
-            className="ml-1 font-medium text-primary hover:text-primary/80"
-          >
-            {type === "login" ? "Sign up" : "Sign in"}
-          </button>
-        </p>
-      </div> */}
     </div>
   );
 });

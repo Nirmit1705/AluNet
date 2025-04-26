@@ -2,63 +2,67 @@ import React, { useState } from 'react';
 import { X, CheckCircle, XCircle, Download, FileText, User, Calendar, GraduationCap, Briefcase, Building, Mail } from 'lucide-react';
 
 const AdminVerificationModal = ({ isOpen, verification, onClose, onApprove, onReject }) => {
-  const [rejectReason, setRejectReason] = useState('');
-  const [isRejecting, setIsRejecting] = useState(false);
+  // Add the missing formatDate function
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString();
+  };
+  
+  const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  if (!isOpen || !verification) return null;
 
   // Handle approve verification
   const handleApprove = async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    
-    try {
-      await onApprove(verification._id);
-      toast.success("Verification approved successfully");
-    } catch (error) {
-      console.error("Error approving verification:", error);
-      toast.error("Failed to approve verification");
-    } finally {
-      setIsSubmitting(false);
+    if (verification) {
+      try {
+        setIsSubmitting(true);
+        await onApprove(verification._id);
+        setIsSubmitting(false);
+      } catch (error) {
+        console.error("Error approving verification:", error);
+        setIsSubmitting(false);
+      }
     }
   };
-
+  
   // Handle reject verification
   const handleReject = async () => {
-    if (isSubmitting || !rejectReason) return;
-    setIsSubmitting(true);
-    
-    try {
-      await onReject(verification._id, rejectReason);
-      toast.success("Verification rejected successfully");
-    } catch (error) {
-      console.error("Error rejecting verification:", error);
-      toast.error("Failed to reject verification");
-    } finally {
-      setIsSubmitting(false);
-      setIsRejecting(false);
+    if (verification) {
+      try {
+        setIsSubmitting(true);
+        await onReject(verification._id, rejectionReason || "Verification rejected by administrator");
+        setIsSubmitting(false);
+      } catch (error) {
+        console.error("Error rejecting verification:", error);
+        setIsSubmitting(false);
+      }
     }
   };
-
-  // Format date nicely if available
-  const formatDate = (dateString) => {
-    if (!dateString) return "Not available";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch (e) {
-      return dateString;
-    }
+  
+  if (!isOpen || !verification) {
+    return null;
+  }
+  
+  // Debugging for document URL
+  console.log("Verification details:", verification);
+  
+  // Enhanced function to safely check for document URL in multiple fields
+  const getDocumentUrl = () => {
+    if (!verification) return null;
+    
+    // Check all possible document URL field locations
+    const documentUrl = verification.documentURL || 
+                        verification.document?.url || 
+                        verification.verificationDocument?.url ||
+                        verification.documentUrl;
+                        
+    console.log("Document URL found:", documentUrl);
+    return documentUrl;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-medium">Alumni Verification Request</h3>
@@ -170,7 +174,7 @@ const AdminVerificationModal = ({ isOpen, verification, onClose, onApprove, onRe
               <FileText className="h-5 w-5 mr-2 text-primary" />
               Verification Document
             </h4>
-            {verification.documentURL ? (
+            {getDocumentUrl() ? (
               <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
@@ -180,7 +184,7 @@ const AdminVerificationModal = ({ isOpen, verification, onClose, onApprove, onRe
                     </p>
                   </div>
                   <a 
-                    href={verification.documentURL} 
+                    href={getDocumentUrl()} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="px-4 py-2 flex items-center space-x-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
@@ -227,68 +231,45 @@ const AdminVerificationModal = ({ isOpen, verification, onClose, onApprove, onRe
               )}
             </div>
           </div>
+        </div>
+        
+        {/* Simplified footer with just Accept and Reject buttons */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex flex-col space-y-4">
+          {/* Rejection reason textarea - always visible */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Rejection reason (optional):</label>
+            <textarea
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-background"
+              rows="3"
+              placeholder="Provide a reason for rejection (will be sent to the applicant)"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            ></textarea>
+          </div>
           
-          {/* Action Buttons */}
-          {verification.status === 'pending' && (
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              {!isRejecting ? (
-                <div className="flex justify-end space-x-4">
-                  <button 
-                    onClick={() => setIsRejecting(true)}
-                    className="px-4 py-2 flex items-center space-x-2 border border-red-200 text-red-600 dark:border-red-800 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    disabled={isSubmitting}
-                  >
-                    <XCircle className="h-5 w-5" />
-                    <span>Reject</span>
-                  </button>
-                  <button 
-                    onClick={handleApprove}
-                    className="px-4 py-2 flex items-center space-x-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                    disabled={isSubmitting}
-                  >
-                    <CheckCircle className="h-5 w-5" />
-                    <span>Approve Verification</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="rejectReason" className="block text-sm font-medium mb-2">
-                      Rejection Reason <span className="text-red-500">*</span>
-                    </label>
-                    <textarea 
-                      id="rejectReason"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-colors"
-                      rows={3}
-                      placeholder="Please provide a reason for rejecting this verification request..."
-                      required
-                    ></textarea>
-                  </div>
-                  <div className="flex justify-end space-x-4">
-                    <button 
-                      onClick={() => {
-                        setIsRejecting(false);
-                        setRejectReason('');
-                      }}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      disabled={isSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={handleReject}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                      disabled={isSubmitting || !rejectReason.trim()}
-                    >
-                      {isSubmitting ? "Processing..." : "Confirm Rejection"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReject}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Processing...' : 'Reject'}
+            </button>
+            <button
+              onClick={handleApprove}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Processing...' : 'Approve'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

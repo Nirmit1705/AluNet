@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { toast } from "sonner";
 import { 
   Users, 
@@ -15,6 +14,8 @@ import {
   LogOut
 } from "lucide-react";
 import AdminVerificationModal from "./admin/AdminVerificationModal";
+import { directAdminLogin, createAdminApiClient } from "../../utils/adminAuth";
+import { isAdmin } from "../../utils/authUtils";
 
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
@@ -50,59 +51,21 @@ const AdminDashboardPage = () => {
     toast.success("Logged out successfully");
   };
 
-  // Check admin role on component mount
+  // Create API client once to avoid recreating it
+  const api = createAdminApiClient();
+
+  // Check admin role and token validity on component mount
   useEffect(() => {
-    const userRole = localStorage.getItem("userRole");
-    if (userRole !== "admin") {
-      console.warn("User role check failed:", userRole);
-    }
-  }, [navigate]);
-
-  // Setup axios instance with authorization header
-  const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
-  });
-  
-  // Add interceptor to include token in all requests
-  api.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        // Validate token format
-        if (token !== 'null' && token !== 'undefined' && token !== '') {
-          config.headers.Authorization = `Bearer ${token}`;
-        } else {
-          console.error('Invalid token format:', token);
-        }
-      } else {
-        console.warn('No token found in localStorage');
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
-
-  // Add response interceptor to handle auth errors
-  api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-      console.error("API Error Response:", error.response?.status, error.response?.data);
-      
-      if (error.response && error.response.status === 401) {
-        console.error('Authentication error:', error.response.data);
-        setError("Authentication failed. Please log in again with valid admin credentials.");
+    const validateAdminAccess = async () => {
+      // First check if role is admin
+      if (!isAdmin()) {
+        console.warn("User role is not admin");
+        setError("You don't have administrator privileges. Please log in with valid admin credentials.");
         setIsLoading(false);
+        return;
       }
-      return Promise.reject(error);
-    }
-  );
 
-  // Fetch dashboard stats
-  const fetchDashboardStats = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Check token before making request
+      // Then check if token exists and is not empty
       const token = localStorage.getItem("token");
       if (!token || token === 'null' || token === 'undefined' || token === '') {
         console.error("No valid authentication token found");
@@ -110,6 +73,18 @@ const AdminDashboardPage = () => {
         setIsLoading(false);
         return;
       }
+
+      // Proceed with fetching data
+      fetchDashboardStats();
+    };
+
+    validateAdminAccess();
+  }, []);
+
+  // Fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    try {
+      setIsLoading(true);
       
       // Call the API
       const response = await api.get('/admin/dashboard-stats');
@@ -129,7 +104,13 @@ const AdminDashboardPage = () => {
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
-      setError(error.response?.data?.message || "Failed to load admin dashboard");
+      
+      if (error.response?.status === 403) {
+        setError("Not authorized as an admin. Please log in with valid admin credentials.");
+      } else {
+        setError(error.response?.data?.message || "Failed to load admin dashboard");
+      }
+      
       setIsLoading(false);
     }
   };
@@ -142,13 +123,22 @@ const AdminDashboardPage = () => {
   // Fetch verifications
   const fetchVerifications = async () => {
     try {
+      console.log("Fetching verification requests with filter:", filterStatus);
       const response = await api.get('/admin/verifications', {
         params: {
           status: filterStatus === 'all' ? undefined : filterStatus,
           search: searchQuery || undefined
         }
       });
-      setVerifications(response.data);
+      
+      console.log("Verification requests response:", response.data);
+      
+      if (Array.isArray(response.data)) {
+        setVerifications(response.data);
+      } else {
+        console.error("Unexpected verification data format:", response.data);
+        setVerifications([]);
+      }
     } catch (error) {
       console.error("Error fetching verifications:", error);
       toast.error("Failed to load verifications");
@@ -171,11 +161,19 @@ const AdminDashboardPage = () => {
   // Handle verification status update
   const handleVerificationAction = async (id, action, rejectReason) => {
     try {
-      console.log(`Admin requesting ${action} for verification ${id}`);
+      console.log(`Admin requesting ${action} for verification ${id}, reason: ${rejectReason || 'none'}`);
       
+      // Validate inputs
+      if (!id) {
+        console.error("Missing verification ID");
+        toast.error("Error: Missing verification ID");
+        return;
+      }
+      
+      // Send the API request
       const response = await api.put(`/admin/verifications/${id}`, { 
         status: action,
-        rejectionReason: rejectReason 
+        rejectionReason: rejectReason || undefined
       });
       
       console.log("Server response:", response.data);
@@ -190,7 +188,7 @@ const AdminDashboardPage = () => {
       // Update stats
       setStats(prev => ({
         ...prev,
-        pendingVerifications: prev.pendingVerifications - 1,
+        pendingVerifications: Math.max(0, prev.pendingVerifications - 1),
         totalAlumni: action === 'approved' ? prev.totalAlumni + 1 : prev.totalAlumni
       }));
       
@@ -208,7 +206,7 @@ const AdminDashboardPage = () => {
       }, 1000);
     } catch (error) {
       console.error(`Error ${action} verification:`, error);
-      toast.error(`Error: ${error.response?.data?.message || error.message}`);
+      toast.error(`Verification ${action} failed: ${error.response?.data?.message || error.message || "Unknown error"}`);
     }
   };
 
@@ -230,43 +228,25 @@ const AdminDashboardPage = () => {
     navigate("/admin/logs");
   };
   
+  // Improved admin login with better error handling and feedback
   const adminLogin = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
     try {
-      const response = await axios({
-        method: 'post',
-        url: "http://localhost:5000/api/admin/login",
-        data: {
-          email: "verify@admin.com",
-          password: "admin123"
-        },
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000 // 10 seconds timeout
-      });
+      setIsLoading(true);
+      const loginSuccess = await directAdminLogin();
       
-      if (response && response.data && response.data.token) {
-        // Store admin data and token
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userRole", "admin");
-        localStorage.setItem("userEmail", "verify@admin.com");
-        localStorage.setItem("userName", response.data.name || "Admin");
-        
-        // Force direct navigation using window.location
-        window.location.replace("/admin-dashboard");
+      if (loginSuccess) {
+        // Reload the page to apply new token
+        window.location.reload();
       } else {
-        throw new Error("Invalid response format");
+        setError("Admin login failed. Please try again or contact system support.");
+        setIsLoading(false);
       }
     } catch (loginError) {
-      // Fallback to manual token creation for development purposes
-      localStorage.setItem("token", "admin-token-special");
-      localStorage.setItem("userRole", "admin");
-      localStorage.setItem("userEmail", "verify@admin.com");
-      localStorage.setItem("userName", "Admin");
-      
-      // Force direct navigation
-      window.location.replace("/admin-dashboard");
+      console.error("Admin login error:", loginError);
+      setError("Admin login failed: " + (loginError.message || "Unknown error"));
+      setIsLoading(false);
     }
   };
 

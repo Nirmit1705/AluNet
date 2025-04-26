@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,10 +34,18 @@ import ResendVerification from './pages/ResendVerification';
 import AdminUserManagement from "./pages/admin/AdminUserManagement";
 import AdminVerifications from "./pages/admin/AdminVerifications";
 import AdminLogs from "./pages/admin/AdminLogs";
+import { clearInvalidAuth } from './utils/loginHelper';
 
 const queryClient = new QueryClient();
 
 function App() {
+  useEffect(() => {
+    // Check and clear invalid auth tokens on application startup
+    if (clearInvalidAuth()) {
+      console.log("Cleared invalid authentication data");
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

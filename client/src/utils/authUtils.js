@@ -3,34 +3,6 @@
  */
 
 /**
- * Clear all authentication data from localStorage
- */
-export const clearAuthData = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('userRole');
-  localStorage.removeItem('userEmail');
-  localStorage.removeItem('userName');
-  localStorage.removeItem('pendingVerification');
-};
-
-/**
- * Check if the user is currently authenticated based on localStorage
- * @returns {boolean}
- */
-export const isAuthenticated = () => {
-  const token = localStorage.getItem('token');
-  return !!token && token !== 'undefined' && token !== 'null';
-};
-
-/**
- * Get the current user's role from localStorage
- * @returns {string|null}
- */
-export const getUserRole = () => {
-  return localStorage.getItem('userRole');
-};
-
-/**
  * Store authentication data in localStorage
  * 
  * @param {Object} authData - The authentication data to store
@@ -55,20 +27,49 @@ export const storeAuthData = ({ token, userRole, userEmail, userName, isVerified
 };
 
 /**
- * Get the appropriate dashboard URL for the current user role
+ * Get the current user's role from localStorage
  * 
- * @returns {string} The dashboard URL
+ * @returns {string|null} The user's role or null if not set
  */
-export const getDashboardUrl = () => {
-  const role = getUserRole();
-  
-  switch (role) {
-    case 'admin':
-      return '/admin-dashboard';
-    case 'alumni':
-      return '/alumni-dashboard';
-    case 'student':
-    default:
-      return '/student-dashboard';
-  }
+export const getUserRole = () => {
+  return localStorage.getItem('userRole');
+};
+
+/**
+ * Check if the current user is authenticated
+ * 
+ * @returns {boolean} True if authenticated
+ */
+export const isAuthenticated = () => {
+  const token = localStorage.getItem('token');
+  return !!token;
+};
+
+/**
+ * Check if the current user is an admin
+ * 
+ * @returns {boolean} True if user is an admin
+ */
+export const isAdmin = () => {
+  return getUserRole() === 'admin';
+};
+
+/**
+ * Get the current authentication token
+ * 
+ * @returns {string|null} The auth token or null if not set
+ */
+export const getAuthToken = () => {
+  return localStorage.getItem('token');
+};
+
+/**
+ * Clear all authentication data from localStorage
+ */
+export const clearAuthData = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('userEmail');
+  localStorage.removeItem('userName');
+  localStorage.removeItem('pendingVerification');
 };
