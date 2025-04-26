@@ -375,15 +375,6 @@ const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
 // @access  Private
 const submitVerificationDocument = asyncHandler(async (req, res) => {
   const { documentURL } = req.body;
-  
-  // Log the document URL for debugging
-  console.log("Submitting verification document:", documentURL);
-  
-  if (!documentURL) {
-    res.status(400);
-    throw new Error("Please provide a verification document URL");
-  }
-  
   const alumni = await Alumni.findById(req.user._id);
   
   if (!alumni) {
@@ -391,50 +382,63 @@ const submitVerificationDocument = asyncHandler(async (req, res) => {
     throw new Error("Alumni not found");
   }
   
-  // Update alumni with document URL
-  alumni.verificationDocument = {
-    url: documentURL,
-    filename: path.basename(documentURL)
-  };
-  alumni.verificationSubmittedAt = Date.now();
-  alumni.verificationStatus = 'pending';
-  
-  await alumni.save();
-  
-  // Create or update verification request
-  let verificationRequest = await VerificationRequest.findOne({ 
-    userId: alumni._id,
-    status: 'pending'
-  });
-  
-  if (verificationRequest) {
-    // Update existing request
-    verificationRequest.documentURL = documentURL;
-    await verificationRequest.save();
-    console.log("Updated existing verification request with document URL:", documentURL);
-  } else {
-    // Create new verification request
-    verificationRequest = await VerificationRequest.create({
-      name: alumni.name,
-      email: alumni.email,
-      phone: alumni.phone || "",
-      university: alumni.university || "",
-      degree: alumni.degree || "Not Specified",
-      branch: alumni.branch,
-      graduationYear: alumni.graduationYear,
-      currentCompany: alumni.company || "",
-      currentRole: alumni.currentPosition || "",
-      documentURL: documentURL,
-      userId: alumni._id,
-      status: 'pending'
-    });
-    console.log("Created new verification request with document URL:", documentURL);
+  if (!documentURL) {
+    res.status(400);
+    throw new Error("Verification document URL is required");
   }
   
-  res.status(200).json({
-    message: "Verification document submitted successfully",
-    documentURL: documentURL
-  });
+  try {
+    // Update alumni verification document
+    alumni.verificationDocument = {
+      url: documentURL,
+      filename: path.basename(documentURL)
+    };
+    alumni.verificationStatus = 'pending';
+    alumni.verificationSubmittedAt = new Date(); // Set new submission timestamp
+    
+    // Clear previous verification decisions
+    alumni.verificationApprovedAt = null;
+    alumni.verificationApprovedBy = null;
+    alumni.verificationRejectedAt = null;
+    alumni.verificationRejectedBy = null;
+    alumni.verificationRejectionReason = '';
+    
+    await alumni.save();
+    
+    // Create or update verification request
+    let verificationRequest = await VerificationRequest.findOne({ userId: alumni._id });
+    
+    if (verificationRequest) {
+      verificationRequest.documentURL = documentURL;
+      verificationRequest.status = 'pending';
+      verificationRequest.rejectionReason = null;
+      await verificationRequest.save();
+    } else {
+      verificationRequest = await VerificationRequest.create({
+        name: alumni.name,
+        email: alumni.email,
+        phone: alumni.phone || "",
+        university: alumni.university || "",
+        degree: "Not Specified",
+        branch: alumni.branch || "",
+        graduationYear: alumni.graduationYear,
+        currentCompany: alumni.company || "",
+        currentRole: alumni.currentPosition || "",
+        documentURL,
+        userId: alumni._id,
+        status: 'pending'
+      });
+    }
+    
+    res.status(200).json({
+      message: "Verification document submitted successfully",
+      statusUpdated: true
+    });
+  } catch (error) {
+    console.error("Error submitting verification document:", error);
+    res.status(500);
+    throw new Error("Failed to submit verification document");
+  }
 });
 
 // @desc    Get alumni by ID
@@ -498,6 +502,7 @@ const registerAlumni = asyncHandler(async (req, res) => {
       isVerified: false,
       verificationStatus: 'pending',
       status: 'pending',
+      verificationSubmittedAt: new Date(), // Set submission timestamp
       // Store document URL in alumni record
       verificationDocument: documentURL ? {
         url: documentURL,

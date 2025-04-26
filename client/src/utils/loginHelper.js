@@ -117,43 +117,34 @@ export const handleAlumniLogin = async (navigate, email, password, onSuccess) =>
           throw new Error("Authentication error: Invalid token received");
         }
         
-        // Store auth data
+        // Store basic auth data
         localStorage.setItem("token", data.token);
         localStorage.setItem("userRole", "alumni");
         localStorage.setItem("userEmail", email);
         localStorage.setItem("userName", data.name || email.split('@')[0]);
         
-        // Explicitly check isVerified - be more strict about the true/false check
-        // and log the exact value for debugging
+        // Explicitly check isVerified
         console.log("Alumni verification status:", data.isVerified);
         
         if (data.isVerified === false) {
           console.log("Alumni is NOT verified, setting pendingVerification flag");
           localStorage.setItem("pendingVerification", "true");
-        } else if (data.isVerified === true) {
+          
+          // Immediately redirect to verification pending page
+          window.location.href = "/verification-pending";
+          toast.success("Logged in successfully - your account is pending verification");
+        } else {
           console.log("Alumni IS verified, removing pendingVerification flag");
           localStorage.removeItem("pendingVerification");
-        } else {
-          console.warn("Ambiguous verification status:", data.isVerified);
-          // Default to removing the flag if we're not sure
-          localStorage.removeItem("pendingVerification");
+          
+          // Redirect to alumni dashboard
+          window.location.href = "/alumni-dashboard";
+          toast.success("Logged in successfully!");
         }
-        
-        toast.success("Logged in successfully!");
         
         // Call the onSuccess callback if provided
         if (onSuccess) {
           onSuccess();
-        }
-        
-        // Check verification status to decide redirect
-        // Be more explicit in the condition check
-        if (data.isVerified === false) {
-          console.log("Redirecting to verification pending page");
-          window.location.href = "/verification-pending";
-        } else {
-          console.log("Redirecting to alumni dashboard");
-          window.location.href = "/alumni-dashboard";
         }
         
         return true;

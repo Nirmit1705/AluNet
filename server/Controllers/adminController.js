@@ -603,110 +603,99 @@ const getVerificationById = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update verification status
-// @route   PUT /api/admin/verifications/:id
-// @access  Private/Admin
-const updateVerificationStatus = asyncHandler(async (req, res) => {
+// Handle verification status update
+const updateVerificationRequest = asyncHandler(async (req, res) => {
   try {
-    const { status, rejectionReason } = req.body;
     const { id } = req.params;
+    const { status, rejectionReason } = req.body;
+    const adminId = req.user.id; // Get admin ID from authenticated user
     
-    console.log(`Processing verification update: ID=${id}, status=${status}, reason=${rejectionReason || 'none'}`);
+    console.log(`Updating verification request ${id} to ${status} by admin ${adminId}`);
     
-    if (!['approved', 'rejected'].includes(status)) {
+    // Validate status
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
       res.status(400);
       throw new Error('Invalid status value');
     }
     
-    // Try to find verification request by ID
-    let verification = null;
-    try {
-      verification = await VerificationRequest.findById(id);
-    } catch (findError) {
-      console.error(`Error finding verification by ID: ${findError.message}`);
+    // Find the verification request
+    const verificationRequest = await VerificationRequest.findById(id);
+    if (!verificationRequest) {
+      res.status(404);
+      throw new Error('Verification request not found');
+    }
+    
+    // Update verification request status
+    verificationRequest.status = status;
+    
+    // Add rejection reason if provided and status is rejected
+    if (status === 'rejected' && rejectionReason) {
+      verificationRequest.rejectionReason = rejectionReason;
+    }
+    
+    // Save the verification request
+    await verificationRequest.save();
+    
+    // If there's an associated alumni, update their status too
+    if (verificationRequest.userId) {
+      const alumni = await Alumni.findById(verificationRequest.userId);
       
-      // If MongoDB ID is invalid, check if it's an alumni ID directly
-      if (findError.name === 'CastError' && findError.kind === 'ObjectId') {
-        console.log(`ID ${id} appears to be invalid for VerificationRequest, checking Alumni directly`);
+      if (alumni) {
+        // Update verification status
+        alumni.verificationStatus = status;
+        
+        // Update verification timestamps and admin info
+        if (status === 'approved') {
+          alumni.isVerified = true;
+          alumni.status = 'active';
+          alumni.verificationApprovedAt = new Date();
+          alumni.verificationApprovedBy = adminId;
+          // Clear rejection info if previously rejected
+          alumni.verificationRejectionReason = '';
+          alumni.verificationRejectedAt = null;
+          alumni.verificationRejectedBy = null;
+        } else if (status === 'rejected') {
+          alumni.isVerified = false;
+          alumni.status = 'rejected';
+          alumni.verificationRejectedAt = new Date();
+          alumni.verificationRejectedBy = adminId;
+          alumni.verificationRejectionReason = rejectionReason || 'Verification rejected by administrator';
+          // Clear approval info if previously approved
+          alumni.verificationApprovedAt = null;
+          alumni.verificationApprovedBy = null;
+        } else {
+          // If reverted to pending
+          alumni.isVerified = false;
+          alumni.status = 'pending';
+        }
+        
+        // Always record when a verification action was taken
+        alumni.verificationSubmittedAt = alumni.verificationSubmittedAt || verificationRequest.createdAt || new Date();
+        
+        console.log(`Updating alumni verification status to ${status}`, {
+          alumniId: alumni._id,
+          isVerified: alumni.isVerified,
+          verificationStatus: alumni.verificationStatus,
+          status: alumni.status,
+          timestamps: {
+            submitted: alumni.verificationSubmittedAt,
+            approved: alumni.verificationApprovedAt,
+            rejected: alumni.verificationRejectedAt
+          }
+        });
+        
+        await alumni.save();
       }
     }
     
-    // If not found in VerificationRequest collection, try to find directly in Alumni collection
-    let alumni = null;
-    if (!verification) {
-      console.log(`No verification request found with ID ${id}, checking alumni directly`);
-      try {
-        alumni = await Alumni.findById(id);
-      } catch (alumniError) {
-        console.error(`Error finding alumni by ID: ${alumniError.message}`);
-      }
-      
-      if (!alumni) {
-        res.status(404);
-        throw new Error('Verification request or alumni not found');
-      }
-      
-      console.log(`Found alumni directly: ${alumni.name} (${alumni.email})`);
-    } else {
-      // If verification request exists, get the associated alumni
-      try {
-        alumni = await Alumni.findById(verification.userId);
-      } catch (error) {
-        console.error(`Error finding alumni using verification.userId: ${error.message}`);
-      }
-      
-      if (!alumni && verification.email) {
-        // Try to find alumni by email as fallback
-        alumni = await Alumni.findOne({ email: verification.email });
-        console.log(`Found alumni by email: ${alumni ? 'Yes' : 'No'}`);
-      }
-    }
-    
-    // Update verification request if it exists
-    if (verification) {
-      verification.status = status;
-      if (status === 'rejected' && rejectionReason) {
-        verification.rejectionReason = rejectionReason;
-      }
-      
-      await verification.save();
-      console.log(`Updated verification request ${verification._id} status to ${status}`);
-    }
-    
-    // Update alumni status if found
-    if (alumni) {
-      console.log(`Updating alumni ${alumni._id} (${alumni.name}) verification status to ${status}`);
-      
-      // Update all relevant verification fields for consistency
-      alumni.isVerified = status === 'approved';
-      alumni.verificationStatus = status;
-      alumni.status = status === 'approved' ? 'active' : 'pending';
-      
-      // Add rejection reason if provided
-      if (status === 'rejected' && rejectionReason) {
-        alumni.verificationRejectionReason = rejectionReason;
-      }
-      
-      await alumni.save();
-      console.log(`Alumni verification status updated successfully`);
-    } else {
-      console.warn(`Warning: No alumni found to update for verification ${id}`);
-    }
-    
-    // Return success response
     res.status(200).json({
-      message: `Verification request ${status}`,
-      verification: verification || { _id: id, status }
+      message: `Verification request ${status} successfully`,
+      verificationRequest
     });
   } catch (error) {
-    console.error(`Error updating verification status:`, error);
-    
-    // If we haven't already set a status code
-    if (!res.statusCode || res.statusCode === 200) {
-      res.status(500);
-    }
-    
-    throw new Error(`Error updating verification status: ${error.message}`);
+    console.error(`Error updating verification request:`, error);
+    res.status(error.statusCode || 500);
+    throw new Error(error.message || 'Error updating verification request');
   }
 });
 
@@ -715,7 +704,7 @@ export {
   getDashboardStats,
   getVerifications,
   getVerificationById,
-  updateVerificationStatus,
+  updateVerificationRequest,
   getUsers,
   updateUserStatus,
   getSystemLogs

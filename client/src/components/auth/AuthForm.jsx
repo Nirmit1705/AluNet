@@ -498,22 +498,26 @@ const AuthForm = forwardRef(({
         // Add more debugging logs
         console.log("Registration response received:", data);
         
-        if (data.success) {
-          setIsRegistrationComplete(true);
-          toast.success("Registration successful!");
+        // Store authentication data
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userEmail", email);
+        localStorage.setItem("userName", name);
+        
+        // For alumni, set the pending verification flag
+        if (role === "alumni") {
+          // Set the verification pending flag
+          localStorage.setItem("pendingVerification", "true");
+          toast.success("Registration successful! Your account is pending verification.");
           
-          // Store authentication data
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("userRole", role);
-          localStorage.setItem("userEmail", formData.email);
-          localStorage.setItem("userName", formData.name);
-          
-          // Redirect after a short delay
-          setTimeout(() => {
-            window.location.href = role === "student" ? "/student-dashboard" : "/alumni-dashboard";
-          }, 1500);
+          // Redirect to verification pending page immediately
+          window.location.href = "/verification-pending";
         } else {
-          toast.error(data.message || "Registration failed");
+          // For students, redirect to student dashboard
+          toast.success("Registration successful!");
+          setTimeout(() => {
+            window.location.href = "/student-dashboard";
+          }, 1000);
         }
       } else {
         // Extract and display meaningful error messages
@@ -1250,38 +1254,10 @@ const AuthForm = forwardRef(({
       )}
 
       {/* Registration completion message */}
-      {type === "register" && step === 2 && role === "alumni" && registrationComplete && (
-        <div className="space-y-6 text-center py-8">
-          <div className="mx-auto rounded-full bg-green-100 dark:bg-green-900/20 p-3 w-16 h-16 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 dark:text-green-400">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold">Registration Submitted</h3>
-          <p className="text-muted-foreground">
-            Thank you for registering as an alumni. Your document has been submitted for verification by our administrators. You'll receive an email once your account is verified.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              // Reset the form and navigate to login
-              setEmail("");
-              setPassword("");
-              setName("");
-              setConfirmPassword("");
-              setAlumniDocument(null);
-              setIsRegistrationComplete(false);
-              setStep(1);
-              if (onSwitchType) {
-                onSwitchType("login");
-              }
-            }}
-            className="w-full button-primary py-2.5 relative overflow-hidden group"
-          >
-            <span className="relative z-10">Go to Login</span>
-            <div className="absolute inset-0 bg-white/10 translate-y-[101%] group-hover:translate-y-0 transition-transform duration-300"></div>
-          </button>
+      {type === "register" && step === 2 && role === "alumni" && isSubmitting && (
+        <div className="space-y-6 text-center py-4">
+          <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Creating your profile...</p>
         </div>
       )}
     </div>

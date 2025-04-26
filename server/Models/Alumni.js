@@ -270,13 +270,51 @@ AlumniSchema.pre('validate', function(next) {
   next();
 });
 
-// Add indexes for better search performance
-AlumniSchema.index({ name: 'text', degree: 'text', specialization: 'text', company: 'text' });
-AlumniSchema.index({ graduationYear: 1 });
-AlumniSchema.index({ company: 1 });
-AlumniSchema.index({ skills: 1 });
-AlumniSchema.index({ mentorshipAvailable: 1 });
-AlumniSchema.index({ isActive: 1 });  // IMPORTANT: Optimizes queries for active users
+// Ensure our schema indexes are properly set up
+AlumniSchema.index({ email: 1 }, { unique: true });
+AlumniSchema.index({ isVerified: 1 }, { background: true });
+AlumniSchema.index({ status: 1 }, { background: true });
+AlumniSchema.index({ verificationStatus: 1 }, { background: true });
+AlumniSchema.index({ graduationYear: 1 }, { background: true });
+AlumniSchema.index({ branch: 1 }, { background: true });
+AlumniSchema.index({ company: 1 }, { background: true, sparse: true });
+
+// Add middleware to ensure verification fields are consistent
+AlumniSchema.pre('save', function(next) {
+  // If verificationStatus is explicitly set, ensure isVerified is consistent
+  if (this.isModified('verificationStatus')) {
+    if (this.verificationStatus === 'approved') {
+      this.isVerified = true;
+      this.status = 'active';
+    } else if (this.verificationStatus === 'rejected') {
+      this.isVerified = false;
+      this.status = 'rejected';
+    } else {
+      this.isVerified = false;
+      this.status = 'pending';
+    }
+  }
+  
+  // If status is set to 'active', ensure isVerified is true
+  if (this.isModified('status') && this.status === 'active') {
+    this.isVerified = true;
+    this.verificationStatus = 'approved';
+  }
+  
+  // If isVerified is explicitly set, ensure other fields are consistent
+  if (this.isModified('isVerified')) {
+    if (this.isVerified) {
+      this.status = 'active';
+      this.verificationStatus = 'approved';
+    } else if (!this.isVerified && !this.isModified('verificationStatus')) {
+      // Only update these if verificationStatus wasn't explicitly set
+      this.status = 'pending';
+      this.verificationStatus = 'pending';
+    }
+  }
+  
+  next();
+});
 
 const Alumni = mongoose.model('Alumni', AlumniSchema);
 export default Alumni;

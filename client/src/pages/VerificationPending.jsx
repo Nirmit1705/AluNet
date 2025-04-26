@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, CheckCircle, X, RefreshCw, AlertTriangle } from "lucide-react";
+import { ArrowLeft, RefreshCw, Clock } from "lucide-react";
 
 const VerificationPending = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
-  const [verificationStatus, setVerificationStatus] = useState('pending');
-  const [rejectionReason, setRejectionReason] = useState('');
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -60,11 +57,6 @@ const VerificationPending = () => {
         
         console.log("Verification status response:", response.data);
 
-        setVerificationStatus(response.data.status || 'pending');
-        if (response.data.rejectionReason) {
-          setRejectionReason(response.data.rejectionReason);
-        }
-        
         // If verified, update local storage and redirect to dashboard
         if (response.data.isVerified === true) {
           console.log("Alumni is verified according to server, updating localStorage and redirecting");
@@ -107,16 +99,11 @@ const VerificationPending = () => {
         return;
       }
       
-      const response = await axios.get('/api/alumni/verification-status', {
+      const response = await axios.get('http://localhost:5000/api/alumni/verification-status', {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-
-      setVerificationStatus(response.data.status);
-      if (response.data.rejectionReason) {
-        setRejectionReason(response.data.rejectionReason);
-      }
       
       // If verified, redirect to dashboard
       if (response.data.isVerified) {
@@ -129,10 +116,6 @@ const VerificationPending = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleResendVerification = () => {
-    navigate('/resend-verification');
   };
 
   if (isLoading) {
@@ -157,69 +140,24 @@ const VerificationPending = () => {
             <ArrowLeft className="h-5 w-5" />
           </button>
           
-          {verificationStatus === 'pending' ? (
-            <>
-              <div className="h-20 w-20 rounded-full bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="h-10 w-10" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Verification Pending</h2>
-              <p className="text-muted-foreground mb-8">
-                Your alumni verification is currently under review by our administrators. 
-                This process may take 1-2 business days. You'll receive an email once your account is verified.
-              </p>
-              <button
-                onClick={handleRefreshStatus}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center mx-auto"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Status
-              </button>
-            </>
-          ) : verificationStatus === 'rejected' ? (
-            <>
-              <div className="h-20 w-20 rounded-full bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-6">
-                <X className="h-10 w-10" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Verification Rejected</h2>
-              <p className="text-muted-foreground mb-4">
-                Unfortunately, your alumni verification request has been rejected.
-              </p>
-              {rejectionReason && (
-                <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg mb-6 text-left">
-                  <h3 className="font-medium text-red-700 dark:text-red-400 mb-2">Reason for rejection:</h3>
-                  <p className="text-red-600 dark:text-red-300">{rejectionReason}</p>
-                </div>
-              )}
-              <button
-                onClick={handleResendVerification}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Submit New Verification
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="h-20 w-20 rounded-full bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle className="h-10 w-10" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Verification Error</h2>
-              <p className="text-muted-foreground mb-8">
-                There was an error checking your verification status. Please try again later.
-              </p>
-              {error && (
-                <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg mb-6">
-                  <p className="text-red-600 dark:text-red-300">{error}</p>
-                </div>
-              )}
-              <button
-                onClick={handleRefreshStatus}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center mx-auto"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </button>
-            </>
-          )}
+          <div className="h-20 w-20 rounded-full bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+            <Clock className="h-10 w-10" />
+          </div>
+          
+          <h2 className="text-2xl font-bold mb-4">Verification Pending</h2>
+          
+          <p className="text-muted-foreground mb-8">
+            Your alumni verification is currently under review by our administrators. 
+            This process may take 1-2 business days. You'll receive an email once your account is verified.
+          </p>
+          
+          <button
+            onClick={handleRefreshStatus}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center mx-auto"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Status
+          </button>
         </div>
       </div>
     </div>
