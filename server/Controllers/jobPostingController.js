@@ -7,70 +7,69 @@ import { createNotification } from './notificationController.js';
 // @route   POST /api/jobs
 // @access  Private (Alumni only)
 const createJobPosting = asyncHandler(async (req, res) => {
-  const { title, companyName, location, description, requirements, applicationLink } = req.body;
+  const { 
+    title, 
+    companyName, 
+    location, 
+    type,
+    description, 
+    requirements, 
+    applicationLink,
+    deadline,
+    industry,
+    experienceLevel,
+    remoteWork
+  } = req.body;
 
-  // Create new job posting
+  // Check if user is an alumni
+  if (!req.user.graduationYear || req.user.registrationNumber) {
+    res.status(403);
+    throw new Error('Only alumni can post jobs');
+  }
+
+  // Create job posting
   const jobPosting = await JobPosting.create({
     title,
     companyName,
     location,
+    jobType: type,
     description,
-    requirements,
+    requirements: Array.isArray(requirements) ? requirements : requirements.split('\n').filter(req => req.trim() !== ''),
     applicationLink,
-    postedBy: req.user._id, // Alumni ID from auth middleware
+    applicationDeadline: deadline,
+    industry,
+    experienceLevel,
+    remoteWork: remoteWork || false,
+    postedBy: req.user._id,
   });
 
   if (jobPosting) {
-    try {
-      // Extract keywords from the job title and requirements for matching
-      const jobKeywords = [
-        ...title.toLowerCase().split(' '),
-        ...requirements.toLowerCase().split(' ')
-      ].filter(word => word.length > 3); // Filter out short words
-      
-      // Find students with matching skills or interests (more targeted approach)
-      const relevantStudents = await Student.find({
-        $or: [
-          { skills: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } },
-          { interests: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } }
-        ]
-      }).limit(50); // Still limit to 50 for performance
-      
-      if (relevantStudents.length > 0) {
-        // Create notifications for relevant students
-        const notificationPromises = relevantStudents.map(student => 
-          createNotification(
-            student._id,
-            'Student',
-            'job',
-            'New Job Posting',
-            `A new job "${title}" at ${companyName} has been posted that matches your skills`,
-            jobPosting._id
-          )
-        );
-        
-        await Promise.all(notificationPromises);
-      } else {
-        // If no specific matches, notify a smaller general group
-        const students = await Student.find({}).limit(20);
-        
-        const notificationPromises = students.map(student => 
-          createNotification(
-            student._id,
-            'Student',
-            'job',
-            'New Job Posting',
-            `A new job "${title}" at ${companyName} has been posted`,
-            jobPosting._id
-          )
-        );
-        
-        await Promise.all(notificationPromises);
-      }
-    } catch (error) {
-      console.error('Failed to create job posting notifications:', error.message);
-      // Continue with the response even if notifications fail
-    }
+    // Find relevant students to notify
+    const jobKeywords = [
+      ...title.toLowerCase().split(' '),
+      ...requirements.toString().toLowerCase().split(' ')
+    ].filter(word => word.length > 3);
+    
+    const relevantStudents = await Student.find({
+      $or: [
+        { skills: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } },
+        { interests: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } }
+      ]
+    }).limit(50);
+    
+    // Create notifications
+    const notificationPromises = relevantStudents.map(student => 
+      createNotification(
+        student._id,
+        'Student',
+        'job',
+        'New Job Posting',
+        `A new job "${title}" at ${companyName} has been posted that matches your skills`,
+        jobPosting._id
+      )
+    );
+    
+    await Promise.all(notificationPromises);
     
     res.status(201).json(jobPosting);
   } else {

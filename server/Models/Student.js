@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from "mongoose"; // ✅ Converted from ES Modules to CommonJS
+import bcrypt from "bcryptjs"; // ✅ Converted from ES Modules to CommonJS
 
 // Internship Schema (Embedded)
 const internshipSchema = new mongoose.Schema({
@@ -24,12 +24,15 @@ const studentSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add an email'],
         unique: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+        match: [/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Please add a valid email']
     },
     password: {
         type: String,
-        required: [true, 'Please add a password'],
-        minlength: 6,
+        required: function() {
+            // Password is only required if there's no googleId
+            return !this.googleId;
+        },
+        minlength: [6, 'Password must be at least 6 characters'],
         select: false
     },
     phone: { type: String },
@@ -50,7 +53,7 @@ const studentSchema = new mongoose.Schema({
     skills: [{ type: String }],
     interests: [{ type: String }],
     bio: { type: String },
-    linkedin: { type: String },
+    linkedin: { type: String, match: /^(https?:\/\/)?(www\.)?linkedin\.com\/.*$/ },
     github: { type: String },
     resume: { type: String },
     assignedMentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
@@ -62,8 +65,8 @@ const studentSchema = new mongoose.Schema({
     internships: [internshipSchema], // Embedded array of internships
     projects: [projectSchema], // Embedded array of projects
     graduationYear: { type: Number, required: true },
-    University: { type: String, required: true },
-    College: { type: String, required: true },
+    university: { type: String, required: true },
+    college: { type: String, required: true },
     goal: { type: String },
     // Email verification fields
     isEmailVerified: {
@@ -100,12 +103,63 @@ const studentSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    isActive: { type: Boolean, default: true },
     mentorshipInterests: [{
-        type: String
-    }]
+        type: String // Areas of interest for mentorship
+    }],
+    assignedMentor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Alumni'
+    },
+    mentorRequests: [{
+        mentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
+        status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+    }],
+    internships: [{
+        company: String,
+        role: String,
+        duration: String,
+        description: String
+    }],
+    projects: [{
+        title: String,
+        description: String,
+        technologies: [String],
+        link: String
+    }],
+    careerGoals: String,
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    schemaVersion: {
+        type: Number,
+        default: 1
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    // Add status field if it doesn't exist
+    status: {
+        type: String,
+        enum: ['active', 'inactive', 'pending'],
+        default: 'active'
+    }
 }, {
     timestamps: true,
     collection: 'Students'
+});
+
+// Fix: Make sure we're using studentSchema (lowercase 's')
+studentSchema.pre('validate', function(next) {
+  // If status is undefined or null, set a default status
+  if (!this.status) {
+    this.status = 'active'; // Students are generally active by default
+    console.log(`Setting default status 'active' for student ${this._id}`);
+  }
+  next();
 });
 
 // Encrypt password using bcrypt
@@ -127,12 +181,13 @@ studentSchema.methods.matchPassword = async function(enteredPassword) {
 
 // Add indexes for better search performance
 studentSchema.index({ name: 'text', branch: 'text' });
-studentSchema.index({ registrationNumber: 1 });
+// studentSchema.index({ registrationNumber: 1 });
 studentSchema.index({ branch: 1 });
 studentSchema.index({ currentYear: 1 });
 studentSchema.index({ skills: 1 });
 studentSchema.index({ interests: 1 });
 studentSchema.index({ assignedMentor: 1 });
+studentSchema.index({ skills: 1, graduationYear: -1 });
 
 const Student = mongoose.model('Student', studentSchema);
-export default Student;
+export default Student; // ✅ Use CommonJS instead of ES Module

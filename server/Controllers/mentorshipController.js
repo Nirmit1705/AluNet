@@ -7,6 +7,7 @@ import { createNotification } from './notificationController.js';
 // @desc    Create a new mentorship request
 // @route   POST /api/mentorship
 // @access  Private (Student only)
+// Implement mentorship request creation to match frontend form
 const createMentorshipRequest = asyncHandler(async (req, res) => {
   const { 
     alumniId, 
@@ -19,7 +20,7 @@ const createMentorshipRequest = asyncHandler(async (req, res) => {
   } = req.body;
 
   // Check if user is a student
-  if (!req.user || req.user.registrationNumber === undefined) {
+  if (!req.user.registrationNumber) {
     res.status(403);
     throw new Error('Only students can request mentorship');
   }
@@ -49,6 +50,16 @@ const createMentorshipRequest = asyncHandler(async (req, res) => {
   });
 
   if (mentorship) {
+    // Create notification for alumni
+    await createNotification(
+      alumniId,
+      'Alumni',
+      'mentorship',
+      'New Mentorship Request',
+      `${req.user.name} has requested your mentorship`,
+      mentorship._id
+    );
+    
     res.status(201).json(mentorship);
   } else {
     res.status(400);

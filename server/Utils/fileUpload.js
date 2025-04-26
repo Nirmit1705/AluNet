@@ -1,105 +1,88 @@
-import dotenv from 'dotenv';
-import cloudinary from 'cloudinary';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-// Load env variables
-dotenv.config();
-
-// Configure Cloudinary
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Ensure uploads directory exists
-const uploadsDir = './uploads';
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('Created uploads directory');
 }
 
-// Multer storage for temporary files
+// Setup storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });
 
-// File filter for images
-const imageFileFilter = (req, file, cb) => {
-  const filetypes = /jpeg|jpg|png|gif/;
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = filetypes.test(file.mimetype);
+// Define allowed file types
+const allowedFileTypes = ['.pdf', '.jpg', '.jpeg', '.png'];
 
-  if (mimetype && extname) {
-    return cb(null, true);
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  
+  if (allowedFileTypes.includes(ext)) {
+    cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'));
+    cb(new Error('Invalid file type. Only PDF, JPG and PNG files are allowed.'));
   }
 };
 
-// File filter for resume PDFs
-const resumeFileFilter = (req, file, cb) => {
-  const filetypes = /pdf|doc|docx/;
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = /application\/pdf|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document/.test(file.mimetype);
-
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Only PDF, DOC, or DOCX files are allowed!'));
-  }
-};
-
-// Setup upload for profile pictures
-const uploadProfilePicture = multer({
+// Setup upload middleware
+const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB file size limit
-  fileFilter: imageFileFilter
-}).single('profilePicture');
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: fileFilter
+});
 
-// Setup upload for resumes
-const uploadResume = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
-  fileFilter: resumeFileFilter
-}).single('resume');
+// Handle verification document upload
+const handleVerificationDocument = upload.single('verificationDocument');
 
-// Upload to Cloudinary
-const uploadToCloudinary = async (filePath, folder) => {
-  try {
-    const result = await cloudinary.v2.uploader.upload(filePath, {
-      folder: folder,
-      resource_type: 'auto'
-    });
-    return {
-      url: result.secure_url,
-      public_id: result.public_id
-    };
-  } catch (error) {
-    throw new Error(`Error uploading to Cloudinary: ${error.message}`);
-  }
+// Handle profile picture upload
+const uploadProfilePicture = upload.single('profilePicture');
+
+// Handle resume upload
+const uploadResume = upload.single('resume');
+
+// Upload to Cloudinary (stub function if not using Cloudinary)
+const uploadToCloudinary = async (filePath, folder = 'alumni-student-platform', resourceType = 'auto') => {
+  // Just return the local file path if not using actual Cloudinary
+  return {
+    secure_url: `http://localhost:5000/uploads/${path.basename(filePath)}`,
+    public_id: path.basename(filePath)
+  };
 };
 
-// Remove from Cloudinary
+// Remove from Cloudinary (stub function if not using Cloudinary)
 const removeFromCloudinary = async (publicId) => {
-  try {
-    if (!publicId) return;
-    await cloudinary.v2.uploader.destroy(publicId);
-  } catch (error) {
-    throw new Error(`Error removing from Cloudinary: ${error.message}`);
-  }
+  // No-op if not using actual Cloudinary
+  return { result: 'ok' };
+};
+
+// Utility function to process file uploads
+const processFileUpload = async (req, res, next) => {
+  // Handle the file upload using multer
+  handleVerificationDocument(req, res, function(err) {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    next();
+  });
 };
 
 export {
+  handleVerificationDocument,
   uploadProfilePicture,
   uploadResume,
   uploadToCloudinary,
-  removeFromCloudinary
-}; 
+  removeFromCloudinary,
+  processFileUpload
+};

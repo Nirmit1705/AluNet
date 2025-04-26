@@ -1,5 +1,5 @@
 // Load environment variables
-require('dotenv').config({ path: __dirname + '/Config/.env' }); 
+require('dotenv').config({ path: __dirname + './.env' }); 
 const mongoose = require('mongoose');
 const Student = require('./Models/Student'); // Import Student model
 

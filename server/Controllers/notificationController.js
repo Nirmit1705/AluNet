@@ -1,61 +1,42 @@
 import Notification from '../Models/Notification.js';
 import asyncHandler from 'express-async-handler';
 
-// @desc    Create a new notification
-// @route   Used internally by other controllers
+// @desc    Create a notification
+// @route   Internal function, not an API endpoint
 // @access  Private
-const createNotification = async (recipient, recipientModel, type, title, message, relatedId = null) => {
-  if (!recipient || !recipientModel || !type || !title || !message) {
-    console.error('Missing required fields for notification creation');
-    return null;
-  }
-
+const createNotification = async (recipientId, recipientModel, type, title, message, referenceId) => {
   try {
     const notification = await Notification.create({
-      recipient,
+      recipient: recipientId,
       recipientModel,
       type,
       title,
       message,
-      relatedId
+      referenceId,
+      read: false
     });
     
     return notification;
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('Failed to create notification:', error);
     return null;
   }
 };
 
-// @desc    Get all notifications for the current user
+// @desc    Get all notifications for a user
 // @route   GET /api/notifications
 // @access  Private
-const getUserNotifications = asyncHandler(async (req, res) => {
-  const notifications = await Notification.find({
+const getNotifications = asyncHandler(async (req, res) => {
+  const notifications = await Notification.find({ 
     recipient: req.user._id,
-    recipientModel: req.user.constructor.modelName
-  })
-  .sort({ createdAt: -1 })
-  .limit(50);
+    recipientModel: req.user.registrationNumber ? 'Student' : 'Alumni'
+  }).sort('-createdAt');
   
   res.json(notifications);
 });
 
-// @desc    Get unread notification count for the current user
-// @route   GET /api/notifications/unread/count
-// @access  Private
-const getUnreadNotificationCount = asyncHandler(async (req, res) => {
-  const count = await Notification.countDocuments({
-    recipient: req.user._id,
-    recipientModel: req.user.constructor.modelName,
-    isRead: false
-  });
-  
-  res.json({ count });
-});
-
 // @desc    Mark a notification as read
-// @route   PUT /api/notifications/:id/read
+// @route   PUT /api/notifications/:id
 // @access  Private
 const markNotificationAsRead = asyncHandler(async (req, res) => {
   const notification = await Notification.findById(req.params.id);
@@ -65,39 +46,32 @@ const markNotificationAsRead = asyncHandler(async (req, res) => {
     throw new Error('Notification not found');
   }
   
-  // Check if the notification belongs to the current user
-  if (notification.recipient.toString() !== req.user._id.toString() || 
-      notification.recipientModel !== req.user.constructor.modelName) {
+  // Check if this notification belongs to the user
+  if (!notification.recipient.equals(req.user._id)) {
     res.status(403);
-    throw new Error('Not authorized to access this notification');
+    throw new Error('Not authorized to update this notification');
   }
   
-  notification.isRead = true;
+  notification.read = true;
   await notification.save();
   
-  res.json({ message: 'Notification marked as read' });
+  res.json(notification);
 });
 
-// @desc    Mark all notifications as read for the current user
+// @desc    Mark all notifications as read
 // @route   PUT /api/notifications/read-all
 // @access  Private
 const markAllNotificationsAsRead = asyncHandler(async (req, res) => {
   await Notification.updateMany(
-    {
+    { 
       recipient: req.user._id,
-      recipientModel: req.user.constructor.modelName,
-      isRead: false
+      recipientModel: req.user.registrationNumber ? 'Student' : 'Alumni',
+      read: false
     },
-    { isRead: true }
+    { read: true }
   );
   
   res.json({ message: 'All notifications marked as read' });
 });
 
-export { 
-  createNotification,
-  getUserNotifications,
-  getUnreadNotificationCount,
-  markNotificationAsRead,
-  markAllNotificationsAsRead
-};
+export { createNotification, getNotifications, markNotificationAsRead, markAllNotificationsAsRead };

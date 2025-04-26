@@ -30,13 +30,26 @@ const notificationSchema = new mongoose.Schema({
   },
   relatedId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: false
+    refPath: 'relatedModel' // Link notifications to mentorships, sessions, jobs, etc.
+  },
+  relatedModel: {
+    type: String,
+    enum: ['Mentorship', 'MentorshipSession', 'JobPosting', 'Message'] // Identify the type of entity the notification is related to
   },
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  schemaVersion: {
+    type: Number,
+    default: 1 // Track schema version
   }
 });
+
+// Static method to count unread notifications
+notificationSchema.statics.countUnread = async function (recipientId) {
+  return await this.countDocuments({ recipient: recipientId, isRead: false });
+};
 
 // Add indexes for better performance
 notificationSchema.index({ recipient: 1, isRead: 1 });

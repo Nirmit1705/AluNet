@@ -6,19 +6,20 @@ import { createNotification } from './notificationController.js';
 // @desc    Schedule a new mentorship session
 // @route   POST /api/mentorship/:mentorshipId/sessions
 // @access  Private (Student & Alumni)
+// Implement session scheduling to match frontend form
 const scheduleSession = asyncHandler(async (req, res) => {
-  const { title, description, date, startTime, endTime, meetingLink } = req.body;
-  const { mentorshipId } = req.params;
+  const { 
+    mentorshipId, 
+    title, 
+    description, 
+    date, 
+    startTime, 
+    endTime, 
+    meetingLink 
+  } = req.body;
 
-  // Validate required fields
-  if (!title || !description || !date || !startTime || !endTime) {
-    res.status(400);
-    throw new Error('Please provide all required fields');
-  }
-
-  // Check if mentorship exists and is accepted
+  // Find the mentorship
   const mentorship = await Mentorship.findById(mentorshipId);
-  
   if (!mentorship) {
     res.status(404);
     throw new Error('Mentorship not found');
@@ -56,20 +57,16 @@ const scheduleSession = asyncHandler(async (req, res) => {
     const recipientId = isStudent ? mentorship.alumni : mentorship.student;
     const recipientModel = isStudent ? 'Alumni' : 'Student';
     const senderName = req.user.name;
-
-    try {
-      await createNotification(
-        recipientId,
-        recipientModel,
-        'mentorship',
-        'New Mentorship Session Scheduled',
-        `${senderName} has scheduled a mentorship session: ${title} on ${new Date(date).toLocaleDateString()}`,
-        session._id
-      );
-    } catch (error) {
-      console.error('Failed to create session notification:', error.message);
-    }
-
+    
+    await createNotification(
+      recipientId,
+      recipientModel,
+      'mentorship',
+      'New Mentorship Session',
+      `${senderName} has scheduled a mentorship session: ${title}`,
+      session._id
+    );
+    
     res.status(201).json(session);
   } else {
     res.status(400);
