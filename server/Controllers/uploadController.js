@@ -2,6 +2,9 @@ import asyncHandler from 'express-async-handler';
 import path from 'path';
 import { handleVerificationDocument } from '../Utils/fileUpload.js';
 
+// @desc    Upload a verification document
+// @route   POST /api/upload/verification
+// @access  Public
 const uploadVerificationDocument = asyncHandler(async (req, res) => {
   handleVerificationDocument(req, res, function(err) {
     if (err) {
@@ -24,7 +27,8 @@ const uploadVerificationDocument = asyncHandler(async (req, res) => {
     const fileName = req.file.filename;
     
     // Create the URL that will be accessible from the browser
-    const documentURL = `http://localhost:5000/uploads/${fileName}`;
+    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const documentURL = `${baseUrl}/uploads/${fileName}`;
     
     console.log("File uploaded successfully:", {
       file: req.file,

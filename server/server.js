@@ -40,14 +40,14 @@ app.use(cors({
   credentials: true
 }));
 
-// Serve uploaded files
+// Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Register routes
+// Register routes 
 app.use('/api/students', studentRoutes);
 app.use('/api/alumni', alumniRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes); // Add this line to register upload routes
 app.use('/api/mentorship', mentorshipRoutes);
 app.use('/api/jobs', jobPostingRoutes);
 app.use('/api/messages', messageRoutes);

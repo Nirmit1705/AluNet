@@ -304,7 +304,7 @@ const AuthForm = forwardRef(({
     return true;
   };
 
-  // Fix the handleFinalSubmit function to use alumniForm.documentURL as a fallback
+  // Fix the handleFinalSubmit function to better handle errors
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
     
@@ -439,8 +439,10 @@ const AuthForm = forwardRef(({
         let errorMessage = "Registration failed. Please check your form and try again.";
         
         if (data.message) {
-          // Handle specific validation errors
-          if (data.message.includes("password") && data.message.includes("minimum allowed length")) {
+          // Handle specific error cases
+          if (data.message.includes("duplicate key error") && data.message.includes("email")) {
+            errorMessage = "This email is already registered or has a pending verification request";
+          } else if (data.message.includes("password") && data.message.includes("minimum allowed length")) {
             errorMessage = "Password must be at least 6 characters long";
           } else if (data.message.includes("already registered")) {
             errorMessage = "This email is already registered";

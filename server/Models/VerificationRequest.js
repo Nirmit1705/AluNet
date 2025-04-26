@@ -9,7 +9,7 @@ const verificationRequestSchema = mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Please add an email'],
-      unique: true,
+      // Don't enforce uniqueness at the schema level to allow updates
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
         'Please add a valid email'
@@ -66,6 +66,12 @@ const verificationRequestSchema = mongoose.Schema(
     timestamps: true
   }
 );
+
+// Create an index with a unique constraint but remove it from the schema validation
+verificationRequestSchema.index({ email: 1 }, { 
+  unique: false, // Change to false to allow updates for the same email
+  background: true 
+});
 
 const VerificationRequest = mongoose.model('VerificationRequest', verificationRequestSchema);
 

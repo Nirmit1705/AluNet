@@ -168,6 +168,12 @@ const AlumniSchema = new mongoose.Schema({
         type: String,
         unique: true,
         sparse: true
+    },
+    // Add role field
+    role: {
+        type: String,
+        default: 'alumni',
+        immutable: true // Prevents role from being changed
     }
 }, {
     timestamps: true

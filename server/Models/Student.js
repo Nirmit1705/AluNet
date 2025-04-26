@@ -146,6 +146,12 @@ const studentSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'inactive', 'pending'],
         default: 'active'
+    },
+    // Add role field
+    role: {
+        type: String,
+        default: 'student',
+        immutable: true // Prevents role from being changed
     }
 }, {
     timestamps: true,

@@ -3,9 +3,10 @@ import Alumni from "../Models/Alumni.js";
 import VerificationRequest from "../Models/VerificationRequest.js";
 import { formatAlumniResponse } from "../Utils/responseFormatter.js";
 import { generateToken } from "../Utils/generateToken.js";
-import { uploadProfilePicture, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
+import { uploadProfilePicture, uploadToCloudinary, removeFromCloudinary, handleVerificationDocument } from "../Utils/fileUpload.js";
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
+import path from 'path'; // Add this import for path.basename
 
 // @desc    Register a new alumni
 // @route   POST /api/alumni/register
@@ -34,6 +35,9 @@ const registerAlumni = asyncHandler(async (req, res) => {
     throw new Error("Email already registered");
   }
 
+  // Check if a verification request already exists for this email
+  const existingVerificationRequest = await VerificationRequest.findOne({ email });
+  
   // Create alumni with unverified status
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
@@ -54,21 +58,42 @@ const registerAlumni = asyncHandler(async (req, res) => {
     });
 
     if (alumni) {
-      // Create verification request
-      const verificationRequest = await VerificationRequest.create({
-        name,
-        email,
-        phone: phone || "",
-        university: university || "",
-        degree: "Not Specified",
-        branch,
-        graduationYear,
-        currentCompany: company || "",
-        currentRole: currentPosition || "",
-        documentURL,
-        userId: alumni._id,
-        status: 'pending'
-      });
+      let verificationRequest;
+      
+      if (existingVerificationRequest) {
+        // Update the existing verification request instead of creating a new one
+        existingVerificationRequest.name = name;
+        existingVerificationRequest.phone = phone || "";
+        existingVerificationRequest.university = university || "";
+        existingVerificationRequest.degree = "Not Specified";
+        existingVerificationRequest.branch = branch;
+        existingVerificationRequest.graduationYear = graduationYear;
+        existingVerificationRequest.currentCompany = company || "";
+        existingVerificationRequest.currentRole = currentPosition || "";
+        existingVerificationRequest.documentURL = documentURL;
+        existingVerificationRequest.userId = alumni._id;
+        existingVerificationRequest.status = 'pending';
+        
+        verificationRequest = await existingVerificationRequest.save();
+        console.log("Updated existing verification request for:", email);
+      } else {
+        // Create a new verification request
+        verificationRequest = await VerificationRequest.create({
+          name,
+          email,
+          phone: phone || "",
+          university: university || "",
+          degree: "Not Specified",
+          branch,
+          graduationYear,
+          currentCompany: company || "",
+          currentRole: currentPosition || "",
+          documentURL,
+          userId: alumni._id,
+          status: 'pending'
+        });
+        console.log("Created new verification request for:", email);
+      }
 
       res.status(201).json({
         _id: alumni._id,
@@ -432,8 +457,8 @@ const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
 // @route   POST /api/alumni/submit-verification
 // @access  Private (alumni only)
 const submitVerificationDocument = asyncHandler(async (req, res) => {
-  // Use the uploadVerificationDocument middleware
-  uploadVerificationDocument(req, res, async (err) => {
+  // Use the handleVerificationDocument middleware 
+  handleVerificationDocument(req, res, async (err) => {
     if (err) {
       res.status(400);
       throw new Error(err.message);
@@ -452,22 +477,73 @@ const submitVerificationDocument = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Alumni not found');
       }
+
+      // Create a full URL for the document
+      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+      const documentURL = `${baseUrl}/uploads/${path.basename(req.file.path)}`;
+      
+      console.log("Generated document URL:", documentURL);
       
       // Update alumni record with document info
       alumni.verificationDocument = {
-        url: req.file.path,
+        url: documentURL,
         publicId: req.file.filename
       };
       alumni.verificationStatus = 'pending';
       
       await alumni.save();
       
+      // Create or update verification request
+      let verificationRequest = await VerificationRequest.findOne({ 
+        $or: [
+          { userId: alumni._id },
+          { email: alumni.email }
+        ]
+      });
+      
+      if (verificationRequest) {
+        // Update existing request
+        verificationRequest.documentURL = documentURL;
+        verificationRequest.status = 'pending';
+        verificationRequest.name = alumni.name;
+        verificationRequest.email = alumni.email;
+        verificationRequest.phone = alumni.phone || "";
+        verificationRequest.university = alumni.university || "";
+        verificationRequest.degree = alumni.degree || "Not Specified";
+        verificationRequest.branch = alumni.branch;
+        verificationRequest.graduationYear = alumni.graduationYear;
+        verificationRequest.currentCompany = alumni.company || "";
+        verificationRequest.currentRole = alumni.currentPosition || "";
+        verificationRequest.userId = alumni._id;
+        
+        await verificationRequest.save();
+        console.log("Updated verification request with document URL:", documentURL);
+      } else {
+        // Create new verification request
+        verificationRequest = await VerificationRequest.create({
+          name: alumni.name,
+          email: alumni.email,
+          phone: alumni.phone || "",
+          university: alumni.university || "",
+          degree: alumni.degree || "Not Specified",
+          branch: alumni.branch,
+          graduationYear: alumni.graduationYear,
+          currentCompany: alumni.company || "",
+          currentRole: alumni.currentPosition || "",
+          documentURL: documentURL,
+          userId: alumni._id,
+          status: 'pending'
+        });
+        console.log("Created new verification request with document URL:", documentURL);
+      }
+      
       res.json({
         success: true,
         message: 'Verification document uploaded successfully',
-        documentUrl: req.file.path
+        documentUrl: documentURL
       });
     } catch (error) {
+      console.error("Error in submitVerificationDocument:", error);
       res.status(500);
       throw new Error(`Error uploading document: ${error.message}`);
     }

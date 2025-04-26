@@ -23,7 +23,8 @@ const AdminSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    default: 'admin'
+    default: 'admin',
+    immutable: true // Add immutability for consistency
   },
   permissions: {
     verifyAlumni: {

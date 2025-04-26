@@ -8,6 +8,12 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Create verification-specific directory
+const verificationDir = path.join(uploadsDir, 'verification');
+if (!fs.existsSync(verificationDir)) {
+  fs.mkdirSync(verificationDir, { recursive: true });
+}
+
 // Setup storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
