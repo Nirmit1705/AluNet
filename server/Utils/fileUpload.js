@@ -1,17 +1,47 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Setup __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables
+dotenv.config();
+
+// Try to import cloudinary but don't crash if it's not available
+let cloudinary;
+try {
+  cloudinary = (await import('cloudinary')).v2;
+  
+  // Configure Cloudinary only if credentials are available
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  
+  if (cloudName && apiKey && apiSecret) {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret
+    });
+    console.log('Cloudinary configured successfully');
+  } else {
+    console.log('Cloudinary credentials missing, will use local storage');
+    cloudinary = null;
+  }
+} catch (error) {
+  console.log('Cloudinary not available, will use local storage');
+  cloudinary = null;
 }
 
-// Create verification-specific directory
-const verificationDir = path.join(uploadsDir, 'verification');
-if (!fs.existsSync(verificationDir)) {
-  fs.mkdirSync(verificationDir, { recursive: true });
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log(`Created uploads directory at ${uploadsDir}`);
 }
 
 // Setup storage
@@ -55,33 +85,71 @@ const uploadProfilePicture = upload.single('profilePicture');
 // Handle resume upload
 const uploadResume = upload.single('resume');
 
-// Upload to Cloudinary (stub function if not using Cloudinary)
-const uploadToCloudinary = async (filePath, folder = 'alumni-student-platform', resourceType = 'auto') => {
-  // Just return the local file path if not using actual Cloudinary
-  return {
-    secure_url: `http://localhost:5000/uploads/${path.basename(filePath)}`,
-    public_id: path.basename(filePath)
-  };
-};
-
-// Remove from Cloudinary (stub function if not using Cloudinary)
-const removeFromCloudinary = async (publicId) => {
-  // No-op if not using actual Cloudinary
-  return { result: 'ok' };
-};
-
-// Utility function to process file uploads
-const processFileUpload = async (req, res, next) => {
-  // Handle the file upload using multer
-  handleVerificationDocument(req, res, function(err) {
-    if (err) {
-      return res.status(400).json({
-        success: false,
-        message: err.message
+// Upload to Cloudinary or use local file path
+const uploadToCloudinary = async (filePath, folder = 'alumni-student-platform') => {
+  // Get the base URL for our server
+  const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+  
+  // If cloudinary is available and configured, use it
+  if (cloudinary) {
+    try {
+      const result = await cloudinary.uploader.upload(filePath, {
+        folder: folder,
+        resource_type: 'auto'
       });
+      
+      console.log('Successfully uploaded to Cloudinary:', result.secure_url);
+      
+      return {
+        secure_url: result.secure_url,
+        public_id: result.public_id
+      };
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      throw new Error(`Failed to upload to Cloudinary: ${error.message}`);
     }
-    next();
-  });
+  } else {
+    // Fallback to local file storage
+    console.log('Using local file storage instead of Cloudinary');
+    
+    // Get just the filename from the path
+    const fileName = path.basename(filePath);
+    
+    // Create a local URL that can be accessed
+    const localUrl = `${baseUrl}/uploads/${fileName}`;
+    
+    return {
+      secure_url: localUrl,
+      public_id: fileName
+    };
+  }
+};
+
+// Remove from Cloudinary (or handle local files)
+const removeFromCloudinary = async (publicId) => {
+  if (!publicId) return { result: 'ok' };
+  
+  if (cloudinary) {
+    try {
+      const result = await cloudinary.uploader.destroy(publicId);
+      return result;
+    } catch (error) {
+      console.error('Error deleting from Cloudinary:', error);
+      return { result: 'error', error };
+    }
+  } else {
+    // For local storage, attempt to delete the file if it exists
+    try {
+      const filePath = path.join(uploadsDir, publicId);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return { result: 'ok' };
+    } catch (error) {
+      console.error('Error deleting local file:', error);
+      return { result: 'error', error };
+    }
+  }
 };
 
 export {
@@ -89,6 +157,5 @@ export {
   uploadProfilePicture,
   uploadResume,
   uploadToCloudinary,
-  removeFromCloudinary,
-  processFileUpload
+  removeFromCloudinary
 };

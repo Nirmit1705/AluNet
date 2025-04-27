@@ -8,7 +8,7 @@ import {
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
-  uploadStudentProfilePicture,
+  updateStudentProfilePicture,
   uploadStudentResume,
   registerStudentWithGoogle
 } from "../Controllers/studentController.js";
@@ -30,7 +30,7 @@ router.route("/profile")
   .put(protect, updateStudentProfile);
 
 // File upload routes
-router.post("/profile/upload-picture", protect, uploadStudentProfilePicture);
+router.put("/profile/profile-picture", protect, updateStudentProfilePicture);
 router.post("/profile/upload-resume", protect, uploadStudentResume);
 
 // Google Authentication routes

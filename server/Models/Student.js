@@ -56,6 +56,7 @@ const studentSchema = new mongoose.Schema({
     linkedin: { type: String, match: /^(https?:\/\/)?(www\.)?linkedin\.com\/.*$/ },
     github: { type: String },
     resume: { type: String },
+    location: { type: String }, // Add location field
     assignedMentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
     mentorRequests: [{
         mentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
@@ -92,12 +93,14 @@ const studentSchema = new mongoose.Schema({
     },
     // Profile fields
     profilePicture: {
-        type: String,
-        default: ''
-    },
-    cloudinaryId: {
-        type: String,
-        default: ''
+        type: {
+            url: String,
+            public_id: String
+        },
+        default: {
+            url: '',
+            public_id: ''
+        }
     },
     careerGoals: {
         type: String,

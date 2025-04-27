@@ -310,63 +310,46 @@ const getAlumniByCompany = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Upload alumni profile picture
-// @route   POST /api/alumni/profile/upload-picture
+// @desc    Update alumni profile picture
+// @route   PUT /api/alumni/profile/profile-picture
 // @access  Private
-const uploadAlumniProfilePicture = asyncHandler(async (req, res) => {
-  // Use multer middleware for file upload
-  uploadProfilePicture(req, res, async (err) => {
-    if (err) {
-      res.status(400);
-      throw new Error(err.message);
-    }
-
-    // Check if file exists
-    if (!req.file) {
-      res.status(400);
-      throw new Error('Please upload a file');
-    }
-
+const updateAlumniProfilePicture = asyncHandler(async (req, res) => {
+  const { imageUrl, publicId } = req.body;
+  
+  if (!imageUrl) {
+    res.status(400);
+    throw new Error("Image URL is required");
+  }
+  
+  const alumni = await Alumni.findById(req.user._id);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error("Alumni not found");
+  }
+  
+  // If alumni already has a profile picture with a public_id, we might want to delete it from Cloudinary
+  if (alumni.profilePicture && alumni.profilePicture.public_id) {
     try {
-      const alumni = await Alumni.findById(req.user._id);
-      
-      if (!alumni) {
-        res.status(404);
-        throw new Error('Alumni not found');
-      }
-
-      // If alumni already has a profile picture, delete it from Cloudinary
-      if (alumni.profilePicture && alumni.profilePicture.public_id) {
-        await removeFromCloudinary(alumni.profilePicture.public_id);
-      }
-
-      // Upload to Cloudinary
-      const result = await uploadToCloudinary(req.file.path, 'alumni_profile_pictures');
-      
-      // Remove temporary file
-      fs.unlinkSync(req.file.path);
-
-      // Update alumni profile with new picture URL
-      alumni.profilePicture = {
-        url: result.url,
-        public_id: result.public_id
-      };
-      
-      await alumni.save();
-
-      res.json({
-        message: 'Profile picture uploaded successfully',
-        profilePicture: alumni.profilePicture
-      });
+      await removeFromCloudinary(alumni.profilePicture.public_id);
     } catch (error) {
-      // Remove temporary file if it exists
-      if (req.file && req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
-      
-      res.status(500);
-      throw new Error(`Failed to upload profile picture: ${error.message}`);
+      console.error("Error removing old profile picture:", error);
+      // Continue anyway, as this is not critical
     }
+  }
+  
+  // Update the profile picture
+  alumni.profilePicture = {
+    url: imageUrl,
+    public_id: publicId || ""
+  };
+  
+  const updatedAlumni = await alumni.save();
+  
+  res.json({
+    success: true,
+    profilePicture: updatedAlumni.profilePicture,
+    message: "Profile picture updated successfully"
   });
 });
 
@@ -676,7 +659,7 @@ export {
   getAlumniById,
   deleteAlumni,
   getAlumniByCompany,
-  uploadAlumniProfilePicture,
+  updateAlumniProfilePicture, // Changed from uploadAlumniProfilePicture to match the function name
   getVerificationStatus as checkVerificationStatus,
   resendVerification,
   searchAlumni,

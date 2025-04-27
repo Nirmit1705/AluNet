@@ -1,5 +1,5 @@
-import express from "express";
-import {
+import express from 'express';
+import { 
   registerAlumni,
   authAlumni,
   getAlumniProfile,
@@ -8,14 +8,14 @@ import {
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
-  uploadAlumniProfilePicture,
   getAlumniById,
   checkVerificationStatus,
   resendVerification,
   submitVerificationDocument,
-  registerAlumniWithGoogle // Add this import
-} from "../Controllers/alumniController.js";
-import { protect } from "../middleware/authMiddleware.js";
+  registerAlumniWithGoogle,
+  updateAlumniProfilePicture 
+} from '../Controllers/alumniController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -38,8 +38,8 @@ router.get("/verification-status", protect, checkVerificationStatus);
 router.post("/resend-verification", protect, resendVerification);
 router.post("/submit-verification", protect, submitVerificationDocument);
 
-// Profile picture upload route
-router.post("/profile/upload-picture", protect, uploadAlumniProfilePicture);
+// Profile picture update route
+router.put('/profile/profile-picture', protect, updateAlumniProfilePicture);
 
 // Google Authentication routes
 router.post('/register-google', registerAlumniWithGoogle);

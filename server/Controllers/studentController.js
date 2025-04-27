@@ -235,7 +235,8 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
     projects,
     internships,
     university,
-    college
+    college,
+    location, // Add location field
   } = req.body;
 
   // Update fields if provided
@@ -254,6 +255,7 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
   if (internships) student.internships = internships;
   if (university) student.university = university;
   if (college) student.college = college;
+  if (location) student.location = location; // Handle location field
 
   const updatedStudent = await student.save();
   res.json(formatStudentResponse(updatedStudent, true));
@@ -333,130 +335,101 @@ const getStudentsByYear = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Upload student profile picture
-// @route   POST /api/students/profile/upload-picture
+// @desc    Update student profile picture
+// @route   PUT /api/students/profile/profile-picture
 // @access  Private
-const uploadStudentProfilePicture = asyncHandler(async (req, res) => {
-  // Use multer middleware for file upload
-  uploadProfilePicture(req, res, async (err) => {
-    if (err) {
-      res.status(400);
-      throw new Error(err.message);
-    }
-
-    // Check if file exists
-    if (!req.file) {
-      res.status(400);
-      throw new Error('Please upload a file');
-    }
-
-    try {
-      const student = await Student.findById(req.user._id);
-      
-      if (!student) {
-        res.status(404);
-        throw new Error('Student not found');
-      }
-
-      // If student already has a profile picture, delete it from Cloudinary
-      if (student.profilePicture && student.profilePicture.public_id) {
-        await removeFromCloudinary(student.profilePicture.public_id);
-      }
-
-      // Upload to Cloudinary
-      const result = await uploadToCloudinary(req.file.path, 'student_profile_pictures');
-      
-      // Remove temporary file
-      fs.unlinkSync(req.file.path);
-
-      // Update student profile with new picture URL
-      student.profilePicture = {
-        url: result.url,
-        public_id: result.public_id
-      };
-      
-      await student.save();
-
-      res.json({
-        message: 'Profile picture uploaded successfully',
-        profilePicture: student.profilePicture
-      });
-    } catch (error) {
-      // Remove temporary file if it exists
-      if (req.file && req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
-      
-      res.status(500);
-      throw new Error(`Failed to upload profile picture: ${error.message}`);
-    }
+const updateStudentProfilePicture = asyncHandler(async (req, res) => {
+  const { imageUrl, publicId } = req.body;
+  
+  if (!imageUrl) {
+    res.status(400);
+    throw new Error("Image URL is required");
+  }
+  
+  const student = await Student.findById(req.user._id);
+  
+  if (!student) {
+    res.status(404);
+    throw new Error("Student not found");
+  }
+  
+  // Store the profile picture as an object with url and public_id
+  student.profilePicture = {
+    url: imageUrl,
+    public_id: publicId || ""
+  };
+  
+  const updatedStudent = await student.save();
+  
+  res.json({
+    success: true,
+    profilePicture: updatedStudent.profilePicture,
+    message: "Profile picture updated successfully"
   });
 });
 
 // @desc    Upload student resume
-// @route   POST /api/students/profile/upload-resume
+// @route   POST /api/students/upload-resume
 // @access  Private
 const uploadStudentResume = asyncHandler(async (req, res) => {
-  // Use multer middleware for file upload
-  uploadResume(req, res, async (err) => {
+  uploadResume(req, res, async function(err) {
     if (err) {
-      res.status(400);
-      throw new Error(err.message);
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
     }
 
-    // Check if file exists
     if (!req.file) {
-      res.status(400);
-      throw new Error('Please upload a file');
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a resume'
+      });
     }
 
     try {
+      // Upload to Cloudinary (or local storage)
+      const result = await uploadToCloudinary(req.file.path, 'resumes');
+      
+      // Remove the temporary file
+      fs.unlinkSync(req.file.path);
+      
       const student = await Student.findById(req.user._id);
       
       if (!student) {
-        res.status(404);
-        throw new Error('Student not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found'
+        });
       }
-
-      // If student already has a resume, delete it from Cloudinary
-      if (student.resume && student.resume.public_id) {
-        await removeFromCloudinary(student.resume.public_id);
-      }
-
-      // Upload to Cloudinary
-      const result = await uploadToCloudinary(req.file.path, 'student_resumes');
       
-      // Remove temporary file
-      fs.unlinkSync(req.file.path);
-
-      // Update student profile with new resume URL
-      student.resume = {
-        url: result.url,
-        public_id: result.public_id,
-        filename: req.file.originalname
-      };
-      
+      // Update student with resume URL
+      student.resume = result.secure_url;
       await student.save();
-
-      res.json({
-        message: 'Resume uploaded successfully',
-        resume: student.resume
+      
+      res.status(200).json({
+        success: true,
+        resumeUrl: result.secure_url,
+        message: 'Resume uploaded successfully'
       });
     } catch (error) {
-      // Remove temporary file if it exists
-      if (req.file && req.file.path) {
+      console.error("Error processing resume upload:", error);
+      // Clean up temp file if it exists
+      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
       
-      res.status(500);
-      throw new Error(`Failed to upload resume: ${error.message}`);
+      return res.status(500).json({
+        success: false,
+        message: 'Error processing the uploaded resume'
+      });
     }
   });
 });
 
 export {
   registerStudent,
-  registerStudentWithGoogle, // Add this export
+  registerStudentWithGoogle,
   authStudent,
   getStudentProfile,
   updateStudentProfile,
@@ -465,6 +438,6 @@ export {
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
-  uploadStudentProfilePicture,
+  updateStudentProfilePicture, // Changed from uploadStudentProfilePicture
   uploadStudentResume,
 };

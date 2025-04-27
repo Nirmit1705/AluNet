@@ -24,6 +24,9 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     skills: alumni.skills,
     mentorshipAvailable: alumni.mentorshipAvailable,
     bio: alumni.bio,
+    location: alumni.location, // Ensure location is included
+    profilePicture: alumni.profilePicture, // Include profile picture
+    interests: alumni.interests || [], // Ensure interests field is included
   };
 
   if (includeToken) {
@@ -49,8 +52,8 @@ const formatStudentResponse = (student, includeToken = false) => {
     currentYear: student.currentYear,
     branch: student.branch,
     cgpa: student.cgpa,
-    skills: student.skills,
-    interests: student.interests,
+    skills: student.skills || [],
+    interests: student.interests || [],
     bio: student.bio,
     linkedin: student.linkedin,
     github: student.github,
@@ -59,6 +62,8 @@ const formatStudentResponse = (student, includeToken = false) => {
     college: student.college,
     graduationYear: student.graduationYear,
     isEmailVerified: student.isEmailVerified,
+    profilePicture: student.profilePicture, // Include profile picture
+    location: student.location || "", // Add location field with default
   };
 
   if (includeToken) {
