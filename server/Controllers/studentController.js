@@ -86,7 +86,9 @@ const registerStudent = asyncHandler(async (req, res) => {
   }
 });
 
-// Replace or modify your existing registerStudentWithGoogle function
+// @desc    Register a student with Google OAuth
+// @route   POST /api/students/register-google
+// @access  Public
 const registerStudentWithGoogle = asyncHandler(async (req, res) => {
   const { 
     name, 
@@ -102,6 +104,10 @@ const registerStudentWithGoogle = asyncHandler(async (req, res) => {
   } = req.body;
 
   try {
+    console.log("Student Google registration data:", {
+      email, googleId, name
+    });
+    
     // Check if student already exists with this email or Google ID
     const studentExists = await Student.findOne({ 
       $or: [{ email }, { googleId }] 
@@ -113,17 +119,16 @@ const registerStudentWithGoogle = asyncHandler(async (req, res) => {
     }
 
     // Create a student document WITHOUT password validation
-    // This is key to avoiding the password validation error
     const student = new Student({
       name,
       email,
       googleId,
       registrationNumber,
-      currentYear,
+      currentYear: currentYear || 1,
       branch,
       university,
       college,
-      graduationYear,
+      graduationYear: graduationYear || (new Date().getFullYear() + 4),
       skills: skills || [],
       isEmailVerified: true // Skip email verification for Google accounts
     });
@@ -132,11 +137,14 @@ const registerStudentWithGoogle = asyncHandler(async (req, res) => {
     await student.save({ validateBeforeSave: false });
 
     if (student) {
+      // Generate JWT token for authentication
+      const token = generateToken(student._id);
+      
       res.status(201).json({
         _id: student._id,
         name: student.name,
         email: student.email,
-        token: generateToken(student._id),
+        token: token,
         isEmailVerified: student.isEmailVerified
       });
     } else {

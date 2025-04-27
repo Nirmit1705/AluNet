@@ -1,12 +1,13 @@
 import express from 'express';
-import {
-  adminLogin,
-  getDashboardStats,
-  getUsers,
-  updateUserStatus,
+import { 
+  adminLogin, 
+  getDashboardStats, 
+  getUsers, 
+  updateUserStatus, 
+  getSystemLogs,
   getVerifications,
-  updateVerificationStatus,
-  getSystemLogs
+  getVerificationById,
+  updateVerificationRequest // This was incorrectly imported as updateVerificationStatus
 } from '../Controllers/adminController.js';
 import { adminProtect } from '../middleware/authMiddleware.js';
 
@@ -15,25 +16,15 @@ const router = express.Router();
 // Public routes
 router.post('/login', adminLogin);
 
-// Debug route to check token validity
-router.get('/verify-token', adminProtect, (req, res) => {
-  res.status(200).json({ 
-    valid: true, 
-    user: {
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-      role: 'admin'
-    }
-  });
-});
-
-// Protected routes
+// Protected admin-only routes
 router.get('/dashboard-stats', adminProtect, getDashboardStats);
 router.get('/users', adminProtect, getUsers);
 router.put('/users/:id/status', adminProtect, updateUserStatus);
-router.get('/verifications', adminProtect, getVerifications);
-router.put('/verifications/:id', adminProtect, updateVerificationStatus);
 router.get('/logs', adminProtect, getSystemLogs);
+
+// Verification routes
+router.get('/verifications', adminProtect, getVerifications);
+router.get('/verifications/:id', adminProtect, getVerificationById);
+router.put('/verifications/:id', adminProtect, updateVerificationRequest); // Fixed function name here
 
 export default router;

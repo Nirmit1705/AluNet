@@ -7,14 +7,14 @@ import { connectDB } from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 
 // Import routes
-import studentRoutes from "./Routes/studentRoutes.js";
-import alumniRoutes from "./Routes/alumniRoutes.js";
-import authRoutes from "./Routes/authRoutes.js";
+import studentRoutes from './Routes/studentRoutes.js';
+import alumniRoutes from './Routes/alumniRoutes.js';
 import adminRoutes from './Routes/adminRoutes.js';
-import mentorshipRoutes from "./Routes/mentorshipRoutes.js";
-import jobPostingRoutes from "./Routes/jobPostingRoutes.js";
-import messageRoutes from "./Routes/messageRoutes.js";
-import notificationRoutes from "./Routes/notificationRoutes.js";
+import mentorshipRoutes from './Routes/mentorshipRoutes.js';
+import authRoutes from './Routes/authRoutes.js';
+import jobPostingRoutes from './Routes/jobPostingRoutes.js';
+import messageRoutes from './Routes/messageRoutes.js';
+import notificationRoutes from './Routes/notificationRoutes.js';
 import uploadRoutes from './Routes/uploadRoutes.js';
 
 // Setup for ES modules __dirname equivalent
@@ -43,12 +43,12 @@ app.use(cors({
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Register routes 
+// Mount routes
 app.use('/api/students', studentRoutes);
 app.use('/api/alumni', alumniRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/upload', uploadRoutes); // Add this line to register upload routes
 app.use('/api/mentorship', mentorshipRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobPostingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);

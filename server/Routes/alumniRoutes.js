@@ -12,7 +12,8 @@ import {
   getAlumniById,
   checkVerificationStatus,
   resendVerification,
-  submitVerificationDocument
+  submitVerificationDocument,
+  registerAlumniWithGoogle // Add this import
 } from "../Controllers/alumniController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -39,5 +40,8 @@ router.post("/submit-verification", protect, submitVerificationDocument);
 
 // Profile picture upload route
 router.post("/profile/upload-picture", protect, uploadAlumniProfilePicture);
+
+// Google Authentication routes
+router.post('/register-google', registerAlumniWithGoogle);
 
 export default router;

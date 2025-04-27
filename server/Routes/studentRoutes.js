@@ -19,7 +19,6 @@ const router = express.Router();
 // Public routes
 router.post("/register", registerStudent);
 router.post("/login", authStudent);
-router.post('/register-google', registerStudentWithGoogle);
 router.get("/", getAllStudents);
 router.get("/search", searchStudents);
 router.get("/branch/:branch", getStudentsByBranch);
@@ -33,5 +32,8 @@ router.route("/profile")
 // File upload routes
 router.post("/profile/upload-picture", protect, uploadStudentProfilePicture);
 router.post("/profile/upload-resume", protect, uploadStudentResume);
+
+// Google Authentication routes
+router.post('/register-google', registerStudentWithGoogle);
 
 export default router;

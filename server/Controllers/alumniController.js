@@ -568,6 +568,105 @@ const registerAlumni = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Register a new alumni with Google
+// @route   POST /api/alumni/register-google
+// @access  Public
+const registerAlumniWithGoogle = asyncHandler(async (req, res) => {
+  const { 
+    name, 
+    email, 
+    googleId, 
+    graduationYear, 
+    branch,
+    university, 
+    college,
+    currentPosition, 
+    company,
+    documentURL,
+    skills = []
+  } = req.body;
+
+  console.log("Google registration request body:", { 
+    name, email, googleId, graduationYear, branch, university, documentURL 
+  });
+
+  // Check if alumni exists
+  const alumniExists = await Alumni.findOne({ 
+    $or: [{ email }, { googleId }] 
+  });
+  
+  if (alumniExists) {
+    res.status(400);
+    throw new Error("Email already registered");
+  }
+
+  try {
+    // Create alumni with unverified status
+    const alumni = new Alumni({
+      name,
+      email,
+      googleId,
+      graduationYear,
+      branch,
+      university: university || "",
+      college: college || "",
+      currentPosition: currentPosition || "",
+      company: company || "",
+      isVerified: false,
+      verificationStatus: 'pending',
+      status: 'pending',
+      isEmailVerified: true, // Email is verified through Google
+      verificationSubmittedAt: new Date(),
+      // Store document URL in alumni record
+      verificationDocument: documentURL ? {
+        url: documentURL,
+        filename: path.basename(documentURL)
+      } : undefined,
+      skills: skills || []
+    });
+
+    // Save without running password validations
+    await alumni.save({ validateBeforeSave: false });
+
+    if (alumni) {
+      // Create a verification request
+      const verificationRequest = await VerificationRequest.create({
+        name,
+        email,
+        university: university || "",
+        degree: "Not Specified",
+        branch,
+        graduationYear,
+        currentCompany: company || "",
+        currentRole: currentPosition || "",
+        documentURL,
+        userId: alumni._id,
+        status: 'pending'
+      });
+
+      // Generate JWT
+      const token = generateToken(alumni._id);
+
+      // Return success response
+      res.status(201).json({
+        _id: alumni._id,
+        name: alumni.name,
+        email: alumni.email,
+        isVerified: false,
+        token: token,
+        message: "Registration successful. Your account is pending verification."
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid alumni data");
+    }
+  } catch (error) {
+    console.error("Error in alumni Google registration:", error);
+    res.status(400);
+    throw new Error(error.message);
+  }
+});
+
 export {
   registerAlumni,
   authAlumni,
@@ -582,5 +681,6 @@ export {
   resendVerification,
   searchAlumni,
   getAlumniByBatch,
-  submitVerificationDocument
+  submitVerificationDocument,
+  registerAlumniWithGoogle 
 };

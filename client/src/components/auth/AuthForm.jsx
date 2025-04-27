@@ -11,11 +11,13 @@ const AuthForm = forwardRef(({
   onSuccess, 
   onSwitchType, 
   googleAuthData: initialGoogleData, 
-  initialStep = 1 
+  initialStep = 1,
+  initialRole = "student" // Add initialRole parameter with default value
 }, ref) => {
 
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState("student");
+  // Initialize role with the initialRole prop if provided
+  const [role, setRole] = useState(initialRole || "student");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [email, setEmail] = useState(initialGoogleData?.email || "");
   const [password, setPassword] = useState("");
@@ -39,11 +41,26 @@ const AuthForm = forwardRef(({
   });
   const navigate = useNavigate();
   
-  // Set Google auth data when it changes through props
+  // Add useEffect to update role when initialRole changes
+  useEffect(() => {
+    if (initialRole) {
+      console.log("Setting role from initialRole prop:", initialRole);
+      setRole(initialRole);
+    }
+  }, [initialRole]);
+  
+  // Update Google auth data effect to also set role if available in the Google data
   useEffect(() => {
     if (initialGoogleData) {
       setEmail(initialGoogleData.email || "");
       setName(initialGoogleData.name || "");
+      
+      // If role is provided in Google data, set it
+      if (initialGoogleData.role) {
+        console.log("Setting role from Google auth data:", initialGoogleData.role);
+        setRole(initialGoogleData.role);
+      }
+      
       setGoogleAuthData(initialGoogleData);
       setStep(2); // Skip to step 2 automatically
     }
@@ -57,6 +74,13 @@ const AuthForm = forwardRef(({
         // but need to collect additional info
         setName(userData.name || "");
         setEmail(userData.email || "");
+        
+        // Set the role from userData if provided
+        if (userData.role) {
+          console.log("Setting role from Google auth callback:", userData.role);
+          setRole(userData.role);
+        }
+        
         setGoogleAuthData(userData);
         
         // Skip to step 2 directly since we have basic info
@@ -115,7 +139,9 @@ const AuthForm = forwardRef(({
     setIsDropdownOpen(!isDropdownOpen);
   };
 
+  // Add additional debugging to selectRole function
   const selectRole = (newRole) => {
+    console.log("Selecting role:", newRole, "Previous role:", role);
     setRole(newRole);
     setIsDropdownOpen(false);
   };
@@ -864,9 +890,11 @@ const AuthForm = forwardRef(({
         </form>
       )}
 
-      {/* Step 2: Student Registration Form */}
+      {/* Step 2: Student Registration Form - Add debugging log */}
       {type === "register" && step === 2 && role === "student" && (
-        <form className="space-y-4" onSubmit={handleFinalSubmit}>
+        <>
+          {console.log("Rendering STUDENT form with role:", role)}
+          <form className="space-y-4" onSubmit={handleFinalSubmit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Registration Number */}
             <div className="space-y-1">
@@ -1025,11 +1053,14 @@ const AuthForm = forwardRef(({
             </button>
           </div>
         </form>
+        </>
       )}
 
       {/* Step 2: Alumni Registration Form - COMPLETELY REDESIGNED */}
       {type === "register" && step === 2 && role === "alumni" && (
-        <form className="space-y-3" onSubmit={handleFinalSubmit}>
+        <>
+          {console.log("Rendering ALUMNI form with role:", role)}
+          <form className="space-y-3" onSubmit={handleFinalSubmit}>
           <div className="space-y-3">
             <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg">
               <h3 className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">Education</h3>
@@ -1251,6 +1282,7 @@ const AuthForm = forwardRef(({
             </button>
           </div>
         </form>
+        </>
       )}
 
       {/* Registration completion message */}

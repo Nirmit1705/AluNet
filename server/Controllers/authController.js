@@ -201,13 +201,22 @@ const resendVerification = asyncHandler(async (req, res) => {
   });
 });
 
+// Make sure this function is properly defined
 // Redirect to Google OAuth2
 const googleOAuthRedirect = (req, res) => {
-  const redirectUrl = client.generateAuthUrl({
-    access_type: 'offline',
-    scope: ['profile', 'email'],
-  });
-  res.redirect(redirectUrl);
+  try {
+    console.log("Google OAuth redirect initiated");
+    const redirectUrl = client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['profile', 'email'],
+      prompt: 'consent'
+    });
+    console.log("Redirecting to:", redirectUrl);
+    res.redirect(redirectUrl);
+  } catch (error) {
+    console.error("Error in Google OAuth redirect:", error);
+    res.status(500).json({ message: "Failed to initiate Google authentication" });
+  }
 };
 
 // Handle Google OAuth2 callback
@@ -226,9 +235,27 @@ const googleOAuthCallback = async (req, res) => {
     const payload = ticket.getPayload();
     const { email, name, sub: googleId, picture } = payload;
 
-    // Don't create a user yet - just return the Google data to the frontend
-    // so the user can complete their profile information
+    console.log('Google auth payload:', { email, name, googleId, picture });
+
+    // Check if user exists in Alumni or Student collections
+    let user = await Alumni.findOne({ email });
+    let userType = 'alumni';
     
+    if (!user) {
+      user = await Student.findOne({ email });
+      userType = 'student';
+    }
+
+    // Create proper auth token if user exists
+    let authToken = '';
+    let isVerified = false;
+    
+    if (user) {
+      // User exists, generate auth token
+      authToken = generateToken(user._id);
+      isVerified = userType === 'alumni' ? (user.isVerified || user.verificationStatus === 'approved') : true;
+    }
+
     // Return user data to client via a script that posts a message to the opener window
     const script = `
       <script>
@@ -237,9 +264,13 @@ const googleOAuthCallback = async (req, res) => {
           userData: ${JSON.stringify({
             name,
             email,
-            googleId, // Ensure this is correct
+            googleId,
             picture,
-            token: tokens.id_token
+            token: authToken,
+            userType,
+            isVerified,
+            exists: !!user,
+            userId: user ? user._id.toString() : null
           })}
         }, '${process.env.FRONTEND_URL}');
         window.close();
@@ -249,7 +280,16 @@ const googleOAuthCallback = async (req, res) => {
     res.send(script);
   } catch (error) {
     console.error('Google OAuth2 error:', error);
-    res.status(500).send('Authentication failed');
+    const errorScript = `
+      <script>
+        window.opener.postMessage({
+          type: 'googleAuthError',
+          error: ${JSON.stringify(error.message || 'Authentication failed')}
+        }, '${process.env.FRONTEND_URL}');
+        window.close();
+      </script>
+    `;
+    res.status(500).send(errorScript);
   }
 };
 
