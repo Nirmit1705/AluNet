@@ -2,14 +2,21 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import ProfileCard from "../components/profile/ProfileCard";
-import { X, Save, Camera, Plus, Trash } from "lucide-react";
+import ProfilePhotoUpload from "../components/profile/ProfilePhotoUpload";
+// Make sure all your components are imported
+// import User from "../components/User"; // If there's a User component, it needs to be imported
+
+import { X, Plus, Mail, ExternalLink, MapPin, Briefcase, GraduationCap } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
 
 const Profile = () => {
   const [loading, setLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false); 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Sample profile data
+  // Profile data from backend
   const [profile, setProfile] = useState({
     name: "",
     role: "",
@@ -30,54 +37,96 @@ const Profile = () => {
   const [newSkill, setNewSkill] = useState("");
   const [newInterest, setNewInterest] = useState("");
 
-  useEffect(() => {
-    try {
-      // Check if user is logged in
+  // Create axios instance with authentication
+  const api = axios.create({
+    baseURL: 'http://localhost:5000/api',
+  });
+
+  // Add auth token to requests
+  api.interceptors.request.use(
+    (config) => {
       const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/login");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+      return;
+    }
+    
+    fetchUserProfile();
+  }, [navigate]);
+
+  // Fetch user profile from backend
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get user role to determine which API endpoint to use
+      const userRole = localStorage.getItem("userRole");
+      
+      let response;
+      if (userRole === "student") {
+        response = await api.get('/students/profile');
+      } else if (userRole === "alumni") {
+        response = await api.get('/alumni/profile');
+      } else {
+        // Handle admin or unknown roles
+        setError("Unsupported user role");
+        setLoading(false);
         return;
       }
       
-      // In a real app, you would fetch the profile from an API
-      // For now, we'll use sample data
-      setProfile({
-        name: localStorage.getItem("userName") || "Alex Johnson",
-        role: localStorage.getItem("userRole") === "alumni" ? "Alumni" : "Student",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-        company: localStorage.getItem("userRole") === "alumni" ? "Google" : null,
-        location: "Mountain View, CA",
-        experience: localStorage.getItem("userRole") === "alumni" ? 8 : null,
-        linkedIn: "https://linkedin.com/in/alexjohnson",
-        email: localStorage.getItem("userEmail") || "alex.johnson@example.com",
-        skills: [
-          "JavaScript",
-          "TypeScript",
-          "React",
-          "Node.js",
-          "Python",
-          "AWS",
-          "System Design",
-          "Algorithms",
-          "Team Leadership",
-        ],
-        education: "M.S. Computer Science, Stanford University",
-        interests: [
-          "Mentoring",
-          "Open Source",
-          "AI/ML",
-          "Blockchain",
-          "Tech Ethics",
-        ],
-        bio: "Passionate software engineer with 8+ years of experience building web applications and distributed systems. Committed to mentoring the next generation of engineers.",
-      });
+      console.log("Profile data from API:", response.data);
       
+      // Transform the API response to match our profile structure
+      const userData = response.data;
+      const profileData = {
+        name: userData.name || "",
+        role: userRole === "alumni" ? "Alumni" : "Student",
+        avatar: userData.profilePicture || "",
+        company: userData.company || userData.currentCompany || "",
+        location: userData.location || "",
+        experience: userData.experience || 0,
+        linkedIn: userData.linkedin || "",
+        email: userData.email || "",
+        skills: userData.skills || [],
+        education: formatEducation(userData),
+        interests: userData.interests || [],
+        bio: userData.bio || "",
+      };
+      
+      setProfile(profileData);
+      setEditForm(profileData);
       setLoading(false);
     } catch (error) {
-      console.error("Error checking authentication:", error);
+      console.error("Error fetching profile:", error);
+      setError("Failed to load profile data. Please try again later.");
       setLoading(false);
+      toast.error("Failed to load profile data");
     }
-  }, [navigate]);
+  };
+
+  // Helper function to format education based on available data
+  const formatEducation = (userData) => {
+    if (userData.education) return userData.education;
+    
+    const parts = [];
+    if (userData.degree) parts.push(userData.degree);
+    if (userData.branch) parts.push(userData.branch);
+    if (userData.university) parts.push(userData.university);
+    
+    return parts.join(", ");
+  };
 
   useEffect(() => {
     // Update edit form when profile changes
@@ -135,25 +184,59 @@ const Profile = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  // Submit profile changes to the backend
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // In a real app, you would send this data to your API
-    // For now, we'll just update the local state
-    setProfile(editForm);
-    
-    // Update localStorage values for demo purposes
-    localStorage.setItem("userName", editForm.name);
-    localStorage.setItem("userEmail", editForm.email);
-    
-    // Close the modal
-    setIsEditModalOpen(false);
-    
-    // Show success message
-    alert("Profile updated successfully!");
+    try {
+      setLoading(true);
+      
+      // Prepare data for API
+      const userRole = localStorage.getItem("userRole");
+      const updateData = {
+        name: editForm.name,
+        bio: editForm.bio,
+        location: editForm.location,
+        linkedin: editForm.linkedIn,
+        skills: editForm.skills,
+        interests: editForm.interests,
+      };
+      
+      // Add role-specific fields
+      if (userRole === "alumni") {
+        updateData.company = editForm.company;
+        updateData.experience = Number(editForm.experience) || 0;
+      }
+      
+      console.log("Updating profile with data:", updateData);
+      
+      // Call appropriate API endpoint
+      let response;
+      if (userRole === "student") {
+        response = await api.put('/students/profile', updateData);
+      } else if (userRole === "alumni") {
+        response = await api.put('/alumni/profile', updateData);
+      }
+      
+      console.log("Profile update response:", response.data);
+      
+      // Update the profile state with the response data
+      await fetchUserProfile();
+      
+      // Close the modal
+      setIsEditModalOpen(false);
+      
+      // Show success message
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error(error.response?.data?.message || "Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
+  if (loading && !profile.name) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
@@ -165,6 +248,36 @@ const Profile = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-20 pb-12">
+          <div className="container-custom">
+            <div className="glass-card p-8 rounded-xl text-center">
+              <h2 className="text-xl font-bold text-red-600 mb-4">Error Loading Profile</h2>
+              <p className="mb-6">{error}</p>
+              <button 
+                onClick={() => fetchUserProfile()}
+                className="px-4 py-2 bg-primary text-white rounded-lg"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Add this function to handle profile photo updates
+  const handleProfilePhotoUpdated = (newPhotoUrl) => {
+    setProfile(prev => ({
+      ...prev,
+      avatar: newPhotoUrl
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -172,7 +285,8 @@ const Profile = () => {
         <div className="container-custom">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-              {!loading && (
+              {/* <User /> */}
+              {profile && (
                 <ProfileCard
                   name={profile.name}
                   role={profile.role}
@@ -186,7 +300,7 @@ const Profile = () => {
                   education={profile.education}
                   interests={profile.interests}
                   bio={profile.bio}
-                  onEditProfile={() => setIsEditModalOpen(true)}
+                  onEditProfile={openEditModal}
                 />
               )}
             </div>
@@ -206,6 +320,14 @@ const Profile = () => {
                         >
                           <X className="h-5 w-5" />
                         </button>
+                      </div>
+                      
+                      {/* Add the profile photo upload component */}
+                      <div className="flex justify-center mb-6">
+                        <ProfilePhotoUpload 
+                          currentAvatar={profile.avatar}
+                          onPhotoUpdated={handleProfilePhotoUpdated}
+                        />
                       </div>
 
                       <form onSubmit={handleSubmit} className="space-y-4">
@@ -237,8 +359,10 @@ const Profile = () => {
                               value={editForm.email}
                               onChange={handleInputChange}
                               className="w-full p-2 border rounded-lg"
-                              required
+                              readOnly
+                              disabled
                             />
+                            <p className="text-xs text-gray-500">Email cannot be changed</p>
                           </div>
 
                           <div className="space-y-2">
@@ -252,6 +376,7 @@ const Profile = () => {
                               value={editForm.location}
                               onChange={handleInputChange}
                               className="w-full p-2 border rounded-lg"
+                              placeholder="City, Country"
                             />
                           </div>
 
@@ -270,53 +395,44 @@ const Profile = () => {
                             />
                           </div>
 
-                          <div className="space-y-2">
-                            <label htmlFor="company" className="block text-sm font-medium">
-                              Company/Organization
-                            </label>
-                            <input
-                              type="text"
-                              id="company"
-                              name="company"
-                              value={editForm.company}
-                              onChange={handleInputChange}
-                              className="w-full p-2 border rounded-lg"
-                            />
-                          </div>
+                          {/* Show company and experience fields only for alumni */}
+                          {profile.role === "Alumni" && (
+                            <>
+                              <div className="space-y-2">
+                                <label htmlFor="company" className="block text-sm font-medium">
+                                  Company/Organization
+                                </label>
+                                <input
+                                  type="text"
+                                  id="company"
+                                  name="company"
+                                  value={editForm.company}
+                                  onChange={handleInputChange}
+                                  className="w-full p-2 border rounded-lg"
+                                  placeholder="Where you work"
+                                />
+                              </div>
 
-                          <div className="space-y-2">
-                            <label htmlFor="experience" className="block text-sm font-medium">
-                              Years of Experience
-                            </label>
-                            <input
-                              type="number"
-                              id="experience"
-                              name="experience"
-                              value={editForm.experience}
-                              onChange={handleInputChange}
-                              className="w-full p-2 border rounded-lg"
-                              min="0"
-                            />
-                          </div>
+                              <div className="space-y-2">
+                                <label htmlFor="experience" className="block text-sm font-medium">
+                                  Years of Experience
+                                </label>
+                                <input
+                                  type="number"
+                                  id="experience"
+                                  name="experience"
+                                  value={editForm.experience}
+                                  onChange={handleInputChange}
+                                  className="w-full p-2 border rounded-lg"
+                                  min="0"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </>
+                          )}
                         </div>
 
-                        {/* Education */}
-                        <div className="space-y-2">
-                          <label htmlFor="education" className="block text-sm font-medium">
-                            Education
-                          </label>
-                          <input
-                            type="text"
-                            id="education"
-                            name="education"
-                            value={editForm.education}
-                            onChange={handleInputChange}
-                            className="w-full p-2 border rounded-lg"
-                            placeholder="University, Degree"
-                          />
-                        </div>
-
-                        {/* Bio */}
+                        {/* Bio */ }
                         <div className="space-y-2">
                           <label htmlFor="bio" className="block text-sm font-medium">
                             Bio
@@ -427,8 +543,9 @@ const Profile = () => {
                           <button
                             type="submit"
                             className="px-4 py-2 bg-primary text-white rounded-lg text-sm"
+                            disabled={loading}
                           >
-                            Save Changes
+                            {loading ? "Saving..." : "Save Changes"}
                           </button>
                         </div>
                       </form>
@@ -437,84 +554,61 @@ const Profile = () => {
                 </div>
               )}
               
+              {/* Experience Section */}
               <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-100">
-                <h3 className="text-xl font-bold mb-4">Experience</h3>
-                {localStorage.getItem("userRole") === "alumni" ? (
-                  <div className="space-y-6">
-                    <div className="flex gap-4">
-                      <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                        <img
-                          src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
-                          alt="Google"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="font-bold">Senior Software Engineer</h4>
-                        <p className="text-muted-foreground">Google</p>
-                        <p className="text-sm text-muted-foreground">2019 - Present · 4 years</p>
-                        <p className="mt-2">
-                          Led the development of cloud-based solutions that improved system efficiency by 40%. Mentored junior engineers and collaborated with cross-functional teams.
-                        </p>
-                      </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold">Experience</h3>
+                  <button 
+                    onClick={openEditModal}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+                
+                {/* Display real experience data when implemented in the backend */}
+                {profile.company ? (
+                  <div className="flex gap-4">
+                    <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
+                      <Briefcase className="h-6 w-6" />
                     </div>
-
-                    <div className="flex gap-4">
-                      <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                        <img
-                          src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
-                          alt="Microsoft"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="font-bold">Software Engineer</h4>
-                        <p className="text-muted-foreground">Microsoft</p>
-                        <p className="text-sm text-muted-foreground">2015 - 2019 · 4 years</p>
-                        <p className="mt-2">
-                          Developed and maintained features for Microsoft Azure. Implemented microservices architecture and RESTful APIs.
+                    <div>
+                      <h4 className="font-bold">{profile.role === "Alumni" ? profile.company : "Student"}</h4>
+                      <p className="text-muted-foreground">{profile.role}</p>
+                      {profile.experience > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {profile.experience} {profile.experience === 1 ? 'year' : 'years'} of experience
                         </p>
-                      </div>
+                      )}
+                      <p className="mt-2">{profile.bio}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">No work experience added yet.</p>
+                  <p className="text-muted-foreground">No experience information added yet. Edit your profile to add details.</p>
                 )}
               </div>
 
+              {/* Education Section */}
               <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-200">
                 <h3 className="text-xl font-bold mb-4">Education</h3>
-                <div className="space-y-6">
+                {profile.education ? (
                   <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                      <img
-                        src="https://identity.stanford.edu/wp-content/uploads/sites/3/2020/07/block-s-right.png"
-                        alt="Stanford University"
-                        className="max-w-full max-h-full object-contain"
-                      />
+                    <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
+                      <GraduationCap className="h-6 w-6" />
                     </div>
                     <div>
-                      <h4 className="font-bold">Stanford University</h4>
-                      <p className="text-muted-foreground">Master of Science, Computer Science</p>
-                      <p className="text-sm text-muted-foreground">2013 - 2015</p>
+                      <h4 className="font-bold">{profile.education}</h4>
+                      {profile.role === "Student" && (
+                        <p className="text-muted-foreground">Current Student</p>
+                      )}
+                      {profile.role === "Alumni" && (
+                        <p className="text-muted-foreground">Graduate</p>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded bg-white p-2 flex items-center justify-center">
-                      <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/University_of_California%2C_Berkeley_logo.svg/1280px-University_of_California%2C_Berkeley_logo.svg.png"
-                        alt="UC Berkeley"
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">University of California, Berkeley</h4>
-                      <p className="text-muted-foreground">Bachelor of Science, Computer Science</p>
-                      <p className="text-sm text-muted-foreground">2009 - 2013</p>
-                    </div>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-muted-foreground">No education information available.</p>
+                )}
               </div>
             </div>
           </div>
@@ -524,4 +618,4 @@ const Profile = () => {
   );
 };
 
-export default Profile; 
+export default Profile;

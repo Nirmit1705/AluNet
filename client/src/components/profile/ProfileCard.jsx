@@ -17,9 +17,7 @@ const ProfileCard = ({
   interests,
   onEditProfile,
   bio,
-  rating = 0, // Default value for rating
-  ratingCount = 0, // Default value for ratingCount
-}) => {
+  rating = 0,  ratingCount = 0,}) => {
   const [connectionSent, setConnectionSent] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isMentorshipModalOpen, setIsMentorshipModalOpen] = useState(false);
@@ -83,17 +81,42 @@ const ProfileCard = ({
     setIsMentorshipModalOpen(false);
   };
 
+  // Add the getInitials function
+  const getInitials = (name) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  };
+
   return (
     <div className="glass-card rounded-xl overflow-hidden">
       {/* Profile header with banner */}
       <div className="relative h-40 bg-gradient-to-r from-blue-500 to-indigo-600">
         <div className="absolute -bottom-16 left-8">
           <div className="relative">
-            <img
-              src={avatar}
-              alt={name}
-              className="w-32 h-32 rounded-xl object-cover border-4 border-white dark:border-white/90 shadow-md"
-            />
+            {avatar && avatar.url ? (
+              // Handle object structure coming from API
+              <img
+                src={avatar.url}
+                alt={name}
+                className="w-32 h-32 rounded-xl object-cover border-4 border-white dark:border-white/90 shadow-md"
+              />
+            ) : avatar ? (
+              // Handle string URL
+              <img
+                src={avatar}
+                alt={name}
+                className="w-32 h-32 rounded-xl object-cover border-4 border-white dark:border-white/90 shadow-md"
+              />
+            ) : (
+              // Fallback to initials
+              <div className="w-32 h-32 rounded-xl bg-primary/10 text-primary flex items-center justify-center border-4 border-white dark:border-white/90 shadow-md">
+                <span className="text-2xl font-bold">{getInitials(name)}</span>
+              </div>
+            )}
             <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             
             {/* Edit button overlay */}
