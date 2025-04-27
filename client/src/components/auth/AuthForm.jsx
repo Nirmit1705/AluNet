@@ -69,41 +69,73 @@ const AuthForm = forwardRef(({
   // Expose methods to parent component through the ref
   useImperativeHandle(ref, () => ({
     handleGoogleAuthSuccess: (userData) => {
-      if (type === "register") {
-        // For registration, we got name and email from Google,
-        // but need to collect additional info
-        setName(userData.name || "");
-        setEmail(userData.email || "");
-        
-        // Set the role from userData if provided
-        if (userData.role) {
-          console.log("Setting role from Google auth callback:", userData.role);
-          setRole(userData.role);
-        }
-        
-        setGoogleAuthData(userData);
-        
-        // Skip to step 2 directly since we have basic info
-        setStep(2);
-      } else {
-        // For login, attempt direct login with Google credentials
-        console.log("Logging in with Google:", userData);
-        
-        // Store user data
-        localStorage.setItem("token", userData.token || `google-token-${Date.now()}`);
-        localStorage.setItem("userRole", role);
-        localStorage.setItem("userEmail", userData.email);
-        localStorage.setItem("userName", userData.name);
-        
-        toast.success("Logged in with Google successfully!");
-        
-        if (onSuccess) {
-          onSuccess();
-        }
-        
-        // Navigate to the dashboard
-        navigate(role === "student" ? "/student-dashboard" : "/alumni-dashboard");
+      console.log("AuthForm handling Google auth success:", userData);
+      
+      if (!userData || !userData.email) {
+        console.error("Invalid Google auth data received:", userData);
+        toast.error("Failed to process Google authentication data");
+        return;
       }
+      
+      // For login flow
+      if (type === "login") {
+        // If token exists, user already exists in the system - handle direct login
+        if (userData.token) {
+          try {
+            // Store user data
+            localStorage.setItem("token", userData.token);
+            localStorage.setItem("userRole", userData.userType);
+            localStorage.setItem("userEmail", userData.email);
+            localStorage.setItem("userName", userData.name);
+            
+            toast.success("Logged in with Google successfully!");
+            
+            // Check if alumni needs verification
+            if (userData.userType === 'alumni' && userData.isVerified === false) {
+              localStorage.setItem("pendingVerification", "true");
+              window.location.href = "/verification-pending";
+              return;
+            }
+            
+            // Navigate to appropriate dashboard
+            const dashboardUrl = userData.userType === 'student' 
+              ? "/student-dashboard" 
+              : userData.userType === 'admin' 
+                ? "/admin-dashboard" 
+                : "/alumni-dashboard";
+                
+            // Use window.location for a full page reload/redirect
+            window.location.href = dashboardUrl;
+            
+            if (onSuccess) {
+              onSuccess();
+            }
+          } catch (error) {
+            console.error("Error processing Google auth login:", error);
+            toast.error("Failed to complete Google login");
+          }
+        } else {
+          // No token means user doesn't exist - show error
+          toast.error("No account found with this Google email. Please register first.");
+        }
+        return;
+      }
+      
+      // For registration, we got name and email from Google,
+      // but need to collect additional info
+      setName(userData.name || "");
+      setEmail(userData.email || "");
+      
+      // Set the role from userData if provided
+      if (userData.role) {
+        console.log("Setting role from Google auth callback:", userData.role);
+        setRole(userData.role);
+      }
+      
+      setGoogleAuthData(userData);
+      
+      // Skip to step 2 directly since we have basic info
+      setStep(2);
     }
   }));
 
@@ -498,6 +530,9 @@ const AuthForm = forwardRef(({
           : "http://localhost:5000/api/alumni/register";
       }
       
+      // Log what we're sending for debugging
+      console.log(`Sending registration to ${url}:`, formattedData);
+      
       // Make the API call
       const response = await fetch(url, {
         method: 'POST',
@@ -541,9 +576,12 @@ const AuthForm = forwardRef(({
         } else {
           // For students, redirect to student dashboard
           toast.success("Registration successful!");
-          setTimeout(() => {
-            window.location.href = "/student-dashboard";
-          }, 1000);
+          window.location.href = "/student-dashboard";
+        }
+        
+        // Call onSuccess
+        if (onSuccess) {
+          onSuccess();
         }
       } else {
         // Extract and display meaningful error messages

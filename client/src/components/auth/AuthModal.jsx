@@ -101,14 +101,48 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
   };
 
   const handleGoogleAuthSuccess = (userData) => {
+    console.log("Processing Google auth success data:", userData);
+    
     // Set the role from selection if in register mode
     if (type === "register" && selectedRole) {
       userData.role = selectedRole;
     }
     
-    // Pass the Google auth data to the AuthForm
-    if (authFormRef.current) {
-      authFormRef.current.handleGoogleAuthSuccess(userData);
+    // Check if we got a valid token - this means the user already exists
+    if (userData.token && typeof userData.token === 'string') {
+      // Store auth data for existing users
+      localStorage.setItem("token", userData.token);
+      localStorage.setItem("userRole", userData.userType || selectedRole);
+      localStorage.setItem("userEmail", userData.email);
+      localStorage.setItem("userName", userData.name);
+      
+      // For alumni, check verified status
+      if (userData.userType === 'alumni' && userData.isVerified === false) {
+        localStorage.setItem("pendingVerification", "true");
+        window.location.href = "/verification-pending";
+      } else {
+        // Direct navigation based on role
+        const dashboardPath = userData.userType === 'student' || selectedRole === 'student' 
+          ? "/student-dashboard" 
+          : userData.userType === 'admin' 
+            ? "/admin-dashboard" 
+            : "/alumni-dashboard";
+            
+        window.location.href = dashboardPath;
+      }
+      
+      if (onClose) {
+        onClose();
+      }
+    } else if (type === "register") {
+      // For registration, pass the Google auth data to the AuthForm
+      if (authFormRef.current) {
+        authFormRef.current.handleGoogleAuthSuccess(userData);
+      }
+    } else {
+      // For login with no token (user doesn't exist)
+      toast.error("No account found with this Google email. Please register first.");
+      setAuthMethod(null);
     }
   };
 
