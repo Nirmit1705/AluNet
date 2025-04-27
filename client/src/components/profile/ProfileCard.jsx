@@ -17,7 +17,11 @@ const ProfileCard = ({
   interests,
   onEditProfile,
   bio,
-  rating = 0,  ratingCount = 0,}) => {
+  rating = 0,  
+  ratingCount = 0,
+  graduationYear,
+  previousEducation = []
+}) => {
   const [connectionSent, setConnectionSent] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isMentorshipModalOpen, setIsMentorshipModalOpen] = useState(false);
@@ -264,8 +268,32 @@ const ProfileCard = ({
             <h4 className="font-semibold mb-2">Education</h4>
             <div className="flex items-start">
               <GraduationCap className="h-4 w-4 text-muted-foreground mr-2 mt-0.5" />
-              <p className="text-sm">{education}</p>
+              <div>
+                <p className="text-sm">{education}</p>
+                {/* Display graduation year if it exists */}
+                {graduationYear && (
+                  <p className="text-xs text-muted-foreground">
+                    Class of {graduationYear}
+                  </p>
+                )}
+              </div>
             </div>
+            
+            {/* Previous Education Section */}
+            {previousEducation && previousEducation.length > 0 && (
+              <div className="mt-2">
+                <h5 className="text-sm font-medium mb-1">Previous Education</h5>
+                {previousEducation.map((edu, index) => (
+                  <div key={index} className="mb-2 ml-6 border-l-2 border-gray-200 pl-3 py-1">
+                    <p className="text-sm font-medium">{edu.degree} in {edu.fieldOfStudy}</p>
+                    <p className="text-xs text-muted-foreground">{edu.institution}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {edu.startYear} - {edu.endYear || 'Present'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

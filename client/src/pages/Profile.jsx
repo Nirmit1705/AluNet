@@ -37,6 +37,16 @@ const Profile = () => {
   const [newSkill, setNewSkill] = useState("");
   const [newInterest, setNewInterest] = useState("");
 
+  // Add these state variables with your other useState declarations
+  const [newEducation, setNewEducation] = useState({
+    institution: "",
+    degree: "",
+    fieldOfStudy: "",
+    startYear: "",
+    endYear: "",
+    description: ""
+  });
+
   // Create axios instance with authentication
   const api = axios.create({
     baseURL: 'http://localhost:5000/api',
@@ -103,6 +113,8 @@ const Profile = () => {
         education: formatEducation(userData),
         interests: userData.interests || [],
         bio: userData.bio || "",
+        graduationYear: userData.graduationYear || "",
+        previousEducation: userData.previousEducation || [],
       };
       
       setProfile(profileData);
@@ -184,7 +196,68 @@ const Profile = () => {
     });
   };
 
-  // Submit profile changes to the backend
+  // Add this function before your handleSubmit function
+  const addEducation = () => {
+    // Validate required fields
+    if (!newEducation.institution || !newEducation.degree || !newEducation.fieldOfStudy || !newEducation.startYear) {
+      toast.error("Please fill in all required education fields");
+      return;
+    }
+    
+    // Validate years
+    const currentYear = new Date().getFullYear();
+    const startYear = parseInt(newEducation.startYear);
+    const endYear = newEducation.endYear ? parseInt(newEducation.endYear) : null;
+    
+    if (isNaN(startYear) || startYear < 1950 || startYear > currentYear) {
+      toast.error("Please enter a valid start year");
+      return;
+    }
+    
+    if (endYear && (isNaN(endYear) || endYear < startYear || endYear > currentYear + 10)) {
+      toast.error("Please enter a valid end year");
+      return;
+    }
+    
+    // Add to previousEducation array
+    setEditForm({
+      ...editForm,
+      previousEducation: [
+        ...editForm.previousEducation,
+        { ...newEducation, 
+          startYear: startYear,
+          endYear: endYear || null
+        }
+      ]
+    });
+    
+    // Reset the new education form
+    setNewEducation({
+      institution: "",
+      degree: "",
+      fieldOfStudy: "",
+      startYear: "",
+      endYear: "",
+      description: ""
+    });
+  };
+
+  const removeEducation = (index) => {
+    setEditForm({
+      ...editForm,
+      previousEducation: editForm.previousEducation.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateGraduationYear = (e) => {
+    const value = e.target.value;
+    setEditForm({
+      ...editForm,
+      graduationYear: value
+    });
+  };
+
+  // Modify your existing handleSubmit function to include the new fields
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -200,6 +273,8 @@ const Profile = () => {
         linkedin: editForm.linkedIn,
         skills: editForm.skills,
         interests: editForm.interests,
+        graduationYear: editForm.graduationYear,
+        previousEducation: editForm.previousEducation
       };
       
       // Add role-specific fields
@@ -301,6 +376,8 @@ const Profile = () => {
                   interests={profile.interests}
                   bio={profile.bio}
                   onEditProfile={openEditModal}
+                  graduationYear={profile.graduationYear}
+                  previousEducation={profile.previousEducation}
                 />
               )}
             </div>
@@ -446,6 +523,163 @@ const Profile = () => {
                             className="w-full p-2 border rounded-lg resize-none"
                             placeholder="Tell others about yourself..."
                           ></textarea>
+                        </div>
+
+                        {/* Education Section */}
+                        <div className="space-y-4 mt-4 border-t pt-4">
+                          <h3 className="text-lg font-medium">Education</h3>
+                          
+                          {/* Current Education/Graduation Year */}
+                          <div className="space-y-2">
+                            <label htmlFor="graduationYear" className="block text-sm font-medium">
+                              Graduation Year {profile.role === "Alumni" && <span className="text-red-500">*</span>}
+                            </label>
+                            <input
+                              type="number"
+                              id="graduationYear"
+                              name="graduationYear"
+                              value={editForm.graduationYear}
+                              onChange={updateGraduationYear}
+                              min="1950"
+                              max={new Date().getFullYear() + 10}
+                              className="w-full p-2 border rounded-lg"
+                              placeholder="e.g., 2022"
+                              required={profile.role === "Alumni"}
+                            />
+                            <p className="text-xs text-gray-500">Enter your graduation year (actual or expected)</p>
+                          </div>
+                          
+                          {/* Previous Education */}
+                          <div className="space-y-2 mt-4">
+                            <label className="flex justify-between text-sm font-medium">
+                              <span>Previous Education</span>
+                              <span className="text-xs text-gray-500">Optional</span>
+                            </label>
+                            
+                            {/* List of added education */}
+                            {editForm.previousEducation && editForm.previousEducation.length > 0 && (
+                              <div className="space-y-3 mb-4">
+                                {editForm.previousEducation.map((edu, index) => (
+                                  <div key={index} className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800 relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeEducation(index)}
+                                      className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                    <p className="font-medium">{edu.degree} in {edu.fieldOfStudy}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">{edu.institution}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                                      {edu.startYear} - {edu.endYear || 'Present'}
+                                    </p>
+                                    {edu.description && (
+                                      <p className="text-sm text-gray-500 mt-1 italic">{edu.description}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Add new education form */}
+                            <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+                              <h4 className="text-sm font-medium mb-3">Add Education</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label htmlFor="institution" className="block text-xs font-medium mb-1">
+                                    Institution
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="institution"
+                                    value={newEducation.institution}
+                                    onChange={(e) => setNewEducation({...newEducation, institution: e.target.value})}
+                                    className="w-full p-2 border rounded-lg text-sm"
+                                    placeholder="University/College name"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="degree" className="block text-xs font-medium mb-1">
+                                    Degree
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="degree"
+                                    value={newEducation.degree}
+                                    onChange={(e) => setNewEducation({...newEducation, degree: e.target.value})}
+                                    className="w-full p-2 border rounded-lg text-sm"
+                                    placeholder="e.g., Bachelor's, Master's"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="fieldOfStudy" className="block text-xs font-medium mb-1">
+                                    Field of Study
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="fieldOfStudy"
+                                    value={newEducation.fieldOfStudy}
+                                    onChange={(e) => setNewEducation({...newEducation, fieldOfStudy: e.target.value})}
+                                    className="w-full p-2 border rounded-lg text-sm"
+                                    placeholder="e.g., Computer Science"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label htmlFor="startYear" className="block text-xs font-medium mb-1">
+                                      Start Year
+                                    </label>
+                                    <input
+                                      type="number"
+                                      id="startYear"
+                                      value={newEducation.startYear}
+                                      onChange={(e) => setNewEducation({...newEducation, startYear: e.target.value})}
+                                      min="1950"
+                                      max={new Date().getFullYear()}
+                                      className="w-full p-2 border rounded-lg text-sm"
+                                      placeholder="Year"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label htmlFor="endYear" className="block text-xs font-medium mb-1">
+                                      End Year
+                                    </label>
+                                    <input
+                                      type="number"
+                                      id="endYear"
+                                      value={newEducation.endYear}
+                                      onChange={(e) => setNewEducation({...newEducation, endYear: e.target.value})}
+                                      min="1950"
+                                      max={new Date().getFullYear() + 10}
+                                      className="w-full p-2 border rounded-lg text-sm"
+                                      placeholder="Or blank if current"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label htmlFor="description" className="block text-xs font-medium mb-1">
+                                    Description (Optional)
+                                  </label>
+                                  <textarea
+                                    id="description"
+                                    value={newEducation.description}
+                                    onChange={(e) => setNewEducation({...newEducation, description: e.target.value})}
+                                    rows="2"
+                                    className="w-full p-2 border rounded-lg text-sm"
+                                    placeholder="Brief description or accomplishments"
+                                  ></textarea>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={addEducation}
+                                className="mt-3 px-3 py-1.5 bg-primary/10 text-primary text-sm rounded flex items-center"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add Education
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Skills */}
