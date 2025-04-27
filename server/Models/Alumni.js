@@ -45,6 +45,44 @@ const AlumniSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add branch']
     },
+    // Previous education field
+    previousEducation: [{
+        institution: {
+            type: String,
+            trim: true
+        },
+        degree: {
+            type: String,
+            trim: true
+        },
+        fieldOfStudy: {
+            type: String,
+            trim: true
+        },
+        startYear: {
+            type: Number,
+            validate: {
+                validator: function(v) {
+                    return v >= 1950 && v <= new Date().getFullYear();
+                },
+                message: props => `${props.value} is not a valid year!`
+            }
+        },
+        endYear: {
+            type: Number,
+            validate: {
+                validator: function(v) {
+                    return v >= 1950 && v <= new Date().getFullYear();
+                },
+                message: props => `${props.value} is not a valid year!`
+            }
+        },
+        description: {
+            type: String,
+            trim: true,
+            maxlength: [300, 'Description cannot be more than 300 characters']
+        }
+    }],
     // Email verification fields
     isEmailVerified: {
         type: Boolean,

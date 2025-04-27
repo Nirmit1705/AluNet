@@ -209,21 +209,14 @@ const getStudentProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update student profile
-// @route   PUT /api/students/profile
-// @access  Private
+// Find the updateStudentProfile or similar function and update it to handle previousEducation
 const updateStudentProfile = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user._id);
-
-  if (!student) {
-    res.status(404);
-    throw new Error("Student not found");
-  }
-
+  const studentId = req.user._id;
+  
+  // Get data from request body
   const {
     name,
     phone,
-    currentYear,
     branch,
     cgpa,
     skills,
@@ -231,18 +224,24 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
     bio,
     linkedin,
     github,
-    careerGoals,
-    projects,
-    internships,
-    university,
-    college,
-    location, // Add location field
+    location,
+    // Add these fields
+    graduationYear,
+    previousEducation,
+    // ...other fields
   } = req.body;
-
+  
+  // Find the student by ID
+  const student = await Student.findById(studentId);
+  
+  if (!student) {
+    res.status(404);
+    throw new Error('Student not found');
+  }
+  
   // Update fields if provided
   if (name) student.name = name;
   if (phone) student.phone = phone;
-  if (currentYear) student.currentYear = currentYear;
   if (branch) student.branch = branch;
   if (cgpa) student.cgpa = cgpa;
   if (skills) student.skills = skills;
@@ -250,15 +249,17 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
   if (bio) student.bio = bio;
   if (linkedin) student.linkedin = linkedin;
   if (github) student.github = github;
-  if (careerGoals) student.careerGoals = careerGoals;
-  if (projects) student.projects = projects;
-  if (internships) student.internships = internships;
-  if (university) student.university = university;
-  if (college) student.college = college;
-  if (location) student.location = location; // Handle location field
-
+  if (location) student.location = location;
+  // Add these fields to the update logic
+  if (graduationYear) student.graduationYear = graduationYear;
+  if (previousEducation) student.previousEducation = previousEducation;
+  // ...update other fields
+  
+  // Save the updated student
   const updatedStudent = await student.save();
-  res.json(formatStudentResponse(updatedStudent, true));
+  
+  // Return the formatted response
+  res.json(formatStudentResponse(updatedStudent));
 });
 
 // @desc    Get all students

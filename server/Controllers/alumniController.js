@@ -166,60 +166,53 @@ const getAlumniProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update alumni profile
-// @route   PUT /api/alumni/profile
-// @access  Private
+// Find the updateAlumniProfile or similar function and update it to handle previousEducation
 const updateAlumniProfile = asyncHandler(async (req, res) => {
-  const alumni = await Alumni.findById(req.user._id);
-
-  if (!alumni) {
-    res.status(404);
-    throw new Error("Alumni not found");
-  }
-
+  const alumniId = req.user._id;
+  
+  // Get data from request body
   const {
     name,
     phone,
-    graduationYear,
-    degree,
-    specialization,
-    currentPosition,
     company,
-    linkedin,
-    experience,
-    skills,
-    interests,
-    mentorshipAvailable,
-    mentorshipAreas,
-    bio,
+    position,
     location,
-    industry,
-    university,
-    college
+    bio,
+    skills,
+    linkedin,
+    // Add these fields
+    graduationYear,
+    previousEducation,
+    // ...other fields
   } = req.body;
-
+  
+  // Find the alumni by ID
+  const alumni = await Alumni.findById(alumniId);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error('Alumni not found');
+  }
+  
   // Update fields if provided
   if (name) alumni.name = name;
   if (phone) alumni.phone = phone;
-  if (graduationYear) alumni.graduationYear = graduationYear;
-  if (degree) alumni.degree = degree;
-  if (specialization) alumni.specialization = specialization;
-  if (currentPosition) alumni.currentPosition = currentPosition;
   if (company) alumni.company = company;
-  if (linkedin) alumni.linkedin = linkedin;
-  if (experience) alumni.experience = experience;
-  if (skills) alumni.skills = skills;
-  if (interests) alumni.interests = interests;
-  if (mentorshipAvailable !== undefined) alumni.mentorshipAvailable = mentorshipAvailable;
-  if (mentorshipAreas) alumni.mentorshipAreas = mentorshipAreas;
-  if (bio) alumni.bio = bio;
+  if (position) alumni.position = position;
   if (location) alumni.location = location;
-  if (industry) alumni.industry = industry;
-  if (university) alumni.university = university;
-  if (college) alumni.college = college;
-
+  if (bio) alumni.bio = bio;
+  if (skills) alumni.skills = skills;
+  if (linkedin) alumni.linkedin = linkedin;
+  // Add these fields to the update logic
+  if (graduationYear) alumni.graduationYear = graduationYear;
+  if (previousEducation) alumni.previousEducation = previousEducation;
+  // ...update other fields
+  
+  // Save the updated alumni
   const updatedAlumni = await alumni.save();
-  res.json(formatAlumniResponse(updatedAlumni, true));
+  
+  // Return the formatted response
+  res.json(formatAlumniResponse(updatedAlumni));
 });
 
 // @desc    Get all alumni

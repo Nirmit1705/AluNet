@@ -27,6 +27,7 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     location: alumni.location, // Ensure location is included
     profilePicture: alumni.profilePicture, // Include profile picture
     interests: alumni.interests || [], // Ensure interests field is included
+    previousEducation: alumni.previousEducation || [], // Include previous education
   };
 
   if (includeToken) {
@@ -64,6 +65,7 @@ const formatStudentResponse = (student, includeToken = false) => {
     isEmailVerified: student.isEmailVerified,
     profilePicture: student.profilePicture, // Include profile picture
     location: student.location || "", // Add location field with default
+    previousEducation: student.previousEducation || [], // Include previous education
   };
 
   if (includeToken) {

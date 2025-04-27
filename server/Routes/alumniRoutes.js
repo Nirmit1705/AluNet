@@ -1,4 +1,6 @@
 import express from 'express';
+import { protect } from '../middleware/authMiddleware.js';
+import asyncHandler from '../utils/asyncHandler.js';
 import { 
   registerAlumni,
   authAlumni,
@@ -15,7 +17,6 @@ import {
   registerAlumniWithGoogle,
   updateAlumniProfilePicture 
 } from '../Controllers/alumniController.js';
-import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -44,4 +45,28 @@ router.put('/profile/profile-picture', protect, updateAlumniProfilePicture);
 // Google Authentication routes
 router.post('/register-google', registerAlumniWithGoogle);
 
+// Add this route to update education information
+router.put('/update-education', protect, asyncHandler(async (req, res) => {
+  const { graduationYear, previousEducation } = req.body;
+  
+  // Get the alumni ID from the authenticated user
+  const alumniId = req.user._id;
+  
+  const alumni = await Alumni.findById(alumniId);
+  
+  if (!alumni) {
+    res.status(404);
+    throw new Error('Alumni not found');
+  }
+  
+  // Update the education fields
+  alumni.graduationYear = graduationYear;
+  alumni.previousEducation = previousEducation;
+  
+  // Save the updated alumni
+  await alumni.save();
+  
+  // Return the updated alumni data
+  res.json(formatAlumniResponse(alumni));
+}));
 export default router;
