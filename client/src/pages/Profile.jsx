@@ -47,6 +47,28 @@ const Profile = () => {
     description: ""
   });
 
+  // Add this useState declaration near your other state variables at the top of your component
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add userRole to your state variables
+  const [userRole, setUserRole] = useState("");
+
+  // Add this missing state variable with your other state declarations
+  const [editMode, setEditMode] = useState(false);
+
+  // Modify the newWorkExperience state to use month/year format
+  const [newWorkExperience, setNewWorkExperience] = useState({
+    company: "",
+    position: "",
+    location: "",
+    startMonth: "",
+    startYear: "",
+    endMonth: "",
+    endYear: "",
+    description: "",
+    current: false
+  });
+
   // Create axios instance with authentication
   const api = axios.create({
     baseURL: 'http://localhost:5000/api',
@@ -82,12 +104,15 @@ const Profile = () => {
       setError(null);
       
       // Get user role to determine which API endpoint to use
-      const userRole = localStorage.getItem("userRole");
+      const storedUserRole = localStorage.getItem("userRole");
+      setUserRole(storedUserRole); // Store user role in state
       
       let response;
-      if (userRole === "student") {
+      if (storedUserRole === "student") {
+        // The correct endpoint should be just /students/profile, not /students/profile/:id
         response = await api.get('/students/profile');
-      } else if (userRole === "alumni") {
+      } else if (storedUserRole === "alumni") {
+        // The correct endpoint should be just /alumni/profile, not /alumni/profile/:id
         response = await api.get('/alumni/profile');
       } else {
         // Handle admin or unknown roles
@@ -102,12 +127,12 @@ const Profile = () => {
       const userData = response.data;
       const profileData = {
         name: userData.name || "",
-        role: userRole === "alumni" ? "Alumni" : "Student",
-        avatar: userData.profilePicture || "",
+        role: storedUserRole === "alumni" ? "Alumni" : "Student", // Use the stored user role
+        avatar: userData.profilePicture?.url || userData.profilePicture || "",
         company: userData.company || userData.currentCompany || "",
         location: userData.location || "",
         experience: userData.experience || 0,
-        linkedIn: userData.linkedin || "",
+        linkedIn: userData.linkedin || userData.linkedInProfile || "",
         email: userData.email || "",
         skills: userData.skills || [],
         education: formatEducation(userData),
@@ -122,22 +147,48 @@ const Profile = () => {
       setLoading(false);
     } catch (error) {
       console.error("Error fetching profile:", error);
-      setError("Failed to load profile data. Please try again later.");
+      // Include more detailed error information
+      const errorMessage = error.response?.data?.message || 
+                           "Failed to load profile data. Please try again later.";
+      setError(errorMessage);
       setLoading(false);
-      toast.error("Failed to load profile data");
+      toast.error(errorMessage);
+      
+      // Log detailed error information for debugging
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+        console.error("Error status:", error.response.status);
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+      }
     }
   };
 
   // Helper function to format education based on available data
   const formatEducation = (userData) => {
-    if (userData.education) return userData.education;
-    
-    const parts = [];
-    if (userData.degree) parts.push(userData.degree);
-    if (userData.branch) parts.push(userData.branch);
-    if (userData.university) parts.push(userData.university);
-    
-    return parts.join(", ");
+    // Handle different education field formats
+    if (userData.previousEducation && Array.isArray(userData.previousEducation) && userData.previousEducation.length > 0) {
+      const primaryEdu = userData.previousEducation[0];
+      // Check if degree already contains "in" to avoid duplication
+      const degreeText = primaryEdu.degree || '';
+      const fieldText = primaryEdu.fieldOfStudy ? 
+        (degreeText.toLowerCase().includes(`in ${primaryEdu.fieldOfStudy.toLowerCase()}`) ? 
+          '' : ` in ${primaryEdu.fieldOfStudy}`) : '';
+      return `${degreeText}${fieldText} ${primaryEdu.institution || ''}`;
+    } else if (userData.education && Array.isArray(userData.education) && userData.education.length > 0) {
+      const primaryEdu = userData.education[0];
+      // Check if degree already contains "in" to avoid duplication
+      const degreeText = primaryEdu.degree || '';
+      const fieldText = primaryEdu.fieldOfStudy ? 
+        (degreeText.toLowerCase().includes(`in ${primaryEdu.fieldOfStudy.toLowerCase()}`) ? 
+          '' : ` in ${primaryEdu.fieldOfStudy}`) : '';
+      return `${degreeText}${fieldText} ${primaryEdu.institution || ''}`;
+    } else if (userData.university || userData.college) {
+      // Fall back to basic education fields
+      return `${userData.degree || ''} ${userData.specialization ? `in ${userData.specialization}` : ''} ${userData.university || ''} ${userData.college ? `(${userData.college})` : ''}`;
+    } else {
+      return '';
+    }
   };
 
   useEffect(() => {
@@ -196,118 +247,215 @@ const Profile = () => {
     });
   };
 
-  // Add this function before your handleSubmit function
-  const addEducation = () => {
+  // Add this function to handle adding new work experience entries
+  const addWorkExperience = () => {
     // Validate required fields
-    if (!newEducation.institution || !newEducation.degree || !newEducation.fieldOfStudy || !newEducation.startYear) {
-      toast.error("Please fill in all required education fields");
+    if (!newWorkExperience.company || !newWorkExperience.position || 
+        !newWorkExperience.startMonth || !newWorkExperience.startYear) {
+      toast.error("Please fill in all required work experience fields");
       return;
     }
     
     // Validate years
     const currentYear = new Date().getFullYear();
-    const startYear = parseInt(newEducation.startYear);
-    const endYear = newEducation.endYear ? parseInt(newEducation.endYear) : null;
+    const startYear = parseInt(newWorkExperience.startYear);
+    const endYear = newWorkExperience.endYear ? parseInt(newWorkExperience.endYear) : null;
     
     if (isNaN(startYear) || startYear < 1950 || startYear > currentYear) {
       toast.error("Please enter a valid start year");
       return;
     }
     
-    if (endYear && (isNaN(endYear) || endYear < startYear || endYear > currentYear + 10)) {
+    if (!newWorkExperience.current && endYear && 
+        (isNaN(endYear) || endYear < startYear || endYear > currentYear)) {
       toast.error("Please enter a valid end year");
       return;
     }
+
+    // Format dates for display
+    const startDate = `${newWorkExperience.startMonth} ${newWorkExperience.startYear}`;
+    const endDate = newWorkExperience.current ? 
+                    "Present" : 
+                    `${newWorkExperience.endMonth} ${newWorkExperience.endYear}`;
     
-    // Add to previousEducation array
+    // Create a clean work experience object
+    const workExpEntry = {
+      id: Date.now(), // Simple unique identifier
+      company: newWorkExperience.company.trim(),
+      position: newWorkExperience.position.trim(),
+      location: newWorkExperience.location.trim(),
+      startMonth: newWorkExperience.startMonth,
+      startYear: startYear,
+      endMonth: newWorkExperience.current ? "" : newWorkExperience.endMonth,
+      endYear: newWorkExperience.current ? "" : endYear,
+      description: newWorkExperience.description?.trim() || '',
+      current: newWorkExperience.current,
+      // Add formatted date strings for display
+      startDate: startDate,
+      endDate: endDate
+    };
+    
+    // Initialize workExperience array if it doesn't exist
+    if (!editForm.workExperience) {
+      editForm.workExperience = [];
+    }
+    
+    // Add to workExperience array - ensure we create a new array to trigger state update
     setEditForm({
       ...editForm,
-      previousEducation: [
-        ...editForm.previousEducation,
-        { ...newEducation, 
-          startYear: startYear,
-          endYear: endYear || null
-        }
-      ]
+      workExperience: [...(editForm.workExperience || []), workExpEntry]
     });
     
-    // Reset the new education form
-    setNewEducation({
-      institution: "",
-      degree: "",
-      fieldOfStudy: "",
+    // Reset the new work experience form
+    setNewWorkExperience({
+      company: "",
+      position: "",
+      location: "",
+      startMonth: "",
       startYear: "",
+      endMonth: "",
       endYear: "",
-      description: ""
+      description: "",
+      current: false
     });
+    
+    // Provide feedback
+    toast.success("Work experience added successfully");
   };
 
-  const removeEducation = (index) => {
+  // Function to remove a work experience entry
+  const removeWorkExperience = (index) => {
+    const updatedWorkExperience = [...editForm.workExperience];
+    updatedWorkExperience.splice(index, 1);
+    
     setEditForm({
       ...editForm,
-      previousEducation: editForm.previousEducation.filter((_, i) => i !== index)
+      workExperience: updatedWorkExperience
+    });
+    
+    toast.success("Work experience removed");
+  };
+
+  // Handle current checkbox change
+  const handleCurrentJobChange = (e) => {
+    const isCurrentJob = e.target.checked;
+    setNewWorkExperience({
+      ...newWorkExperience,
+      current: isCurrentJob,
+      // Clear end date if it's a current job
+      endMonth: isCurrentJob ? "" : newWorkExperience.endMonth,
+      endYear: isCurrentJob ? "" : newWorkExperience.endYear
     });
   };
 
-  const updateGraduationYear = (e) => {
-    const value = e.target.value;
-    setEditForm({
-      ...editForm,
-      graduationYear: value
-    });
-  };
-
-  // Modify your existing handleSubmit function to include the new fields
-  const handleSubmit = async (e) => {
+  // Fix the handleFormSubmit function to include updated work experience format
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
     try {
-      setLoading(true);
+      // Deep copy the form data to avoid reference issues
+      const formDataToSubmit = JSON.parse(JSON.stringify(editForm));
       
-      // Prepare data for API
-      const userRole = localStorage.getItem("userRole");
-      const updateData = {
-        name: editForm.name,
-        bio: editForm.bio,
-        location: editForm.location,
-        linkedin: editForm.linkedIn,
-        skills: editForm.skills,
-        interests: editForm.interests,
-        graduationYear: editForm.graduationYear,
-        previousEducation: editForm.previousEducation
-      };
-      
-      // Add role-specific fields
-      if (userRole === "alumni") {
-        updateData.company = editForm.company;
-        updateData.experience = Number(editForm.experience) || 0;
+      // Ensure university and college fields are included in the submission
+      if (profile.role === "Alumni") {
+        // For alumni, ensure these fields are properly set
+        if (!formDataToSubmit.university && formDataToSubmit.previousEducation && formDataToSubmit.previousEducation.length > 0) {
+          // Extract university from the first education entry if not explicitly set
+          formDataToSubmit.university = formDataToSubmit.previousEducation[0].institution || '';
+        }
       }
       
-      console.log("Updating profile with data:", updateData);
-      
-      // Call appropriate API endpoint
-      let response;
-      if (userRole === "student") {
-        response = await api.put('/students/profile', updateData);
-      } else if (userRole === "alumni") {
-        response = await api.put('/alumni/profile', updateData);
+      // Format education data properly for the backend
+      // Make sure education is processed as an array of objects with proper structure
+      if (formDataToSubmit.previousEducation && Array.isArray(formDataToSubmit.previousEducation)) {
+        // If we have previousEducation array, use it directly
+        formDataToSubmit.education = formDataToSubmit.previousEducation.map(edu => ({
+          institution: edu.institution,
+          degree: edu.degree,
+          fieldOfStudy: edu.fieldOfStudy,
+          startYear: Number(edu.startYear) || null,
+          endYear: Number(edu.endYear) || null,
+          description: edu.description || ''
+        }));
+      } else if (formDataToSubmit.education && typeof formDataToSubmit.education === 'string') {
+        // If education is a string, convert it to the expected object format
+        formDataToSubmit.education = [{
+          institution: formDataToSubmit.education.split(',').pop()?.trim() || '',
+          degree: formDataToSubmit.degree || '',
+          fieldOfStudy: formDataToSubmit.specialization || '',
+          startYear: formDataToSubmit.graduationYear ? Number(formDataToSubmit.graduationYear) - 4 : null,
+          endYear: formDataToSubmit.graduationYear ? Number(formDataToSubmit.graduationYear) : null,
+          description: ''
+        }];
+        
+        // Also set university from the education string if not already set
+        if (!formDataToSubmit.university) {
+          formDataToSubmit.university = formDataToSubmit.education[0].institution;
+        }
       }
+      
+      // Make sure skills and interests are arrays
+      if (formDataToSubmit.skills && !Array.isArray(formDataToSubmit.skills)) {
+        formDataToSubmit.skills = formDataToSubmit.skills.split(',').map(skill => skill.trim());
+      }
+      
+      if (formDataToSubmit.interests && !Array.isArray(formDataToSubmit.interests)) {
+        formDataToSubmit.interests = formDataToSubmit.interests.split(',').map(interest => interest.trim());
+      }
+      
+      // Ensure workExperience is properly formatted for submission
+      if (formDataToSubmit.workExperience && Array.isArray(formDataToSubmit.workExperience)) {
+        // Make sure each work experience entry has required fields
+        formDataToSubmit.workExperience = formDataToSubmit.workExperience.map(exp => ({
+          company: exp.company,
+          position: exp.position,
+          location: exp.location || "",
+          startMonth: exp.startMonth,
+          startYear: exp.startYear,
+          endMonth: exp.current ? null : exp.endMonth,
+          endYear: exp.current ? null : exp.endYear,
+          description: exp.description || "",
+          current: !!exp.current
+        }));
+        
+        // If alumni, set the company field from the most recent work experience entry
+        if (profile.role === "Alumni" && !formDataToSubmit.company && formDataToSubmit.workExperience.length > 0) {
+          // Find the current job or the most recent one
+          const currentJob = formDataToSubmit.workExperience.find(exp => exp.current) || 
+                             formDataToSubmit.workExperience[0];
+          formDataToSubmit.company = currentJob.company;
+          formDataToSubmit.position = currentJob.position;
+        }
+      }
+      
+      console.log("Submitting profile update:", formDataToSubmit);
+      
+      const token = localStorage.getItem("token");
+      const apiEndpoint = userRole === "alumni" ? "/api/alumni/profile" : "/api/students/profile";
+      
+      console.log("Using API endpoint:", apiEndpoint, "for user role:", userRole);
+      
+      const response = await axios.put(apiEndpoint, formDataToSubmit, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       
       console.log("Profile update response:", response.data);
       
-      // Update the profile state with the response data
-      await fetchUserProfile();
-      
-      // Close the modal
-      setIsEditModalOpen(false);
-      
-      // Show success message
+      // Refresh profile data with the new data from the server
+      setProfile(response.data);
+      setEditForm(response.data);
+      closeEditModal();
       toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error(error.response?.data?.message || "Failed to update profile");
+      const errorMessage = error.response?.data?.message || 
+                           "Failed to update profile. Please try again later.";
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -346,11 +494,92 @@ const Profile = () => {
   }
 
   // Add this function to handle profile photo updates
-  const handleProfilePhotoUpdated = (newPhotoUrl) => {
+  const handleProfilePhotoUpdated = (newProfilePicture) => {
+    // Update the profile state with the new profile picture (could be object or string)
     setProfile(prev => ({
       ...prev,
-      avatar: newPhotoUrl
+      avatar: newProfilePicture // This could now be an object with url property
     }));
+  };
+
+  // Add this function with your other handler functions
+  const updateGraduationYear = (e) => {
+    const value = e.target.value;
+    // Basic validation for graduation year
+    if (value === '' || (Number(value) >= 1950 && Number(value) <= new Date().getFullYear() + 10)) {
+      setEditForm({
+        ...editForm,
+        graduationYear: value
+      });
+    }
+  };
+
+  // Add this function to handle adding new education entries
+  const addEducation = () => {
+    // Validate required fields
+    if (!newEducation.institution || !newEducation.degree || !newEducation.fieldOfStudy || !newEducation.startYear) {
+      toast.error("Please fill in all required education fields");
+      return;
+    }
+    
+    // Validate years
+    const currentYear = new Date().getFullYear();
+    const startYear = parseInt(newEducation.startYear);
+    const endYear = newEducation.endYear ? parseInt(newEducation.endYear) : null;
+    
+    if (isNaN(startYear) || startYear < 1950 || startYear > currentYear) {
+      toast.error("Please enter a valid start year");
+      return;
+    }
+    
+    if (endYear && (isNaN(endYear) || endYear < startYear || endYear > currentYear + 10)) {
+      toast.error("Please enter a valid end year");
+      return;
+    }
+    
+    // Create a new education entry object
+    const educationEntry = {
+      institution: newEducation.institution.trim(),
+      degree: newEducation.degree.trim(),
+      fieldOfStudy: newEducation.fieldOfStudy.trim(),
+      startYear: startYear,
+      endYear: endYear,
+      description: newEducation.description?.trim() || ''
+    };
+    
+    // Initialize previousEducation array if it doesn't exist
+    const previousEducation = editForm.previousEducation || [];
+    
+    // Add the new education entry
+    setEditForm({
+      ...editForm,
+      previousEducation: [...previousEducation, educationEntry]
+    });
+    
+    // Reset the new education form
+    setNewEducation({
+      institution: "",
+      degree: "",
+      fieldOfStudy: "",
+      startYear: "",
+      endYear: "",
+      description: ""
+    });
+    
+    toast.success("Education added successfully");
+  };
+
+  // Add this function to remove education entries
+  const removeEducation = (index) => {
+    const updatedEducation = [...editForm.previousEducation];
+    updatedEducation.splice(index, 1);
+    
+    setEditForm({
+      ...editForm,
+      previousEducation: updatedEducation
+    });
+    
+    toast.success("Education entry removed");
   };
 
   return (
@@ -407,7 +636,7 @@ const Profile = () => {
                         />
                       </div>
 
-                      <form onSubmit={handleSubmit} className="space-y-4">
+                      <form onSubmit={handleFormSubmit} className="space-y-4">
                         {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -549,10 +778,10 @@ const Profile = () => {
                             <p className="text-xs text-gray-500">Enter your graduation year (actual or expected)</p>
                           </div>
                           
-                          {/* Previous Education */}
+                          {/* Education */}
                           <div className="space-y-2 mt-4">
                             <label className="flex justify-between text-sm font-medium">
-                              <span>Previous Education</span>
+                              <span>Education</span>
                               <span className="text-xs text-gray-500">Optional</span>
                             </label>
                             
@@ -592,7 +821,7 @@ const Profile = () => {
                                   <input
                                     type="text"
                                     id="institution"
-                                    value={newEducation.institution}
+                                    value={newEducation.institution || ""}
                                     onChange={(e) => setNewEducation({...newEducation, institution: e.target.value})}
                                     className="w-full p-2 border rounded-lg text-sm"
                                     placeholder="University/College name"
@@ -605,7 +834,7 @@ const Profile = () => {
                                   <input
                                     type="text"
                                     id="degree"
-                                    value={newEducation.degree}
+                                    value={newEducation.degree || ""}
                                     onChange={(e) => setNewEducation({...newEducation, degree: e.target.value})}
                                     className="w-full p-2 border rounded-lg text-sm"
                                     placeholder="e.g., Bachelor's, Master's"
@@ -618,7 +847,7 @@ const Profile = () => {
                                   <input
                                     type="text"
                                     id="fieldOfStudy"
-                                    value={newEducation.fieldOfStudy}
+                                    value={newEducation.fieldOfStudy || ""}
                                     onChange={(e) => setNewEducation({...newEducation, fieldOfStudy: e.target.value})}
                                     className="w-full p-2 border rounded-lg text-sm"
                                     placeholder="e.g., Computer Science"
@@ -632,7 +861,7 @@ const Profile = () => {
                                     <input
                                       type="number"
                                       id="startYear"
-                                      value={newEducation.startYear}
+                                      value={newEducation.startYear || ""}
                                       onChange={(e) => setNewEducation({...newEducation, startYear: e.target.value})}
                                       min="1950"
                                       max={new Date().getFullYear()}
@@ -647,7 +876,7 @@ const Profile = () => {
                                     <input
                                       type="number"
                                       id="endYear"
-                                      value={newEducation.endYear}
+                                      value={newEducation.endYear || ""}
                                       onChange={(e) => setNewEducation({...newEducation, endYear: e.target.value})}
                                       min="1950"
                                       max={new Date().getFullYear() + 10}
@@ -662,7 +891,7 @@ const Profile = () => {
                                   </label>
                                   <textarea
                                     id="description"
-                                    value={newEducation.description}
+                                    value={newEducation.description || ""}
                                     onChange={(e) => setNewEducation({...newEducation, description: e.target.value})}
                                     rows="2"
                                     className="w-full p-2 border rounded-lg text-sm"
@@ -679,6 +908,201 @@ const Profile = () => {
                                 Add Education
                               </button>
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Work Experience Section */}
+                        <div className="space-y-4 mt-4 border-t pt-4">
+                          <h3 className="text-lg font-medium">Work Experience</h3>
+                          
+                          {/* List of added work experiences */}
+                          {editForm.workExperience && editForm.workExperience.length > 0 && (
+                            <div className="space-y-3 mb-4">
+                              {editForm.workExperience.map((exp, index) => (
+                                <div key={index} className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800 relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeWorkExperience(index)}
+                                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <p className="font-medium">{exp.position}</p>
+                                  <p className="text-sm text-gray-600 dark:text-gray-300">{exp.company}</p>
+                                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                                    {exp.startMonth} {exp.startYear} - {exp.current ? 'Present' : `${exp.endMonth} ${exp.endYear}`}
+                                  </p>
+                                  {exp.location && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{exp.location}</p>
+                                  )}
+                                  {exp.description && (
+                                    <p className="text-sm text-gray-500 mt-1 italic">{exp.description}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Add new work experience form */}
+                          <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+                            <h4 className="text-sm font-medium mb-3">Add Work Experience</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label htmlFor="position" className="block text-xs font-medium mb-1">
+                                  Position/Title <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  id="position"
+                                  value={newWorkExperience.position}
+                                  onChange={(e) => setNewWorkExperience({...newWorkExperience, position: e.target.value})}
+                                  className="w-full p-2 border rounded-lg text-sm"
+                                  placeholder="e.g., Software Engineer"
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="company" className="block text-xs font-medium mb-1">
+                                  Company <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  id="company"
+                                  value={newWorkExperience.company}
+                                  onChange={(e) => setNewWorkExperience({...newWorkExperience, company: e.target.value})}
+                                  className="w-full p-2 border rounded-lg text-sm"
+                                  placeholder="e.g., Google"
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="location" className="block text-xs font-medium mb-1">
+                                  Location
+                                </label>
+                                <input
+                                  type="text"
+                                  id="location"
+                                  value={newWorkExperience.location}
+                                  onChange={(e) => setNewWorkExperience({...newWorkExperience, location: e.target.value})}
+                                  className="w-full p-2 border rounded-lg text-sm"
+                                  placeholder="e.g., San Francisco, CA"
+                                />
+                              </div>
+                              
+                              <div className="flex items-center mt-2 md:mt-6">
+                                <input
+                                  type="checkbox"
+                                  id="currentPosition"
+                                  checked={newWorkExperience.current}
+                                  onChange={handleCurrentJobChange}
+                                  className="mr-2"
+                                />
+                                <label htmlFor="currentPosition" className="text-xs font-medium">
+                                  I currently work here
+                                </label>
+                              </div>
+                              
+                              {/* New start month/year selection - remove the required attribute */}
+                              <div>
+                                <label className="block text-xs font-medium mb-1">
+                                  Start Date <span className="text-red-500">*</span>
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <select
+                                    value={newWorkExperience.startMonth}
+                                    onChange={(e) => setNewWorkExperience({...newWorkExperience, startMonth: e.target.value})}
+                                    className="p-2 border rounded-lg text-sm"
+                                    form="workExperienceForm" // Separate form to prevent validation on main form
+                                  >
+                                    <option value="">Month</option>
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May">May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                  </select>
+                                  <input
+                                    type="number"
+                                    placeholder="Year"
+                                    value={newWorkExperience.startYear}
+                                    onChange={(e) => setNewWorkExperience({...newWorkExperience, startYear: e.target.value})}
+                                    min="1950"
+                                    max={new Date().getFullYear()}
+                                    className="p-2 border rounded-lg text-sm"
+                                    form="workExperienceForm" // Separate form to prevent validation on main form
+                                  />
+                                </div>
+                              </div>
+                              
+                              {/* New end month/year selection - remove the required attribute */}
+                              <div>
+                                <label className="block text-xs font-medium mb-1">
+                                  End Date {!newWorkExperience.current && <span className="text-red-500">*</span>}
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <select
+                                    value={newWorkExperience.endMonth}
+                                    onChange={(e) => setNewWorkExperience({...newWorkExperience, endMonth: e.target.value})}
+                                    className="p-2 border rounded-lg text-sm"
+                                    disabled={newWorkExperience.current}
+                                    form="workExperienceForm" // Separate form to prevent validation on main form
+                                  >
+                                    <option value="">Month</option>
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May">May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                  </select>
+                                  <input
+                                    type="number"
+                                    placeholder="Year"
+                                    value={newWorkExperience.endYear}
+                                    onChange={(e) => setNewWorkExperience({...newWorkExperience, endYear: e.target.value})}
+                                    min="1950"
+                                    max={new Date().getFullYear()}
+                                    className="p-2 border rounded-lg text-sm"
+                                    disabled={newWorkExperience.current}
+                                    form="workExperienceForm" // Separate form to prevent validation on main form
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="md:col-span-2">
+                                <label htmlFor="jobDescription" className="block text-xs font-medium mb-1">
+                                  Description (Optional)
+                                </label>
+                                <textarea
+                                  id="jobDescription"
+                                  value={newWorkExperience.description}
+                                  onChange={(e) => setNewWorkExperience({...newWorkExperience, description: e.target.value})}
+                                  rows="3"
+                                  className="w-full p-2 border rounded-lg text-sm"
+                                  placeholder="Describe your responsibilities and achievements"
+                                  form="workExperienceForm" // Separate form to prevent validation on main form
+                                ></textarea>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={addWorkExperience}
+                              className="mt-3 px-3 py-1.5 bg-primary/10 text-primary text-sm rounded flex items-center"
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add Experience
+                            </button>
                           </div>
                         </div>
 
@@ -800,8 +1224,31 @@ const Profile = () => {
                   </button>
                 </div>
                 
-                {/* Display real experience data when implemented in the backend */}
-                {profile.company ? (
+                {/* Display work experience entries */}
+                {profile.workExperience && profile.workExperience.length > 0 ? (
+                  <div className="space-y-4">
+                    {profile.workExperience.map((exp, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
+                          <Briefcase className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">{exp.position}</h4>
+                          <p className="text-muted-foreground">{exp.company}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {exp.startMonth} {exp.startYear} - {exp.current ? 'Present' : `${exp.endMonth} ${exp.endYear}`}
+                          </p>
+                          {exp.location && (
+                            <p className="text-sm text-muted-foreground">{exp.location}</p>
+                          )}
+                          {exp.description && (
+                            <p className="mt-2">{exp.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : profile.company ? (
                   <div className="flex gap-4">
                     <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
                       <Briefcase className="h-6 w-6" />
@@ -831,12 +1278,31 @@ const Profile = () => {
                       <GraduationCap className="h-6 w-6" />
                     </div>
                     <div>
-                      <h4 className="font-bold">{profile.education}</h4>
+                      <h4 className="font-bold">
+                        {typeof profile.education === 'string' 
+                          ? profile.education 
+                          : `${profile.graduationYear ? `Class of ${profile.graduationYear}` : 'Current Student'}`}
+                      </h4>
+                      {profile.previousEducation && profile.previousEducation.length > 0 && (
+                        <div className="mt-2">
+                          {profile.previousEducation.map((edu, index) => (
+                            <div key={index} className="text-sm text-muted-foreground mb-1">
+                              {/* Display degree and field without redundant "in" */}
+                              {edu.degree} {edu.fieldOfStudy ? 
+                                (edu.degree.toLowerCase().includes(`in ${edu.fieldOfStudy.toLowerCase()}`) ? 
+                                  '' : `in ${edu.fieldOfStudy}`) : ''} {edu.institution} ({edu.startYear} - {edu.endYear || 'Present'})
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {profile.role === "Student" && (
                         <p className="text-muted-foreground">Current Student</p>
                       )}
-                      {profile.role === "Alumni" && (
-                        <p className="text-muted-foreground">Graduate</p>
+                      {profile.role === "Alumni" && profile.graduationYear && (
+                        <p className="text-muted-foreground">
+                          {parseInt(profile.graduationYear) - 4} - {profile.graduationYear} 
+                          <span className="ml-2">(4 years)</span>
+                        </p>
                       )}
                     </div>
                   </div>

@@ -101,7 +101,7 @@ const ProfileCard = ({
       <div className="relative h-40 bg-gradient-to-r from-blue-500 to-indigo-600">
         <div className="absolute -bottom-16 left-8">
           <div className="relative">
-            {avatar && avatar.url ? (
+            {avatar && (typeof avatar === 'object' && avatar.url) ? (
               // Handle object structure coming from API
               <img
                 src={avatar.url}
@@ -265,19 +265,6 @@ const ProfileCard = ({
         {/* Education section */}
         {education && (
           <div className="mb-4">
-            <h4 className="font-semibold mb-2">Education</h4>
-            <div className="flex items-start">
-              <GraduationCap className="h-4 w-4 text-muted-foreground mr-2 mt-0.5" />
-              <div>
-                <p className="text-sm">{education}</p>
-                {/* Display graduation year if it exists */}
-                {graduationYear && (
-                  <p className="text-xs text-muted-foreground">
-                    Class of {graduationYear}
-                  </p>
-                )}
-              </div>
-            </div>
             
             {/* Previous Education Section */}
             {previousEducation && previousEducation.length > 0 && (

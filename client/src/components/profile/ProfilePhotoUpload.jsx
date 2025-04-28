@@ -25,6 +25,23 @@ const ProfilePhotoUpload = ({ currentAvatar, onPhotoUpdated }) => {
       .toUpperCase();
   };
 
+  // Helper function to extract the avatar URL regardless of format
+  const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    
+    // If it's an object with url property
+    if (typeof avatar === 'object' && avatar.url) {
+      return avatar.url;
+    }
+    
+    // If it's a string URL
+    if (typeof avatar === 'string') {
+      return avatar;
+    }
+    
+    return null;
+  };
+
   // Handle file selection
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -107,7 +124,9 @@ const ProfilePhotoUpload = ({ currentAvatar, onPhotoUpdated }) => {
         
         // Call the callback to update the parent component with the Cloudinary image URL
         if (onPhotoUpdated) {
-          onPhotoUpdated(imageUrl);
+          // Return the profile picture object from the response, or default to the URL
+          const profilePicture = updateResponse.data.profilePicture || { url: imageUrl };
+          onPhotoUpdated(profilePicture);
         }
       } else {
         throw new Error('Failed to update profile with new image');
@@ -127,16 +146,16 @@ const ProfilePhotoUpload = ({ currentAvatar, onPhotoUpdated }) => {
     setPreviewUrl(null);
   };
 
+  const avatarUrl = getAvatarUrl(currentAvatar);
+
   return (
     <div className="relative">
       <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-primary/20 relative group">
         {/* Display avatar or preview */}
         {previewUrl ? (
           <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-        ) : currentAvatar && typeof currentAvatar === 'object' && currentAvatar.url ? (
-          <img src={currentAvatar.url} alt="Current profile" className="h-full w-full object-cover" />
-        ) : currentAvatar && typeof currentAvatar === 'string' ? (
-          <img src={currentAvatar} alt="Current profile" className="h-full w-full object-cover" />
+        ) : avatarUrl ? (
+          <img src={avatarUrl} alt="Current profile" className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold">
             {getInitials(localStorage.getItem('userName'))}

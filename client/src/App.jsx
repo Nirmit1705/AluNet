@@ -29,6 +29,7 @@ import MenteesListPage from './components/dashboard/MenteesListPage';
 import AlumniJobBoard from './components/jobs/AlumniJobBoard';
 import VerificationPending from './pages/VerificationPending';
 import ResendVerification from './pages/ResendVerification';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Admin route imports
 import AdminUserManagement from "./pages/admin/AdminUserManagement";
@@ -126,9 +127,9 @@ function App() {
               } />
               
               <Route path="/profile" element={
-                <ProtectedRoute>
+                <ErrorBoundary>
                   <Profile />
-                </ProtectedRoute>
+                </ErrorBoundary>
               } />
               
               <Route path="/messages" element={

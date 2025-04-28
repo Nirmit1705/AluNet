@@ -23,139 +23,74 @@ const ProtectedRoute = ({ children, requiredRole = null, requireVerified = false
       
       // Quick check for logged in status
       if (!token) {
-        console.log("No token found, not authenticated");
         setIsAuthenticated(false);
         setIsLoading(false);
         return;
       }
-      
+
       try {
-        // Special handling for admin routes - if we have a token and admin role,
-        // trust it immediately to avoid unnecessary redirects
-        if (storedRole === 'admin' && 
-            (location.pathname.includes('/admin') || location.pathname === '/admin-dashboard')) {
-          console.log("Admin route detected, trusting token without verification");
-          setIsAuthenticated(true);
-          setUserRole('admin');
-          setIsVerified(true);
-          setIsLoading(false);
-          return;
-        }
-        
-        // For non-admin routes in development, trust the token from localStorage
-        // to avoid unnecessary API calls and problems with mock auth
-        // IMPORTANT: Add this check to fix the login loop
-        if (storedRole && (process.env.NODE_ENV === 'development' || process.env.REACT_APP_MOCK_AUTH === 'true')) {
-          console.log("Development mode or mock auth enabled - trusting localStorage token");
-          setIsAuthenticated(true);
-          setUserRole(storedRole);
-          setIsVerified(storedRole !== 'alumni' || localStorage.getItem('pendingVerification') !== 'true');
-          setIsLoading(false);
-          return;
-        }
-        
-        // For non-admin routes, verify token with backend
-        try {
-          const response = await axios.get('/api/users/verify-token', {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          
-          console.log("Token verification response:", response.data);
-          
-          if (response.data.isValid) {
-            setIsAuthenticated(true);
-            setUserRole(response.data.role || storedRole);
-            setIsVerified(response.data.isVerified);
-          } else {
-            // Token is invalid
-            console.log("Token invalid according to API");
-            localStorage.removeItem('token');
-            localStorage.removeItem('userRole');
-            setIsAuthenticated(false);
+        // Verify token with backend
+        const response = await axios.get('/api/auth/verify', {
+          headers: {
+            Authorization: `Bearer ${token}`
           }
-        } catch (apiError) {
-          console.error("API error during token verification:", apiError.message);
-          
-          // For demo purposes, fall back to local storage check
-          if (token && storedRole) {
-            console.log("API error - falling back to localStorage token");
-            setIsAuthenticated(true);
-            setUserRole(storedRole);
-            
-            // For alumni, check if pending verification
-            if (storedRole === 'alumni' && localStorage.getItem('pendingVerification') === 'true') {
-              setIsVerified(false);
-            } else {
-              setIsVerified(true);
-            }
-          } else {
-            setIsAuthenticated(false);
-          }
+        });
+
+        if (response.data.isValid) {
+          setIsAuthenticated(true);
+          setUserRole(response.data.role || storedRole);
+          setIsVerified(response.data.isVerified || false);
+        } else {
+          // Clear invalid token
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error("General auth error:", error);
-        setIsAuthenticated(false);
+        console.error("Auth verification error:", error);
+        
+        // For development, allow continuing if backend check fails but token exists
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("DEV MODE: Bypassing auth verification");
+          setIsAuthenticated(true);
+          setUserRole(storedRole);
+          setIsVerified(true);
+        } else {
+          setIsAuthenticated(false);
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     verifyAuth();
   }, [location.pathname]);
-  
+
+  // Show loading state
   if (isLoading) {
-    // You could return a loading spinner here
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>;
   }
-  
+
+  // Redirect if not authenticated
   if (!isAuthenticated) {
-    // Special handling for admin routes
-    if (location.pathname.includes('/admin') || location.pathname === '/admin-dashboard') {
-      // Redirect directly to the admin dashboard, which has its own login form
-      return <Navigate to="/admin-dashboard" replace />;
-    }
-    
-    // Add this check to prevent authentication loops
-    // Check if we are already trying to show the login screen to prevent loops
-    const fromLoginAttempt = location.state?.loginAttempt;
-    
-    if (fromLoginAttempt) {
-      // If we're in a loop, just go to home page without state
-      console.log("Detected login attempt loop, redirecting to home without state");
-      return <Navigate to="/" replace />;
-    }
-    
-    console.log("Redirecting to login page from:", location.pathname);
-    // For all other cases, redirect to home page with a state parameter for the auth modal
-    return <Navigate to="/" state={{ showLogin: true, from: location.pathname, loginAttempt: true }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
-  
-  // Check role requirement
+
+  // Check role if required
   if (requiredRole && userRole !== requiredRole) {
-    console.log(`Role mismatch. Required: ${requiredRole}, Current: ${userRole}`);
     // Redirect to appropriate dashboard based on role
-    if (userRole === 'admin') {
-      return <Navigate to="/admin-dashboard" replace />;
-    } else if (userRole === 'alumni') {
-      return <Navigate to="/alumni-dashboard" replace />;
-    } else {
-      return <Navigate to="/student-dashboard" replace />;
-    }
+    const redirectPath = userRole === 'student' ? '/student-dashboard' : 
+                         userRole === 'alumni' ? '/alumni-dashboard' : 
+                         userRole === 'admin' ? '/admin-dashboard' : '/';
+    return <Navigate to={redirectPath} replace />;
   }
-  
-  // Check verification requirement for alumni
-  if (requireVerified && userRole === 'alumni' && isVerified === false) {
-    console.log("Alumni not verified, redirecting to verification pending");
+
+  // Check verification status for alumni if required
+  if (requireVerified && userRole === 'alumni' && !isVerified) {
     return <Navigate to="/verification-pending" replace />;
   }
-  
-  // If all checks pass, render the protected component
+
   return children;
 };
 

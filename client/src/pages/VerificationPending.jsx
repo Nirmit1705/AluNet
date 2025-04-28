@@ -57,8 +57,16 @@ const VerificationPending = () => {
         
         console.log("Verification status response:", response.data);
 
-        // If verified, update local storage and redirect to dashboard
-        if (response.data.isVerified === true) {
+        // Enhanced verification check using all possible fields
+        const isActuallyVerified = 
+          response.data.isVerified === true || 
+          response.data.status === 'active' || 
+          response.data.verificationStatus === 'approved';
+        
+        console.log("Is alumni actually verified according to enhanced check:", isActuallyVerified);
+
+        // If verified by any verification field, update local storage and redirect to dashboard
+        if (isActuallyVerified) {
           console.log("Alumni is verified according to server, updating localStorage and redirecting");
           localStorage.removeItem('pendingVerification');
           navigate('/alumni-dashboard');

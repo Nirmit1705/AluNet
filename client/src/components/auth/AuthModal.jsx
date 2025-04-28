@@ -116,10 +116,26 @@ const AuthModal = ({ isOpen, onClose, type, onSwitchType }) => {
       localStorage.setItem("userEmail", userData.email);
       localStorage.setItem("userName", userData.name);
       
-      // For alumni, check verified status
-      if (userData.userType === 'alumni' && userData.isVerified === false) {
-        localStorage.setItem("pendingVerification", "true");
-        window.location.href = "/verification-pending";
+      // For alumni, check verified status - enhanced verification check
+      if (userData.userType === 'alumni') {
+        // Check verification status using multiple fields for consistency
+        const isActuallyVerified = 
+          userData.isVerified === true || 
+          userData.status === 'active' || 
+          userData.verificationStatus === 'approved';
+        
+        console.log("Google auth alumni verification check:", {
+          fields: userData,
+          isActuallyVerified
+        });
+        
+        if (!isActuallyVerified) {
+          localStorage.setItem("pendingVerification", "true");
+          window.location.href = "/verification-pending";
+        } else {
+          localStorage.removeItem("pendingVerification");
+          window.location.href = "/alumni-dashboard";
+        }
       } else {
         // Direct navigation based on role
         const dashboardPath = userData.userType === 'student' || selectedRole === 'student' 

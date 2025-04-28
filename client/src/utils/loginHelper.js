@@ -123,10 +123,22 @@ export const handleAlumniLogin = async (navigate, email, password, onSuccess) =>
         localStorage.setItem("userEmail", email);
         localStorage.setItem("userName", data.name || email.split('@')[0]);
         
-        // Explicitly check isVerified
-        console.log("Alumni verification status:", data.isVerified);
+        // Explicitly check isVerified - add additional debugging
+        console.log("Alumni verification details:", {
+          isVerified: data.isVerified,
+          status: data.status,
+          verificationStatus: data.verificationStatus,
+        });
         
-        if (data.isVerified === false) {
+        // Enhanced verification check using all possible fields
+        const isActuallyVerified = 
+          data.isVerified === true || 
+          data.status === 'active' || 
+          data.verificationStatus === 'approved';
+        
+        console.log("Is alumni actually verified:", isActuallyVerified);
+        
+        if (!isActuallyVerified) {
           console.log("Alumni is NOT verified, setting pendingVerification flag");
           localStorage.setItem("pendingVerification", "true");
           
