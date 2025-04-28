@@ -2,7 +2,7 @@ import asyncHandler from "express-async-handler";
 import Student from "../Models/Student.js";
 import { generateToken } from "../Utils/generateToken.js";
 import { formatStudentResponse } from "../Utils/responseFormatter.js";
-import { uploadProfilePicture, uploadResume, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
+import { uploadProfilePicture, uploadToCloudinary, removeFromCloudinary } from "../Utils/fileUpload.js";
 import fs from 'fs';
 
 // @desc    Register a new student
@@ -213,53 +213,68 @@ const getStudentProfile = asyncHandler(async (req, res) => {
 const updateStudentProfile = asyncHandler(async (req, res) => {
   const studentId = req.user._id;
   
-  // Get data from request body
   const {
     name,
-    phone,
-    branch,
-    cgpa,
+    bio,
+    location,
+    linkedin,
     skills,
     interests,
-    bio,
-    linkedin,
-    github,
-    location,
-    // Add these fields
     graduationYear,
-    previousEducation,
-    // ...other fields
+    previousEducation
   } = req.body;
-  
-  // Find the student by ID
-  const student = await Student.findById(studentId);
-  
-  if (!student) {
-    res.status(404);
-    throw new Error('Student not found');
+
+  try {
+    const student = await Student.findById(studentId);
+    
+    if (!student) {
+      res.status(404);
+      throw new Error('Student not found');
+    }
+    
+    // Update fields if provided
+    if (name) student.name = name;
+    if (bio !== undefined) student.bio = bio;
+    if (location !== undefined) student.location = location;
+    if (linkedin !== undefined) student.linkedin = linkedin;
+    if (skills) student.skills = skills;
+    if (interests) student.interests = interests;
+    
+    // Update graduation year if provided and valid
+    if (graduationYear && !isNaN(graduationYear)) {
+      const year = Number(graduationYear);
+      if (year >= 1950 && year <= new Date().getFullYear() + 10) {
+        student.graduationYear = year;
+      }
+    }
+    
+    // Update previous education if provided
+    if (previousEducation && Array.isArray(previousEducation)) {
+      // Validate each education entry
+      const validEducation = previousEducation.filter(edu => {
+        return (
+          edu.institution && 
+          edu.degree && 
+          edu.fieldOfStudy && 
+          edu.startYear && 
+          Number(edu.startYear) >= 1950 &&
+          Number(edu.startYear) <= new Date().getFullYear()
+        );
+      });
+      
+      student.previousEducation = validEducation;
+    }
+    
+    // Save the updated profile
+    const updatedStudent = await student.save();
+    
+    // Return the updated profile data
+    res.json(formatStudentResponse(updatedStudent));
+  } catch (error) {
+    console.error("Error updating student profile:", error);
+    res.status(500);
+    throw new Error('Server error updating profile: ' + error.message);
   }
-  
-  // Update fields if provided
-  if (name) student.name = name;
-  if (phone) student.phone = phone;
-  if (branch) student.branch = branch;
-  if (cgpa) student.cgpa = cgpa;
-  if (skills) student.skills = skills;
-  if (interests) student.interests = interests;
-  if (bio) student.bio = bio;
-  if (linkedin) student.linkedin = linkedin;
-  if (github) student.github = github;
-  if (location) student.location = location;
-  // Add these fields to the update logic
-  if (graduationYear) student.graduationYear = graduationYear;
-  if (previousEducation) student.previousEducation = previousEducation;
-  // ...update other fields
-  
-  // Save the updated student
-  const updatedStudent = await student.save();
-  
-  // Return the formatted response
-  res.json(formatStudentResponse(updatedStudent));
 });
 
 // @desc    Get all students
@@ -336,97 +351,52 @@ const getStudentsByYear = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update student profile picture
-// @route   PUT /api/students/profile/profile-picture
-// @access  Private
-const updateStudentProfilePicture = asyncHandler(async (req, res) => {
-  const { imageUrl, publicId } = req.body;
-  
-  if (!imageUrl) {
-    res.status(400);
-    throw new Error("Image URL is required");
+// Make sure the function is named correctly and exported
+const updateStudentProfilePicture = async (req, res) => {
+  try {
+    const { imageUrl, publicId } = req.body;
+    
+    if (!imageUrl || !publicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Image URL and public ID are required' 
+      });
+    }
+    
+    // Create a proper profilePicture object
+    const profilePictureObject = {
+      url: imageUrl,
+      public_id: publicId
+    };
+    
+    // Find the student by ID
+    const student = await Student.findById(req.user.userId);
+    
+    if (!student) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Student not found' 
+      });
+    }
+    
+    // Update with the profilePicture object
+    student.profilePicture = profilePictureObject;
+    await student.save();
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Profile picture updated successfully', 
+      profilePicture: student.profilePicture 
+    });
+  } catch (error) {
+    console.error('Error updating profile picture:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update profile picture',
+      error: error.message 
+    });
   }
-  
-  const student = await Student.findById(req.user._id);
-  
-  if (!student) {
-    res.status(404);
-    throw new Error("Student not found");
-  }
-  
-  // Store the profile picture as an object with url and public_id
-  student.profilePicture = {
-    url: imageUrl,
-    public_id: publicId || ""
-  };
-  
-  const updatedStudent = await student.save();
-  
-  res.json({
-    success: true,
-    profilePicture: updatedStudent.profilePicture,
-    message: "Profile picture updated successfully"
-  });
-});
-
-// @desc    Upload student resume
-// @route   POST /api/students/upload-resume
-// @access  Private
-const uploadStudentResume = asyncHandler(async (req, res) => {
-  uploadResume(req, res, async function(err) {
-    if (err) {
-      return res.status(400).json({
-        success: false,
-        message: err.message
-      });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please upload a resume'
-      });
-    }
-
-    try {
-      // Upload to Cloudinary (or local storage)
-      const result = await uploadToCloudinary(req.file.path, 'resumes');
-      
-      // Remove the temporary file
-      fs.unlinkSync(req.file.path);
-      
-      const student = await Student.findById(req.user._id);
-      
-      if (!student) {
-        return res.status(404).json({
-          success: false,
-          message: 'Student not found'
-        });
-      }
-      
-      // Update student with resume URL
-      student.resume = result.secure_url;
-      await student.save();
-      
-      res.status(200).json({
-        success: true,
-        resumeUrl: result.secure_url,
-        message: 'Resume uploaded successfully'
-      });
-    } catch (error) {
-      console.error("Error processing resume upload:", error);
-      // Clean up temp file if it exists
-      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Error processing the uploaded resume'
-      });
-    }
-  });
-});
+};
 
 export {
   registerStudent,
@@ -439,6 +409,5 @@ export {
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
-  updateStudentProfilePicture, // Changed from uploadStudentProfilePicture
-  uploadStudentResume,
+  updateStudentProfilePicture
 };

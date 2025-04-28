@@ -82,9 +82,6 @@ const handleVerificationDocument = upload.single('verificationDocument');
 // Handle profile picture upload
 const uploadProfilePicture = upload.single('profilePicture');
 
-// Handle resume upload
-const uploadResume = upload.single('resume');
-
 // Upload to Cloudinary or use local file path
 const uploadToCloudinary = async (filePath, folder = 'alumni-student-platform') => {
   // Get the base URL for our server
@@ -155,7 +152,6 @@ const removeFromCloudinary = async (publicId) => {
 export {
   handleVerificationDocument,
   uploadProfilePicture,
-  uploadResume,
   uploadToCloudinary,
   removeFromCloudinary
 };

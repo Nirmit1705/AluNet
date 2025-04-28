@@ -1,17 +1,17 @@
 import express from "express";
 import {
   registerStudent,
+  registerStudentWithGoogle,
   authStudent,
   getStudentProfile,
   updateStudentProfile,
   getAllStudents,
+  deleteStudent,
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
-  updateStudentProfilePicture,
-  uploadStudentResume,
-  registerStudentWithGoogle
-} from "../Controllers/studentController.js";
+  updateStudentProfilePicture, // Ensure this line matches the export name
+} from '../Controllers/studentController.js';
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -30,8 +30,7 @@ router.route("/profile")
   .put(protect, updateStudentProfile);
 
 // File upload routes
-router.put("/profile/profile-picture", protect, updateStudentProfilePicture);
-router.post("/profile/upload-resume", protect, uploadStudentResume);
+router.put('/profile/profile-picture', protect, updateStudentProfilePicture);
 
 // Google Authentication routes
 router.post('/register-google', registerStudentWithGoogle);

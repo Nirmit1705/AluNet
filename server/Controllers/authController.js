@@ -254,6 +254,13 @@ const googleOAuthCallback = async (req, res) => {
       // User exists, generate auth token
       authToken = generateToken(user._id);
       isVerified = userType === 'alumni' ? (user.isVerified || user.verificationStatus === 'approved') : true;
+      
+      // If the user exists but doesn't have googleId set, update it
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+        console.log(`Updated existing user with Google ID: ${googleId}`);
+      }
     }
 
     // Return user data to client via a script that posts a message to the opener window
@@ -264,7 +271,7 @@ const googleOAuthCallback = async (req, res) => {
           userData: ${JSON.stringify({
             name,
             email,
-            googleId,
+            googleId,  // Include googleId in the response
             picture,
             token: authToken,
             userType,

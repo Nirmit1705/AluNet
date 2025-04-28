@@ -13,27 +13,31 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     email: alumni.email,
     phone: alumni.phone,
     graduationYear: alumni.graduationYear,
-    University: alumni.University,
-    College: alumni.College,
+    university: alumni.university,
+    college: alumni.college,
     degree: alumni.degree,
     specialization: alumni.specialization,
-    currentPosition: alumni.currentPosition,
+    currentPosition: alumni.currentPosition || alumni.position,
     company: alumni.company,
-    linkedin: alumni.linkedin,
+    linkedin: alumni.linkedin || alumni.linkedInProfile,
     experience: alumni.experience,
-    skills: alumni.skills,
+    skills: alumni.skills || [],
     mentorshipAvailable: alumni.mentorshipAvailable,
     bio: alumni.bio,
-    location: alumni.location, // Ensure location is included
-    profilePicture: alumni.profilePicture, // Include profile picture
-    interests: alumni.interests || [], // Ensure interests field is included
-    previousEducation: alumni.previousEducation || [], // Include previous education
+    location: alumni.location, 
+    profilePicture: alumni.profilePicture,
+    interests: alumni.interests || [],
+    education: alumni.education || [],
+    isVerified: alumni.isVerified,
+    status: alumni.status,
+    verificationStatus: alumni.verificationStatus,
+    industry: alumni.industry || ""
   };
-
+  
   if (includeToken) {
     response.token = generateToken(alumni._id);
   }
-
+  
   return response;
 };
 
@@ -52,26 +56,28 @@ const formatStudentResponse = (student, includeToken = false) => {
     registrationNumber: student.registrationNumber,
     currentYear: student.currentYear,
     branch: student.branch,
-    cgpa: student.cgpa,
+    university: student.university,
+    college: student.college,
+    graduationYear: student.graduationYear,
     skills: student.skills || [],
     interests: student.interests || [],
     bio: student.bio,
     linkedin: student.linkedin,
     github: student.github,
-    resume: student.resume,
-    university: student.university,
-    college: student.college,
-    graduationYear: student.graduationYear,
+    location: student.location,
+    profilePicture: student.profilePicture,
+    previousEducation: student.previousEducation || [],
+    status: student.status,
     isEmailVerified: student.isEmailVerified,
-    profilePicture: student.profilePicture, // Include profile picture
-    location: student.location || "", // Add location field with default
-    previousEducation: student.previousEducation || [], // Include previous education
+    projects: student.projects || [],
+    internships: student.internships || [],
+    careerGoals: student.careerGoals
   };
-
+  
   if (includeToken) {
     response.token = generateToken(student._id);
   }
-
+  
   return response;
 };
 

@@ -24,6 +24,18 @@ mongoose.connect(process.env.MONGO_URI)
       for (const alumni of allAlumni) {
         let updated = false;
         
+        // Ensure university field exists
+        if (alumni.university === undefined) {
+          alumni.university = alumni.University || '';
+          updated = true;
+        }
+        
+        // Ensure education field exists (from previousEducation)
+        if (alumni.education === undefined && alumni.previousEducation) {
+          alumni.education = alumni.previousEducation;
+          updated = true;
+        }
+        
         // Ensure isVerified field exists
         if (alumni.isVerified === undefined) {
           alumni.isVerified = alumni.status === 'active' || alumni.verificationStatus === 'approved';
@@ -83,6 +95,6 @@ mongoose.connect(process.env.MONGO_URI)
     }
   })
   .catch((err) => {
-    console.error('Failed to connect to MongoDB', err);
+    console.error('MongoDB Connection Error:', err);
     process.exit(1);
   });

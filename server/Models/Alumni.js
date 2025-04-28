@@ -45,8 +45,12 @@ const AlumniSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add branch']
     },
-    // Previous education field
-    previousEducation: [{
+    university: {
+        type: String,
+        default: ''
+    },
+    // Renamed from previousEducation to education
+    education: [{
         institution: {
             type: String,
             trim: true
@@ -72,7 +76,9 @@ const AlumniSchema = new mongoose.Schema({
             type: Number,
             validate: {
                 validator: function(v) {
-                    return v >= 1950 && v <= new Date().getFullYear();
+                    // Allow null for current education
+                    if (v === null) return true;
+                    return v >= this.startYear && v <= new Date().getFullYear() + 10;
                 },
                 message: props => `${props.value} is not a valid year!`
             }
@@ -140,8 +146,14 @@ const AlumniSchema = new mongoose.Schema({
     },
     // Profile fields
     profilePicture: {
-        type: String,
-        default: ''
+        type: {
+            url: String,
+            public_id: String
+        },
+        default: {
+            url: '',
+            public_id: ''
+        }
     },
     cloudinaryId: {
         type: String,
@@ -154,6 +166,10 @@ const AlumniSchema = new mongoose.Schema({
     position: {
         type: String,
         default: ''
+    },
+    experience: {
+        type: Number,
+        default: 0
     },
     linkedInProfile: {
         type: String,
@@ -175,6 +191,10 @@ const AlumniSchema = new mongoose.Schema({
     skills: [{
         type: String,
         trim: true // IMPORTANT: Standardizes data by removing whitespace
+    }],
+    interests: [{
+        type: String,
+        trim: true
     }],
     industry: {
         type: String,
@@ -344,10 +364,9 @@ AlumniSchema.pre('save', function(next) {
     if (this.isVerified) {
       this.status = 'active';
       this.verificationStatus = 'approved';
-    } else if (!this.isVerified && !this.isModified('verificationStatus')) {
-      // Only update these if verificationStatus wasn't explicitly set
-      this.status = 'pending';
-      this.verificationStatus = 'pending';
+    } else {
+      // If setting to NOT verified, update other fields
+      this.status = this.verificationStatus === 'rejected' ? 'rejected' : 'pending';
     }
   }
   

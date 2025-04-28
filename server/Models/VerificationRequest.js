@@ -69,8 +69,49 @@ const verificationRequestSchema = mongoose.Schema(
 
 // Create an index with a unique constraint but remove it from the schema validation
 verificationRequestSchema.index({ email: 1 }, { 
-  unique: false, // Change to false to allow updates for the same email
+  unique: false, // Set to false to allow multiple verification requests with the same email
   background: true 
+});
+
+// Add pre-save middleware to handle duplicates
+verificationRequestSchema.pre('save', async function(next) {
+  try {
+    // If this is an existing document being updated, just continue
+    if (!this.isNew) {
+      return next();
+    }
+
+    // If creating a new document, check for duplicates
+    const existingRequest = await this.constructor.findOne({ email: this.email });
+    if (existingRequest) {
+      console.log(`Found existing verification request for email ${this.email}, updating instead of creating new`);
+      
+      // Copy fields from this document to the existing one
+      Object.assign(existingRequest, {
+        name: this.name,
+        branch: this.branch,
+        graduationYear: this.graduationYear,
+        university: this.university,
+        currentCompany: this.currentCompany,
+        currentRole: this.currentRole,
+        documentURL: this.documentURL,
+        userId: this.userId,
+        status: 'pending', // Reset to pending
+        rejectionReason: null, // Clear any rejection reason
+      });
+      
+      // Save the updated document
+      await existingRequest.save();
+      
+      // Skip creating a new document
+      return next(new Error('Duplicate email - updated existing document instead'));
+    }
+    
+    // No duplicate found, continue with save
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 const VerificationRequest = mongoose.model('VerificationRequest', verificationRequestSchema);

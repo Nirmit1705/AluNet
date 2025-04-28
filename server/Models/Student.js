@@ -55,8 +55,8 @@ const studentSchema = new mongoose.Schema({
     bio: { type: String },
     linkedin: { type: String, match: /^(https?:\/\/)?(www\.)?linkedin\.com\/.*$/ },
     github: { type: String },
-    resume: { type: String },
     location: { type: String }, // Add location field
+    
     // Previous education field
     previousEducation: [{
         institution: {
@@ -84,7 +84,9 @@ const studentSchema = new mongoose.Schema({
             type: Number,
             validate: {
                 validator: function(v) {
-                    return v >= 1950 && v <= new Date().getFullYear();
+                    // Allow null for current education
+                    if (v === null) return true;
+                    return v >= this.startYear && v <= new Date().getFullYear() + 10;
                 },
                 message: props => `${props.value} is not a valid year!`
             }

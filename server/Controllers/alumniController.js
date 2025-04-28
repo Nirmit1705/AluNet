@@ -156,63 +156,125 @@ const resendVerification = asyncHandler(async (req, res) => {
 // @route   GET /api/alumni/profile
 // @access  Private
 const getAlumniProfile = asyncHandler(async (req, res) => {
-  const alumni = await Alumni.findById(req.user._id);
+  try {
+    // Make sure req.user exists (from the auth middleware)
+    if (!req.user || !req.user._id) {
+      res.status(401);
+      throw new Error("Not authorized, no valid user ID found");
+    }
 
-  if (alumni) {
+    // Use req.user._id from auth middleware instead of req.params.id
+    const alumni = await Alumni.findById(req.user._id);
+
+    if (!alumni) {
+      res.status(404);
+      throw new Error("Alumni not found");
+    }
+
+    // Return the formatted alumni response
     res.json(formatAlumniResponse(alumni));
-  } else {
-    res.status(404);
-    throw new Error("Alumni not found");
+  } catch (error) {
+    console.error("Error in getAlumniProfile:", error);
+    res.status(error.statusCode || 500);
+    throw new Error(error.message || "Failed to fetch alumni profile");
   }
 });
 
-// Find the updateAlumniProfile or similar function and update it to handle previousEducation
+// @desc    Update alumni profile
+// @route   PUT /api/alumni/profile
+// @access  Private
 const updateAlumniProfile = asyncHandler(async (req, res) => {
   const alumniId = req.user._id;
   
-  // Get data from request body
+  console.log("Update profile request received for alumni ID:", alumniId);
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
+  
   const {
     name,
-    phone,
+    bio,
+    location,
+    linkedin, // This will map to linkedInProfile in the database
     company,
     position,
-    location,
-    bio,
+    experience,
     skills,
-    linkedin,
-    // Add these fields
+    interests,
     graduationYear,
-    previousEducation,
-    // ...other fields
+    education, // Changed from previousEducation to education
+    university,
+    college,
+    industry,
+    mentorshipAvailable
   } = req.body;
-  
-  // Find the alumni by ID
-  const alumni = await Alumni.findById(alumniId);
-  
-  if (!alumni) {
-    res.status(404);
-    throw new Error('Alumni not found');
+
+  try {
+    let alumni = await Alumni.findById(alumniId);
+    
+    if (!alumni) {
+      res.status(404);
+      throw new Error('Alumni not found');
+    }
+    
+    console.log("Found alumni in database:", alumni._id);
+    console.log("Current education data:", JSON.stringify(alumni.education, null, 2));
+    console.log("New education data received:", JSON.stringify(education, null, 2));
+    
+    // Update the simple fields if provided
+    if (name) alumni.name = name;
+    if (bio !== undefined) alumni.bio = bio;
+    if (location !== undefined) alumni.location = location;
+    if (linkedin !== undefined) alumni.linkedInProfile = linkedin;
+    if (company !== undefined) alumni.company = company;
+    if (position !== undefined) alumni.position = position;
+    if (experience !== undefined) alumni.experience = Number(experience) || 0;
+    if (university !== undefined) alumni.university = university;
+    if (college !== undefined) alumni.college = college;
+    if (industry !== undefined) alumni.industry = industry;
+    if (mentorshipAvailable !== undefined) alumni.mentorshipAvailable = mentorshipAvailable;
+    
+    // Handle arrays properly - make sure they're not undefined
+    if (skills && Array.isArray(skills)) alumni.skills = skills;
+    if (interests && Array.isArray(interests)) alumni.interests = interests;
+    
+    // Update graduation year if provided and valid
+    if (graduationYear && !isNaN(graduationYear)) {
+      const year = Number(graduationYear);
+      if (year >= 1950 && year <= new Date().getFullYear() + 10) {
+        alumni.graduationYear = year;
+      }
+    }
+    
+    // Handle education array specially - it might come in different formats from frontend
+    if (education) {
+      if (Array.isArray(education)) {
+        // Make a deep copy to avoid reference issues
+        alumni.education = JSON.parse(JSON.stringify(education));
+        console.log("Setting education array directly:", JSON.stringify(alumni.education, null, 2));
+      } else if (typeof education === 'object') {
+        // If it's a single object, wrap it in an array
+        alumni.education = [education];
+        console.log("Setting education as single object in array:", JSON.stringify(alumni.education, null, 2));
+      }
+    }
+    
+    // Update lastActive timestamp
+    alumni.lastActive = new Date();
+    
+    // Save the updated profile
+    const updatedAlumni = await alumni.save();
+    
+    console.log("Alumni profile updated successfully. Database now has:");
+    console.log("- Education:", JSON.stringify(updatedAlumni.education, null, 2));
+    console.log("- Skills:", JSON.stringify(updatedAlumni.skills, null, 2));
+    console.log("- Interests:", JSON.stringify(updatedAlumni.interests, null, 2));
+    
+    // Return the updated profile data
+    res.json(formatAlumniResponse(updatedAlumni));
+  } catch (error) {
+    console.error("Error updating alumni profile:", error);
+    res.status(500);
+    throw new Error('Server error updating profile: ' + error.message);
   }
-  
-  // Update fields if provided
-  if (name) alumni.name = name;
-  if (phone) alumni.phone = phone;
-  if (company) alumni.company = company;
-  if (position) alumni.position = position;
-  if (location) alumni.location = location;
-  if (bio) alumni.bio = bio;
-  if (skills) alumni.skills = skills;
-  if (linkedin) alumni.linkedin = linkedin;
-  // Add these fields to the update logic
-  if (graduationYear) alumni.graduationYear = graduationYear;
-  if (previousEducation) alumni.previousEducation = previousEducation;
-  // ...update other fields
-  
-  // Save the updated alumni
-  const updatedAlumni = await alumni.save();
-  
-  // Return the formatted response
-  res.json(formatAlumniResponse(updatedAlumni));
 });
 
 // @desc    Get all alumni
@@ -257,33 +319,27 @@ const searchAlumni = asyncHandler(async (req, res) => {
   const query = {};
   
   if (name) query.name = { $regex: name, $options: 'i' };
-  if (company) query.company = { $regex: company, $options: 'i' };
-  if (specialization) query.specialization = { $regex: specialization, $options: 'i' };
-  if (skills) query.skills = { $in: skills.split(',').map(skill => new RegExp(skill.trim(), 'i')) };
-  if (graduationYear) query.graduationYear = graduationYear;
-  if (mentorshipAvailable) query.mentorshipAvailable = mentorshipAvailable === 'true';
-  if (university) query.university = { $regex: university, $options: 'i' };
-  if (location) query.location = { $regex: location, $options: 'i' };
-  if (industry) query.industry = { $regex: industry, $options: 'i' };
-
-  const alumni = await Alumni.find(query)
-    .select('name email profilePicture company position experience specialization graduationYear skills interests university bio location linkedin')
-    .sort('-lastActive');
-  
-  res.json(alumni);
+  if (company) query.company = { $regex: company, $options: 'i' }
 });
 
-// @desc    Get alumni by graduation year
+// @desc    Get alumni by batch (graduation year)
 // @route   GET /api/alumni/batch/:year
 // @access  Public
 const getAlumniByBatch = asyncHandler(async (req, res) => {
-  const alumni = await Alumni.find({ graduationYear: req.params.year });
+  const year = Number(req.params.year);
+  
+  if (isNaN(year)) {
+    res.status(400);
+    throw new Error("Invalid graduation year format");
+  }
+  
+  const alumni = await Alumni.find({ graduationYear: year });
   
   if (alumni.length > 0) {
     res.json(alumni);
   } else {
     res.status(404);
-    throw new Error("No alumni found for this graduation year");
+    throw new Error("No alumni found from this batch");
   }
 });
 
@@ -303,48 +359,52 @@ const getAlumniByCompany = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update alumni profile picture
-// @route   PUT /api/alumni/profile/profile-picture
-// @access  Private
-const updateAlumniProfilePicture = asyncHandler(async (req, res) => {
-  const { imageUrl, publicId } = req.body;
-  
-  if (!imageUrl) {
-    res.status(400);
-    throw new Error("Image URL is required");
-  }
-  
-  const alumni = await Alumni.findById(req.user._id);
-  
-  if (!alumni) {
-    res.status(404);
-    throw new Error("Alumni not found");
-  }
-  
-  // If alumni already has a profile picture with a public_id, we might want to delete it from Cloudinary
-  if (alumni.profilePicture && alumni.profilePicture.public_id) {
-    try {
-      await removeFromCloudinary(alumni.profilePicture.public_id);
-    } catch (error) {
-      console.error("Error removing old profile picture:", error);
-      // Continue anyway, as this is not critical
+// Update the updateProfilePicture function
+const updateAlumniProfilePicture = async (req, res) => {
+  try {
+    const { imageUrl, publicId } = req.body;
+    
+    if (!imageUrl || !publicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Image URL and public ID are required' 
+      });
     }
+    
+    // Create a proper profilePicture object
+    const profilePictureObject = {
+      url: imageUrl,
+      public_id: publicId
+    };
+    
+    // Find the alumni by ID using the _id property from auth middleware
+    const alumni = await Alumni.findById(req.user._id);
+    
+    if (!alumni) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Alumni not found' 
+      });
+    }
+    
+    // Update with the profilePicture object
+    alumni.profilePicture = profilePictureObject;
+    await alumni.save();
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Profile picture updated successfully', 
+      profilePicture: alumni.profilePicture 
+    });
+  } catch (error) {
+    console.error('Error updating profile picture:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update profile picture',
+      error: error.message 
+    });
   }
-  
-  // Update the profile picture
-  alumni.profilePicture = {
-    url: imageUrl,
-    public_id: publicId || ""
-  };
-  
-  const updatedAlumni = await alumni.save();
-  
-  res.json({
-    success: true,
-    profilePicture: updatedAlumni.profilePicture,
-    message: "Profile picture updated successfully"
-  });
-});
+};
 
 // @desc    Submit verification document
 // @route   POST /api/alumni/submit-verification
@@ -566,22 +626,39 @@ const registerAlumniWithGoogle = asyncHandler(async (req, res) => {
     name, email, googleId, graduationYear, branch, university, documentURL 
   });
 
-  // Check if alumni exists
-  const alumniExists = await Alumni.findOne({ 
-    $or: [{ email }, { googleId }] 
-  });
-  
-  if (alumniExists) {
-    res.status(400);
-    throw new Error("Email already registered");
-  }
-
   try {
+    // First, check if there's an alumni with this email
+    const alumniWithEmail = await Alumni.findOne({ email });
+    
+    if (alumniWithEmail) {
+      console.log(`Found existing alumni with email ${email}, ID: ${alumniWithEmail._id}`);
+      res.status(400);
+      throw new Error("Email already registered");
+    }
+    
+    // Then check if there's an alumni with this googleId (if provided)
+    if (googleId) {
+      const alumniWithGoogleId = await Alumni.findOne({ googleId });
+      if (alumniWithGoogleId) {
+        console.log(`Found existing alumni with googleId ${googleId}, ID: ${alumniWithGoogleId._id}`);
+        res.status(400);
+        throw new Error(`This Google account is already linked to another profile`);
+      }
+    } else {
+      console.log("Warning: No googleId provided for Google registration");
+    }
+
+    console.log(`No existing alumni found with email ${email} or googleId ${googleId}`);
+
+    // Check if a verification request already exists for this email
+    const existingVerificationRequest = await VerificationRequest.findOne({ email });
+    console.log("Existing verification request:", existingVerificationRequest ? `found with ID ${existingVerificationRequest._id}` : "not found");
+
     // Create alumni with unverified status
     const alumni = new Alumni({
       name,
       email,
-      googleId,
+      googleId, // Make sure googleId is passed if available
       graduationYear,
       branch,
       university: university || "",
@@ -603,43 +680,64 @@ const registerAlumniWithGoogle = asyncHandler(async (req, res) => {
 
     // Save without running password validations
     await alumni.save({ validateBeforeSave: false });
+    console.log(`Successfully created new alumni with Google auth: ${alumni._id}`);
 
-    if (alumni) {
-      // Create a verification request
-      const verificationRequest = await VerificationRequest.create({
-        name,
-        email,
-        university: university || "",
-        degree: "Not Specified",
-        branch,
-        graduationYear,
-        currentCompany: company || "",
-        currentRole: currentPosition || "",
-        documentURL,
-        userId: alumni._id,
-        status: 'pending'
-      });
-
-      // Generate JWT
-      const token = generateToken(alumni._id);
-
-      // Return success response
-      res.status(201).json({
-        _id: alumni._id,
-        name: alumni.name,
-        email: alumni.email,
-        isVerified: false,
-        token: token,
-        message: "Registration successful. Your account is pending verification."
-      });
+    // Handle verification request (update or create)
+    let verificationRequest;
+    if (existingVerificationRequest) {
+      // Update existing verification request
+      existingVerificationRequest.userId = alumni._id;
+      existingVerificationRequest.documentURL = documentURL;
+      existingVerificationRequest.name = name;
+      existingVerificationRequest.branch = branch || "";
+      existingVerificationRequest.graduationYear = graduationYear;
+      existingVerificationRequest.university = university || "";
+      existingVerificationRequest.currentCompany = company || "";
+      existingVerificationRequest.currentRole = currentPosition || "";
+      existingVerificationRequest.status = 'pending'; // Reset status to pending
+      
+      verificationRequest = await existingVerificationRequest.save();
+      console.log(`Updated existing verification request: ${verificationRequest._id}`);
     } else {
-      res.status(400);
-      throw new Error("Invalid alumni data");
+      try {
+        // Create a new verification request
+        verificationRequest = await VerificationRequest.create({
+          name,
+          email,
+          university: university || "",
+          degree: "Not Specified",
+          branch: branch || "",
+          graduationYear,
+          currentCompany: company || "",
+          currentRole: currentPosition || "",
+          documentURL,
+          userId: alumni._id,
+          status: 'pending'
+        });
+        console.log(`Created new verification request: ${verificationRequest._id}`);
+      } catch (verificationError) {
+        // If creating verification request fails, don't fail the registration
+        console.error("Failed to create verification request:", verificationError.message);
+        // Continue with alumni registration anyway
+      }
     }
+
+    // Generate JWT
+    const token = generateToken(alumni._id);
+
+    // Return success response
+    res.status(201).json({
+      _id: alumni._id,
+      name: alumni.name,
+      email: alumni.email,
+      isVerified: false,
+      token: token,
+      message: "Registration successful. Your account is pending verification."
+    });
   } catch (error) {
     console.error("Error in alumni Google registration:", error);
     res.status(400);
-    throw new Error(error.message);
+    throw new Error(error.message || "Failed to register alumni with Google");
   }
 });
 
@@ -652,7 +750,7 @@ export {
   getAlumniById,
   deleteAlumni,
   getAlumniByCompany,
-  updateAlumniProfilePicture, // Changed from uploadAlumniProfilePicture to match the function name
+  updateAlumniProfilePicture, // Changed from updateProfilePicture to match the import
   getVerificationStatus as checkVerificationStatus,
   resendVerification,
   searchAlumni,
