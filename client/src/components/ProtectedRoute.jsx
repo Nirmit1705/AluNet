@@ -30,7 +30,8 @@ const ProtectedRoute = ({ children, requiredRole = null, requireVerified = false
 
       try {
         // Verify token with backend
-        const response = await axios.get('/api/auth/verify', {
+        const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await axios.get(`${baseUrl}/api/auth/verify`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -55,6 +56,9 @@ const ProtectedRoute = ({ children, requiredRole = null, requireVerified = false
           setUserRole(storedRole);
           setIsVerified(true);
         } else {
+          // In production, clear the token and log the user out
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
           setIsAuthenticated(false);
         }
       } finally {

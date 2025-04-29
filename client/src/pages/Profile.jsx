@@ -37,9 +37,10 @@ const Profile = () => {
   const [newSkill, setNewSkill] = useState("");
   const [newInterest, setNewInterest] = useState("");
 
-  // Add these state variables with your other useState declarations
+  // Add this to your state variables section
   const [newEducation, setNewEducation] = useState({
     institution: "",
+    university: "", // Added separate university field
     degree: "",
     fieldOfStudy: "",
     startYear: "",
@@ -174,7 +175,24 @@ const Profile = () => {
       const fieldText = primaryEdu.fieldOfStudy ? 
         (degreeText.toLowerCase().includes(`in ${primaryEdu.fieldOfStudy.toLowerCase()}`) ? 
           '' : ` in ${primaryEdu.fieldOfStudy}`) : '';
-      return `${degreeText}${fieldText} ${primaryEdu.institution || ''}`;
+      
+      // Handle institution and university separately
+      let institutionText = '';
+      if (primaryEdu.institution && primaryEdu.university) {
+        // If both fields exist and are different, show both
+        if (primaryEdu.institution !== primaryEdu.university) {
+          institutionText = ` at ${primaryEdu.institution}, ${primaryEdu.university}`;
+        } else {
+          // If they're the same, just show one
+          institutionText = ` at ${primaryEdu.institution}`;
+        }
+      } else if (primaryEdu.institution) {
+        institutionText = ` at ${primaryEdu.institution}`;
+      } else if (primaryEdu.university) {
+        institutionText = ` at ${primaryEdu.university}`;
+      }
+      
+      return `${degreeText}${fieldText}${institutionText}`;
     } else if (userData.education && Array.isArray(userData.education) && userData.education.length > 0) {
       const primaryEdu = userData.education[0];
       // Check if degree already contains "in" to avoid duplication
@@ -182,10 +200,45 @@ const Profile = () => {
       const fieldText = primaryEdu.fieldOfStudy ? 
         (degreeText.toLowerCase().includes(`in ${primaryEdu.fieldOfStudy.toLowerCase()}`) ? 
           '' : ` in ${primaryEdu.fieldOfStudy}`) : '';
-      return `${degreeText}${fieldText} ${primaryEdu.institution || ''}`;
+      
+      // Handle institution and university separately
+      let institutionText = '';
+      if (primaryEdu.institution && primaryEdu.university) {
+        // If both fields exist and are different, show both
+        if (primaryEdu.institution !== primaryEdu.university) {
+          institutionText = ` at ${primaryEdu.institution}, ${primaryEdu.university}`;
+        } else {
+          // If they're the same, just show one
+          institutionText = ` at ${primaryEdu.institution}`;
+        }
+      } else if (primaryEdu.institution) {
+        institutionText = ` at ${primaryEdu.institution}`;
+      } else if (primaryEdu.university) {
+        institutionText = ` at ${primaryEdu.university}`;
+      }
+      
+      return `${degreeText}${fieldText}${institutionText}`;
     } else if (userData.university || userData.college) {
       // Fall back to basic education fields
-      return `${userData.degree || ''} ${userData.specialization ? `in ${userData.specialization}` : ''} ${userData.university || ''} ${userData.college ? `(${userData.college})` : ''}`;
+      const degreeText = userData.degree || '';
+      const specText = userData.specialization ? `in ${userData.specialization}` : '';
+      let institutionText = '';
+      
+      if (userData.university && userData.college) {
+        // If both fields exist and are different, show both
+        if (userData.university !== userData.college) {
+          institutionText = `${userData.university}, ${userData.college}`;
+        } else {
+          institutionText = userData.university;
+        }
+      } else if (userData.university) {
+        institutionText = userData.university;
+      } else if (userData.college) {
+        institutionText = userData.college;
+      }
+      
+      // Combine all parts, filtering out empty strings
+      return [degreeText, specText, institutionText].filter(Boolean).join(' ');
     } else {
       return '';
     }
@@ -371,9 +424,10 @@ const Profile = () => {
       if (formDataToSubmit.previousEducation && Array.isArray(formDataToSubmit.previousEducation)) {
         // If we have previousEducation array, use it directly
         formDataToSubmit.education = formDataToSubmit.previousEducation.map(edu => ({
-          institution: edu.institution,
-          degree: edu.degree,
-          fieldOfStudy: edu.fieldOfStudy,
+          institution: edu.institution || '',
+          university: edu.university || '', // Ensure university is included
+          degree: edu.degree || '',
+          fieldOfStudy: edu.fieldOfStudy || '',
           startYear: Number(edu.startYear) || null,
           endYear: Number(edu.endYear) || null,
           description: edu.description || ''
@@ -514,10 +568,10 @@ const Profile = () => {
     }
   };
 
-  // Add this function to handle adding new education entries
+  // Modify the addEducation function to also update the displayed education
   const addEducation = () => {
     // Validate required fields
-    if (!newEducation.institution || !newEducation.degree || !newEducation.fieldOfStudy || !newEducation.startYear) {
+    if (!newEducation.institution || !newEducation.university || !newEducation.degree || !newEducation.fieldOfStudy || !newEducation.startYear) {
       toast.error("Please fill in all required education fields");
       return;
     }
@@ -540,6 +594,7 @@ const Profile = () => {
     // Create a new education entry object
     const educationEntry = {
       institution: newEducation.institution.trim(),
+      university: newEducation.university.trim(),
       degree: newEducation.degree.trim(),
       fieldOfStudy: newEducation.fieldOfStudy.trim(),
       startYear: startYear,
@@ -551,14 +606,19 @@ const Profile = () => {
     const previousEducation = editForm.previousEducation || [];
     
     // Add the new education entry
+    const updatedEducation = [...previousEducation, educationEntry];
+    
+    // Update both previousEducation and the formatted education string
     setEditForm({
       ...editForm,
-      previousEducation: [...previousEducation, educationEntry]
+      previousEducation: updatedEducation,
+      education: formatDetailedEducation(updatedEducation)
     });
     
     // Reset the new education form
     setNewEducation({
       institution: "",
+      university: "", // Reset the university field
       degree: "",
       fieldOfStudy: "",
       startYear: "",
@@ -569,14 +629,48 @@ const Profile = () => {
     toast.success("Education added successfully");
   };
 
-  // Add this function to remove education entries
+  // Add a new helper function to format detailed education for display
+  const formatDetailedEducation = (educationArray) => {
+    if (!educationArray || !Array.isArray(educationArray) || educationArray.length === 0) {
+      return '';
+    }
+    
+    // Format each education entry and join with semicolons
+    return educationArray.map(edu => {
+      const degreeText = edu.degree || '';
+      const fieldText = edu.fieldOfStudy ? 
+        (degreeText.toLowerCase().includes(`in ${edu.fieldOfStudy.toLowerCase()}`) ? 
+          '' : ` in ${edu.fieldOfStudy}`) : '';
+      
+      let institutionText = '';
+      if (edu.institution && edu.university) {
+        if (edu.institution !== edu.university) {
+          institutionText = ` at ${edu.institution}, ${edu.university}`;
+        } else {
+          institutionText = ` at ${edu.institution}`;
+        }
+      } else if (edu.institution) {
+        institutionText = ` at ${edu.institution}`;
+      } else if (edu.university) {
+        institutionText = ` at ${edu.university}`;
+      }
+      
+      const yearText = edu.startYear ? 
+        (edu.endYear ? ` (${edu.startYear}-${edu.endYear})` : ` (${edu.startYear}-Present)`) : '';
+      
+      return `${degreeText}${fieldText}${institutionText}${yearText}`;
+    }).join('; ');
+  };
+
+  // Similarly, update removeEducation to also update the displayed education
   const removeEducation = (index) => {
     const updatedEducation = [...editForm.previousEducation];
     updatedEducation.splice(index, 1);
     
     setEditForm({
       ...editForm,
-      previousEducation: updatedEducation
+      previousEducation: updatedEducation,
+      education: formatDetailedEducation(updatedEducation)
     });
     
     toast.success("Education entry removed");
@@ -824,7 +918,20 @@ const Profile = () => {
                                     value={newEducation.institution || ""}
                                     onChange={(e) => setNewEducation({...newEducation, institution: e.target.value})}
                                     className="w-full p-2 border rounded-lg text-sm"
-                                    placeholder="University/College name"
+                                    placeholder="College/School name"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="university" className="block text-xs font-medium mb-1">
+                                    University
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="university"
+                                    value={newEducation.university || ""}
+                                    onChange={(e) => setNewEducation({...newEducation, university: e.target.value})}
+                                    className="w-full p-2 border rounded-lg text-sm"
+                                    placeholder="University name"
                                   />
                                 </div>
                                 <div>
@@ -1272,36 +1379,47 @@ const Profile = () => {
               {/* Education Section */}
               <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-200">
                 <h3 className="text-xl font-bold mb-4">Education</h3>
-                {profile.education ? (
+                {profile.previousEducation && profile.previousEducation.length > 0 ? (
+                  <div className="space-y-4">
+                    {profile.previousEducation.map((edu, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
+                          <GraduationCap className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">
+                            {edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}
+                          </h4>
+                          <div className="text-muted-foreground">
+                            {edu.institution && edu.university && edu.institution !== edu.university ? (
+                              <p>{edu.institution}, {edu.university}</p>
+                            ) : (
+                              <p>{edu.institution || edu.university}</p>
+                            )}
+                            <p className="text-sm">
+                              {edu.startYear} - {edu.endYear || 'Present'}
+                            </p>
+                            {edu.description && (
+                              <p className="mt-1 text-sm italic">{edu.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : profile.education ? (
                   <div className="flex gap-4">
                     <div className="w-12 h-12 rounded bg-primary/10 text-primary flex items-center justify-center">
                       <GraduationCap className="h-6 w-6" />
                     </div>
                     <div>
-                      <h4 className="font-bold">
-                        {typeof profile.education === 'string' 
-                          ? profile.education 
-                          : `${profile.graduationYear ? `Class of ${profile.graduationYear}` : 'Current Student'}`}
-                      </h4>
-                      {profile.previousEducation && profile.previousEducation.length > 0 && (
-                        <div className="mt-2">
-                          {profile.previousEducation.map((edu, index) => (
-                            <div key={index} className="text-sm text-muted-foreground mb-1">
-                              {/* Display degree and field without redundant "in" */}
-                              {edu.degree} {edu.fieldOfStudy ? 
-                                (edu.degree.toLowerCase().includes(`in ${edu.fieldOfStudy.toLowerCase()}`) ? 
-                                  '' : `in ${edu.fieldOfStudy}`) : ''} {edu.institution} ({edu.startYear} - {edu.endYear || 'Present'})
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <h4 className="font-bold">{profile.education}</h4>
                       {profile.role === "Student" && (
                         <p className="text-muted-foreground">Current Student</p>
                       )}
                       {profile.role === "Alumni" && profile.graduationYear && (
                         <p className="text-muted-foreground">
-                          {parseInt(profile.graduationYear) - 4} - {profile.graduationYear} 
-                          <span className="ml-2">(4 years)</span>
+                          Graduation Year: {profile.graduationYear}
                         </p>
                       )}
                     </div>

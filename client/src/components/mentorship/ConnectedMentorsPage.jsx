@@ -4,100 +4,7 @@ import { ChevronLeft, Users, Search, Filter, X, GraduationCap, MessageSquare, He
 import Navbar from "../layout/Navbar";
 import MentorshipRequestForm from "./MentorshipRequestForm";
 import { useUniversity } from "../../context/UniversityContext";
-
-// Sample data for connected mentors
-const connectedMentorsData = [
-  {
-    id: 1,
-    name: "Dr. Emily Rodriguez",
-    role: "Senior Software Engineer",
-    company: "Google",
-    experience: 8,
-    location: "San Francisco, CA",
-    avatar: null,
-    specialties: ["Machine Learning", "Career Development", "System Design"],
-    connectionDate: "2023-04-15",
-    availability: "Weekday Evenings",
-    email: "emily.rodriguez@example.com",
-    linkedin: "https://linkedin.com/in/emilyrodriguez",
-    lastInteraction: "3 days ago",
-    education: "Ph.D. Computer Science, Stanford University",
-    interests: ["AI Ethics", "Mentoring", "Open Source"],
-    description: "Experienced ML engineer with a passion for helping students navigate the tech industry. Specializes in career guidance for those interested in AI and data science."
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    role: "Technical Product Manager",
-    company: "Microsoft",
-    experience: 6,
-    location: "Seattle, WA",
-    avatar: null,
-    specialties: ["Product Management", "UX Design", "Technical Leadership"],
-    connectionDate: "2023-05-20",
-    availability: "Weekend Afternoons",
-    email: "michael.chen@example.com",
-    linkedin: "https://linkedin.com/in/michaelchen",
-    lastInteraction: "1 week ago",
-    education: "M.S. Computer Science, University of Washington",
-    interests: ["Product Strategy", "Agile Development", "User Research"],
-    description: "Product manager with engineering background who helps students understand the intersection of technology and business. Can provide guidance on technical product roles."
-  },
-  {
-    id: 3,
-    name: "Sarah Johnson",
-    role: "Frontend Engineering Lead",
-    company: "Meta",
-    experience: 7,
-    location: "Remote",
-    avatar: null,
-    specialties: ["React", "UI Architecture", "Frontend Interviews"],
-    connectionDate: "2023-03-10",
-    availability: "Tuesday & Thursday Evenings",
-    email: "sarah.johnson@example.com",
-    linkedin: "https://linkedin.com/in/sarahjohnson",
-    lastInteraction: "2 days ago",
-    education: "B.S. Computer Science, MIT",
-    interests: ["Web Performance", "Design Systems", "Developer Experience"],
-    description: "Frontend expert who loves helping students build impressive portfolios and prepare for technical interviews. Specializes in modern JavaScript frameworks and UI architecture."
-  },
-  {
-    id: 4,
-    name: "David Williams",
-    role: "Data Science Director",
-    company: "Amazon",
-    experience: 10,
-    location: "New York, NY",
-    avatar: null,
-    specialties: ["Data Science", "Machine Learning Operations", "Analytics"],
-    connectionDate: "2023-06-05",
-    availability: "Monday & Wednesday Mornings",
-    email: "david.williams@example.com",
-    linkedin: "https://linkedin.com/in/davidwilliams",
-    lastInteraction: "5 days ago",
-    education: "Ph.D. Statistics, Columbia University",
-    interests: ["Large Language Models", "Data Ethics", "Causal Inference"],
-    description: "Data science leader passionate about mentoring the next generation of data professionals. Can provide guidance on projects, career paths, and advanced techniques."
-  },
-  {
-    id: 5,
-    name: "Jessica Kim",
-    role: "Security Engineering Manager",
-    company: "IBM",
-    experience: 9,
-    location: "Austin, TX",
-    avatar: null,
-    specialties: ["Cybersecurity", "AppSec", "Security Career Guidance"],
-    connectionDate: "2023-07-12",
-    availability: "Weekends",
-    email: "jessica.kim@example.com",
-    linkedin: "https://linkedin.com/in/jessicakim",
-    lastInteraction: "1 day ago",
-    education: "M.S. Information Security, Carnegie Mellon University",
-    interests: ["Security Education", "Ethical Hacking", "Privacy"],
-    description: "Cybersecurity expert who helps students navigate the complex world of information security. Provides guidance on security careers, certifications, and practical skills."
-  }
-];
+import axios from "axios";
 
 const ConnectedMentorsPage = () => {
   const navigate = useNavigate();
@@ -107,7 +14,8 @@ const ConnectedMentorsPage = () => {
     extractUniversity 
   } = useUniversity();
   
-  const [allMentors, setAllMentors] = useState(connectedMentorsData);
+  // Initialize arrays correctly to prevent "undefined is not iterable" errors
+  const [allMentors, setAllMentors] = useState([]);
   const [mentors, setMentors] = useState([]);
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -119,18 +27,91 @@ const ConnectedMentorsPage = () => {
   const [showMentorshipForm, setShowMentorshipForm] = useState(false);
   const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(null);
   const [showingAllUniversities, setShowingAllUniversities] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Filter mentors by university when component mounts or userUniversity changes
+  // Fetch connected mentors when component mounts
   useEffect(() => {
-    if (!showingAllUniversities && userUniversity) {
-      const filteredByUniversity = filterByUniversity(connectedMentorsData);
-      setAllMentors(filteredByUniversity);
+    // Update the fetchConnectedMentors function to properly handle education data
+    const fetchConnectedMentors = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/mentors`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        console.log("Fetched mentor data:", response.data); // Add debug logging
+        
+        // Ensure we always set arrays, even if response.data is null or undefined
+        const mentorsData = response.data || [];
+        
+        // Transform data if needed to ensure all required properties are present
+        const transformedMentors = mentorsData.map(mentor => {
+          // Create a formatted education string if it's an object
+          let educationString = mentor.education;
+          
+          if (typeof mentor.education === 'object' && mentor.education !== null) {
+            educationString = formatEducation(mentor.education);
+          }
+          
+          return {
+            id: mentor.id || mentor._id,
+            name: mentor.name || 'Unknown Mentor',
+            role: mentor.role || `${mentor.position || 'Professional'} at ${mentor.company || 'Company'}`,
+            specialties: mentor.specialties || mentor.expertise || mentor.skills || [],
+            availability: mentor.availability || "Available by appointment",
+            location: mentor.location || mentor.city || "Remote",
+            experience: mentor.experience || "N/A",
+            education: educationString,
+            description: mentor.description || mentor.bio || "No description available",
+            interests: mentor.interests || [],
+            connectionDate: mentor.connectionDate || new Date().toISOString(),
+            lastInteraction: mentor.lastInteraction || "Recently",
+            email: mentor.email || "",
+            linkedin: mentor.linkedin || "#",
+            avatar: mentor.profilePicture || mentor.avatar || null,
+            company: mentor.company || "Company"
+          };
+        });
+        
+        setAllMentors(transformedMentors);
+        setMentors(transformedMentors);
+      } catch (err) {
+        console.error("Error fetching connected mentors:", err);
+        setError("Failed to load your connected mentors. Please try again later.");
+        // Initialize with empty arrays on error
+        setAllMentors([]);
+        setMentors([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchConnectedMentors();
+  }, [navigate]);
+  
+  // Filter mentors by university when userUniversity changes
+  useEffect(() => {
+    if (!showingAllUniversities && userUniversity && allMentors.length > 0) {
+      const filteredByUniversity = filterByUniversity(allMentors);
       setMentors(filteredByUniversity);
     } else {
-      setAllMentors(connectedMentorsData);
-      setMentors(connectedMentorsData);
+      setMentors(allMentors);
     }
-  }, [userUniversity, filterByUniversity, showingAllUniversities]);
+  }, [userUniversity, filterByUniversity, showingAllUniversities, allMentors]);
   
   // Toggle university filter
   const toggleUniversityFilter = () => {
@@ -244,7 +225,7 @@ const ConnectedMentorsPage = () => {
   
   // Request mentorship with specific mentor
   const requestMentorship = (mentorId) => {
-    const mentor = connectedMentorsData.find(m => m.id === mentorId);
+    const mentor = allMentors.find(m => m.id === mentorId);
     if (!mentor) return;
     
     // Show the mentorship request form
@@ -282,7 +263,7 @@ const ConnectedMentorsPage = () => {
   
   // Get all unique specialties for filters
   const allSpecialties = Array.from(
-    new Set(connectedMentorsData.flatMap(mentor => mentor.specialties))
+    new Set(allMentors.flatMap(mentor => mentor.specialties))
   ).sort();
   
   // Get all unique availability times for filters
@@ -295,43 +276,120 @@ const ConnectedMentorsPage = () => {
     "Weekend Evenings"
   ];
 
+  // Render loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-custom pt-20">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-custom pt-20">
+          <div className="glass-card rounded-xl p-6 text-center">
+            <div className="text-red-500 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-medium mb-2">Error Loading Mentors</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-white rounded-md"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render empty state if no mentors are connected
+  if (mentors.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-custom pt-20">
+          <div className="mb-6 flex items-center">
+            <button 
+              onClick={() => navigate(-1)}
+              className="mr-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-2xl font-bold">Connected Mentors</h1>
+          </div>
+          
+          <div className="glass-card rounded-xl p-8 text-center">
+            <Users className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-xl font-medium mb-2">No Connected Mentors</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              You haven't connected with any mentors yet. Explore the alumni directory to find mentors who can guide you in your career journey.
+            </p>
+            <button
+              onClick={() => navigate('/alumni-directory')}
+              className="px-6 py-2 bg-primary text-white rounded-lg"
+            >
+              Explore Alumni Directory
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render normal view with connected mentors
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container-custom pt-20 pb-12">
+      <div className="container-custom pt-20">
         {/* Header with back button */}
-        <div className="mb-8">
+        <div className="mb-6 flex items-center">
           <button 
-            onClick={goBack}
-            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+            onClick={() => navigate(-1)}
+            className="mr-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Go back"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Dashboard
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Connected Mentors</h1>
-              <p className="text-muted-foreground">View and connect with your mentors</p>
+          <h1 className="text-2xl font-bold">Connected Mentors</h1>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <p className="text-muted-foreground">View and connect with your mentors</p>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search mentors..."
+                value={search}
+                onChange={handleSearchChange}
+                className="pl-9 pr-4 py-2 w-full rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search mentors..."
-                  value={search}
-                  onChange={handleSearchChange}
-                  className="pl-9 pr-4 py-2 w-full rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-              <button
-                onClick={toggleFilter}
-                className="p-2 rounded-lg border border-input bg-background hover:bg-accent flex items-center gap-1"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">Filter</span>
-              </button>
-            </div>
+            <button
+              onClick={toggleFilter}
+              className="p-2 rounded-lg border border-input bg-background hover:bg-accent flex items-center gap-1"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filter</span>
+            </button>
           </div>
         </div>
         
@@ -407,22 +465,14 @@ const ConnectedMentorsPage = () => {
         </div>
         
         {/* Mentors grid */}
-        {mentors.length === 0 ? (
-          <div className="glass-card rounded-xl p-12 text-center">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-medium mb-2">No Mentors Found</h3>
-            <p className="text-muted-foreground mb-6">Try adjusting your filters or search criteria.</p>
-            <button
-              onClick={resetFilters}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
+        {mentors && mentors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {mentors.map(mentor => (
-              <div key={mentor.id} className="glass-card rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => viewMentorProfile(mentor)}>
+            {mentors.map((mentor) => (
+              <div 
+                key={mentor.id || `mentor-${mentor.name}`} 
+                className="glass-card rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow" 
+                onClick={() => viewMentorProfile(mentor)}
+              >
                 <div className="flex items-start">
                   <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
                     {mentor.avatar ? (
@@ -433,10 +483,12 @@ const ConnectedMentorsPage = () => {
                   </div>
                   <div className="flex-1">
                     <h4 className="font-medium text-lg">{mentor.name}</h4>
-                    <p className="text-sm text-muted-foreground">{mentor.role} at {mentor.company}</p>
+                    <p className="text-sm text-muted-foreground">{mentor.role}</p>
                     <div className="flex items-center mt-1">
                       <Calendar className="h-3 w-3 text-muted-foreground mr-1.5" />
-                      <span className="text-xs text-muted-foreground">Connected {new Date(mentor.connectionDate).toLocaleDateString()}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Connected {new Date(mentor.connectionDate).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -445,25 +497,31 @@ const ConnectedMentorsPage = () => {
                   <div className="mb-3">
                     <p className="text-xs font-medium mb-1">Specialties</p>
                     <div className="flex flex-wrap gap-1">
-                      {mentor.specialties.slice(0, 3).map((specialty, idx) => (
-                        <span key={idx} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          {specialty}
-                        </span>
-                      ))}
-                      {mentor.specialties.length > 3 && (
-                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-full">
-                          +{mentor.specialties.length - 3} more
-                        </span>
+                      {mentor.specialties && mentor.specialties.length > 0 ? (
+                        <>
+                          {mentor.specialties.slice(0, 3).map((specialty, idx) => (
+                            <span key={idx} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                              {specialty}
+                            </span>
+                          ))}
+                          {mentor.specialties.length > 3 && (
+                            <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-full">
+                              +{mentor.specialties.length - 3} more
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-500">No specialties listed</span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3 mr-1" />
-                    <span>{mentor.location}</span>
+                    <span>{mentor.location || "Location not specified"}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     <Calendar className="h-3 w-3 inline mr-1" />
-                    Available: {mentor.availability}
+                    Available: {mentor.availability || "Contact for availability"}
                   </p>
                 </div>
                 
@@ -491,6 +549,18 @@ const ConnectedMentorsPage = () => {
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="glass-card rounded-xl p-12 text-center">
+            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-xl font-medium mb-2">No Mentors Found</h3>
+            <p className="text-muted-foreground mb-6">Try adjusting your filters or search criteria.</p>
+            <button
+              onClick={resetFilters}
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Reset Filters
+            </button>
           </div>
         )}
       </div>
@@ -521,16 +591,16 @@ const ConnectedMentorsPage = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-2xl font-bold">{selectedMentor.name}</h3>
-                  <p className="text-lg text-muted-foreground">{selectedMentor.role} at {selectedMentor.company}</p>
+                  <p className="text-lg text-muted-foreground">{selectedMentor.role}</p>
                   
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4 mr-1.5" />
-                      <span>{selectedMentor.location}</span>
+                      <span>{selectedMentor.location || "Location not specified"}</span>
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Briefcase className="h-4 w-4 mr-1.5" />
-                      <span>{selectedMentor.experience} years experience</span>
+                      <span>{selectedMentor.experience ? `${selectedMentor.experience} years experience` : "Experience not specified"}</span>
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4 mr-1.5" />
@@ -585,7 +655,9 @@ const ConnectedMentorsPage = () => {
                     <h4 className="font-medium mb-4">Education</h4>
                     <div className="flex items-start">
                       <BookOpen className="h-4 w-4 mr-2 text-primary mt-0.5" />
-                      <span className="text-sm">{selectedMentor.education}</span>
+                      <span className="text-sm">
+                        {formatEducation(selectedMentor.education)}
+                      </span>
                     </div>
                   </div>
                   
@@ -660,4 +732,40 @@ const ConnectedMentorsPage = () => {
   );
 };
 
-export default ConnectedMentorsPage; 
+// Add this helper function in the component
+const formatEducation = (education) => {
+  // If education is already a string, return it
+  if (typeof education === 'string') {
+    return education;
+  }
+  
+  // If education is an object, format it appropriately
+  if (education && typeof education === 'object') {
+    let parts = [];
+    if (education.degree) parts.push(education.degree);
+    if (education.fieldOfStudy && !education.degree?.includes(education.fieldOfStudy)) {
+      parts.push(`in ${education.fieldOfStudy}`);
+    }
+    
+    // Handle both institution and university distinctly
+    if (education.institution && education.university && education.institution !== education.university) {
+      parts.push(`at ${education.institution}, ${education.university}`);
+    } else if (education.institution) {
+      parts.push(`at ${education.institution}`);
+    } else if (education.university) {
+      parts.push(`at ${education.university}`);
+    }
+    
+    return parts.join(' ');
+  }
+  
+  // If we have an array, take the first element
+  if (Array.isArray(education) && education.length > 0) {
+    return formatEducation(education[0]);
+  }
+  
+  // Fallback
+  return 'Education details not available';
+};
+
+export default ConnectedMentorsPage;

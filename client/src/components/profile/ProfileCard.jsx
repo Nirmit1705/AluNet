@@ -265,21 +265,30 @@ const ProfileCard = ({
         {/* Education section */}
         {education && (
           <div className="mb-4">
-            
-            {/* Previous Education Section */}
-            {previousEducation && previousEducation.length > 0 && (
-              <div className="mt-2">
-                <h5 className="text-sm font-medium mb-1">Previous Education</h5>
+            <h4 className="font-semibold mb-2">Education</h4>
+            {previousEducation && previousEducation.length > 0 ? (
+              <div className="space-y-2">
                 {previousEducation.map((edu, index) => (
-                  <div key={index} className="mb-2 ml-6 border-l-2 border-gray-200 pl-3 py-1">
-                    <p className="text-sm font-medium">{edu.degree} in {edu.fieldOfStudy}</p>
-                    <p className="text-xs text-muted-foreground">{edu.institution}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {edu.startYear} - {edu.endYear || 'Present'}
+                  <div key={index} className="ml-2 border-l-2 border-gray-200 dark:border-gray-700 pl-3 py-1">
+                    <p className="text-sm font-medium">
+                      {edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}
                     </p>
+                    <div className="text-xs text-muted-foreground">
+                      {edu.institution && edu.university && edu.institution !== edu.university ? (
+                        <p>{edu.institution}, {edu.university}</p>
+                      ) : (
+                        <p>{edu.institution || edu.university}</p>
+                      )}
+                      <p>{edu.startYear} - {edu.endYear || 'Present'}</p>
+                      {edu.description && (
+                        <p className="mt-1 italic">{edu.description}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{education}</p>
             )}
           </div>
         )}

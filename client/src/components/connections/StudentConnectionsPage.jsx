@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, MessageSquare, UserMinus, Users, ChevronLeft, X } from "lucide-react";
 import Navbar from "../layout/Navbar";
+import axios from 'axios';
 
 // Sample data for connections - in real app, this would come from an API
 const studentConnectionsData = [
@@ -87,7 +88,9 @@ const studentConnectionsData = [
 const StudentConnectionsPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [connections, setConnections] = useState(studentConnectionsData);
+  const [connections, setConnections] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
     programs: [],
@@ -135,10 +138,30 @@ const StudentConnectionsPage = () => {
   };
 
   // Actually remove the connection after confirmation
-  const removeConnection = (studentId) => {
-    setConnections(connections.filter(student => student.id !== studentId));
-    setConfirmingRemoval(null);
-    // In a real app, this would also update the backend
+  const removeConnection = async (connectionId) => {
+    try {
+      /*
+      // In a real implementation, you would call an API endpoint
+      const response = await axios.delete(`/api/connections/${connectionId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.status === 200) {
+        setConnections(connections.filter(conn => conn.id !== connectionId));
+        setConfirmingRemoval(null);
+      }
+      */
+      
+      // For now, just update the UI
+      setConnections(connections.filter(conn => conn.id !== connectionId));
+      setConfirmingRemoval(null);
+      
+      // Show success message
+      alert('Connection removed successfully');
+    } catch (error) {
+      console.error('Error removing connection:', error);
+      alert('Failed to remove connection');
+    }
   };
 
   // Cancel connection removal
@@ -154,6 +177,52 @@ const StudentConnectionsPage = () => {
       .join('')
       .toUpperCase();
   };
+
+  // Fetch connections from API
+  useEffect(() => {
+    const fetchConnections = async () => {
+      try {
+        setIsLoading(true);
+        
+        const response = await axios.get('/api/connections', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (response.status === 200) {
+          // Convert the API data format to the format expected by the component
+          const formattedConnections = response.data.map(conn => ({
+            id: conn._id,
+            userId: conn.connectionUserId,
+            name: conn.userDetails.name,
+            role: conn.userType,
+            program: conn.userDetails.branch || conn.userDetails.field || '',
+            year: conn.userDetails.currentYear || '',
+            company: conn.userDetails.company || '',
+            position: conn.userDetails.position || '',
+            connectionDate: new Date(conn.connectedSince).toISOString().split('T')[0],
+            avatar: conn.userDetails.profilePicture?.url || null,
+            lastActive: "Recently",
+            type: conn.userType === 'Alumni' ? "Peer" : "Student"
+          }));
+          
+          setConnections(formattedConnections);
+        } else {
+          throw new Error('Failed to fetch connections');
+        }
+      } catch (error) {
+        console.error('Error fetching connections:', error);
+        setError('Failed to load connections. Please try again later.');
+        // Fall back to sample data if available
+        if (studentConnectionsData) {
+          setConnections(studentConnectionsData);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchConnections();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -382,4 +451,4 @@ const StudentConnectionsPage = () => {
   );
 };
 
-export default StudentConnectionsPage; 
+export default StudentConnectionsPage;

@@ -4,305 +4,34 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, Book, GraduationCap, School, Clock, CheckCircle, Heart, Search, ExternalLink, X, Lightbulb, Star, Code, Plus, Edit, User, Info, Mail, Linkedin } from "lucide-react";
 import { useUniversity } from "../../context/UniversityContext";
-import Footer from "../layout/Footer"; // Import the Footer component
+import Footer from "../layout/Footer"; 
+import axios from "axios";
 
-// Sample data for job recommendations
-const jobRecommendations = [
-  {
-    id: 1,
-    title: "Software Engineer Intern",
-    company: "Tech Innovations Inc.",
-    location: "Remote",
-    type: "Internship",
-    salary: "$20-25/hr",
-    postedDate: "2023-12-15",
-    deadline: "2024-01-31",
-    description: "Join our team to work on cutting-edge web applications using React and Node.js...",
-    skills: ["React", "JavaScript", "Node.js"],
-    logoUrl: "https://randomuser.me/api/portraits/men/1.jpg",
-    companyUrl: "https://example.com",
-    applicationUrl: "https://example.com/apply"
-  },
-  {
-    id: 2,
-    title: "UI/UX Design Intern",
-    company: "Creative Solutions Co.",
-    location: "Hybrid",
-    type: "Internship",
-    salary: "$18-22/hr",
-    postedDate: "2023-12-20",
-    deadline: "2024-02-10",
-    description: "Help design beautiful and intuitive user interfaces for our products...",
-    skills: ["Figma", "UI Design", "Prototyping"],
-    logoUrl: "https://randomuser.me/api/portraits/women/2.jpg",
-    companyUrl: "https://example.com",
-    applicationUrl: "https://example.com/apply"
-  },
-  {
-    id: 3,
-    title: "Data Science Intern",
-    company: "DataSmart Analytics",
-    location: "On-site",
-    type: "Summer Internship",
-    salary: "$22-28/hr",
-    postedDate: "2023-12-18",
-    deadline: "2024-02-15",
-    description: "Work with our data science team to analyze large datasets and build predictive models...",
-    skills: ["Python", "Machine Learning", "SQL"],
-    logoUrl: "https://randomuser.me/api/portraits/men/3.jpg",
-    companyUrl: "https://example.com",
-    applicationUrl: "https://example.com/apply"
-  }
-];
+// Example reference job recommendation (keeping one as reference)
+const jobRecommendationExample = {
+  id: 1,
+  title: "Software Engineer Intern",
+  company: "Tech Innovations Inc.",
+  location: "Remote",
+  type: "Internship",
+  salary: "$20-25/hr",
+  postedDate: "2023-12-15",
+  deadline: "2024-01-31",
+  description: "Join our team to work on cutting-edge web applications using React and Node.js...",
+  skills: ["React", "JavaScript", "Node.js"],
+  logoUrl: "https://randomuser.me/api/portraits/men/1.jpg",
+  companyUrl: "https://example.com",
+  applicationUrl: "https://example.com/apply"
+};
 
-// Sample data for recommended mentors
-const recommendedMentors = [
-  {
-    id: 1,
-    name: "David Wilson",
-    role: "Senior Software Engineer at Google",
-    specialties: ["Web Development", "Career Guidance"],
-    availability: "Available this week"
-  },
-  {
-    id: 2,
-    name: "Sarah Chen",
-    role: "Product Manager at Microsoft",
-    specialties: ["Product Strategy", "UX Design"],
-    availability: "Available next week"
-  }
-];
-
-const notifications = [
-  {
-    id: 1,
-    title: "New mentorship opportunity",
-    description: "David Wilson is now available for mentoring",
-    time: "5 minutes ago",
-    icon: Award,
-  },
-  {
-    id: 2,
-    title: "New message",
-    description: "You have a new message from Alex Smith",
-    time: "1 hour ago",
-    icon: MessageSquare,
-  },
-  {
-    id: 3,
-    title: "Job opportunity",
-    description: "New internship positions available at Google",
-    time: "3 hours ago",
-    icon: Briefcase,
-  },
-];
-
-// Sample data for courses
-const courses = [
-  {
-    id: 1,
-    title: "Web Development Bootcamp",
-    instructor: "Mark Davis",
-    progress: 65,
-    nextLesson: "Responsive Design Principles"
-  },
-  {
-    id: 2,
-    title: "Data Science Fundamentals",
-    instructor: "Emily Wong",
-    progress: 42,
-    nextLesson: "Statistical Analysis"
-  },
-  {
-    id: 3,
-    title: "UI/UX Design Principles",
-    instructor: "Jessica Thompson",
-    progress: 87,
-    nextLesson: "User Testing"
-  }
-];
-
-// Sample data for skill assessments
-const skillAssessments = [
-  {
-    id: 1,
-    title: "Web Development Skills",
-    description: "Assess your knowledge in HTML, CSS, JavaScript and related technologies.",
-    estimatedTime: "45 mins",
-    progress: 75,
-    completed: false
-  },
-  {
-    id: 2,
-    title: "Python Programming",
-    description: "Test your Python coding skills with practical exercises.",
-    estimatedTime: "60 mins",
-    progress: 100,
-    completed: true
-  },
-  {
-    id: 3,
-    title: "Data Structures & Algorithms",
-    description: "Evaluate your problem-solving abilities with common CS problems.",
-    estimatedTime: "90 mins",
-    progress: 30,
-    completed: false
-  }
-];
-
-// Sample data - Current Mentorships
-const sampleMentorships = [
-  {
-    id: 1,
-    mentorName: "Dr. Sarah Chen",
-    mentorTitle: "Senior Data Scientist at Google",
-    mentorAvatar: "https://randomuser.me/api/portraits/women/32.jpg",
-    startDate: "2023-12-15",
-    nextSession: "2024-04-10",
-    totalSessions: 8,
-    completedSessions: 5,
-    focusAreas: ["Machine Learning", "Career Guidance", "Technical Interview Prep"],
-    status: "active",
-    progress: 62,
-    notes: "Working on a recommendation system project. Next session will focus on model optimization techniques.",
-    contact: {
-      email: "sarah.chen@example.com",
-      linkedin: "linkedin.com/in/sarahchen"
-    }
-  },
-  {
-    id: 2,
-    mentorName: "Michael Rodriguez",
-    mentorTitle: "Frontend Engineering Manager at Netflix",
-    mentorAvatar: "https://randomuser.me/api/portraits/men/45.jpg",
-    startDate: "2024-01-20",
-    nextSession: "2024-04-08",
-    totalSessions: 6,
-    completedSessions: 2,
-    focusAreas: ["React", "System Design", "Leadership Skills"],
-    status: "active",
-    progress: 33,
-    notes: "Building a portfolio project with React and TypeScript. Discussed component architecture and state management.",
-    contact: {
-      email: "m.rodriguez@example.com",
-      linkedin: "linkedin.com/in/michaelrodriguez"
-    }
-  },
-  {
-    id: 3,
-    mentorName: "Aisha Johnson",
-    mentorTitle: "Product Manager at Microsoft",
-    mentorAvatar: "https://randomuser.me/api/portraits/women/22.jpg",
-    startDate: "2023-11-05",
-    nextSession: "2024-04-15",
-    totalSessions: 10,
-    completedSessions: 10,
-    focusAreas: ["Product Strategy", "UX Research", "Stakeholder Management"],
-    status: "completed",
-    progress: 100,
-    notes: "Final session will focus on preparing for product management interviews and creating a case study portfolio.",
-    contact: {
-      email: "aisha.j@example.com",
-      linkedin: "linkedin.com/in/aishajohnson"
-    }
-  },
-  {
-    id: 4,
-    mentorName: "David Park",
-    mentorTitle: "Mobile Developer at Spotify",
-    mentorAvatar: "https://randomuser.me/api/portraits/men/57.jpg",
-    startDate: "2024-02-10",
-    nextSession: "2024-04-12",
-    totalSessions: 6,
-    completedSessions: 1,
-    focusAreas: ["Mobile Development", "React Native", "App Publishing"],
-    status: "active",
-    progress: 16,
-    notes: "Setting up development environment and creating wireframes for a music player app.",
-    contact: {
-      email: "david.park@example.com",
-      linkedin: "linkedin.com/in/davidpark"
-    }
-  }
-];
-
-// Sample data - Projects & Internships
-const userProjects = [
-  {
-    id: 1,
-    name: "E-commerce Platform",
-    description: "Developed a full-stack e-commerce platform with React, Node.js, and MongoDB",
-    technologies: ["React", "Node.js", "MongoDB", "Express"],
-    isHighlighted: true
-  },
-  {
-    id: 2,
-    name: "Machine Learning Classifier",
-    description: "Created a machine learning model to classify customer feedback sentiment",
-    technologies: ["Python", "TensorFlow", "NLP", "Pandas"],
-    isHighlighted: false
-  },
-  {
-    id: 3,
-    name: "Mobile Fitness App",
-    description: "Built a cross-platform fitness tracking application with workout plans and nutrition tracking",
-    technologies: ["React Native", "Firebase", "Redux", "Maps API"],
-    isHighlighted: false
-  }
-];
-
-const userInternships = [
-  {
-    id: 1,
-    company: "Google",
-    duration: "3 months",
-    role: "Software Engineering Intern",
-    description: "Worked on cloud infrastructure team developing monitoring tools",
-    current: false
-  },
-  {
-    id: 2,
-    company: "Microsoft",
-    duration: "6 months",
-    role: "Frontend Developer Intern",
-    description: "Implementing UI features for Microsoft Teams application",
-    current: true
-  }
-];
-
-// Sample data - Job recommendations
-const jobs = [
-  {
-    id: 1,
-    title: "Software Developer Intern",
-    company: "Tech Solutions Inc.",
-    location: "Remote",
-    posted: "2 days ago",
-    skills: ["React", "JavaScript", "Node.js"],
-    description: "Great opportunity for students to gain real-world experience in software development.",
-    tag: "New"
-  },
-  {
-    id: 2,
-    title: "Data Science Co-op",
-    company: "DataMinds Analytics",
-    location: "Hybrid",
-    posted: "1 week ago",
-    skills: ["Python", "SQL", "Machine Learning"],
-    description: "Join our team to work on real-world data science problems.",
-    tag: "Featured"
-  },
-  {
-    id: 3,
-    title: "UX/UI Design Intern",
-    company: "Creative Designs",
-    location: "On-site",
-    posted: "3 days ago",
-    skills: ["Figma", "Adobe XD", "UI/UX"],
-    description: "Help design beautiful and functional user interfaces for our clients.",
-    tag: "Hot"
-  }
-];
+// Example reference mentor (keeping one as reference)
+const recommendedMentorExample = {
+  id: 1,
+  name: "David Wilson",
+  role: "Senior Software Engineer at Google",
+  specialties: ["Web Development", "Career Guidance"],
+  availability: "Available this week"
+};
 
 const StudentDashboardPage = () => {
   const navigate = useNavigate();
@@ -320,35 +49,114 @@ const StudentDashboardPage = () => {
     rating: 0,
     feedback: "",
   });
+  
+  // New states for dynamic data
+  const [recommendedMentors, setRecommendedMentors] = useState([]);
+  const [jobRecommendations, setJobRecommendations] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState(null);
 
   useEffect(() => {
-    // Check both if university is not set AND if user hasn't chosen to skip the prompt
     const hasSkippedPrompt = localStorage.getItem('skipUniversityPrompt') === 'true';
     setShowUniversityPrompt(!userUniversity && !hasSkippedPrompt);
   }, [userUniversity]);
   
-  // Load mentorship data
+  // Fetch alumni data for mentors
+  const fetchAlumniData = async () => {
+    try {
+      setIsLoading(true);
+      // Replace with your actual API endpoint
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/alumni`);
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Transform alumni data to the mentor format
+        const transformedMentors = response.data.map(alumni => ({
+          id: alumni._id,
+          name: alumni.name,
+          role: `${alumni.jobTitle || 'Professional'} at ${alumni.company || 'Company'}`,
+          specialties: alumni.expertise || [],
+          availability: alumni.availability || "Available for mentorship",
+          profilePicture: alumni.profilePicture?.url || null,
+          email: alumni.email
+        }));
+        
+        setRecommendedMentors(transformedMentors);
+      } else {
+        // Keep the example as fallback
+        setRecommendedMentors([recommendedMentorExample]);
+        console.warn("Unexpected alumni data format", response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching alumni data:", error);
+      setLoadingError("Failed to fetch alumni data. Using sample data instead.");
+      // Fall back to the example data in case of error
+      setRecommendedMentors([recommendedMentorExample]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Fetch job data
+  const fetchJobData = async () => {
+    try {
+      // Replace with your actual API endpoint
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/jobs`);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setJobRecommendations(response.data);
+      } else {
+        // Keep the example as fallback
+        setJobRecommendations([jobRecommendationExample]);
+        console.warn("Unexpected job data format", response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching job data:", error);
+      // Fall back to the example data in case of error
+      setJobRecommendations([jobRecommendationExample]);
+    }
+  };
+  
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      // Replace with your actual API endpoint
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/students/notifications`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data)) {
+        setNotifications(response.data);
+      } else {
+        // Set empty array as fallback
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setNotifications([]);
+    }
+  };
+  
+  // Load data on component mount
   useEffect(() => {
-    // In a real app, this would fetch from an API
-    setCurrentMentorships(sampleMentorships);
+    const fetchData = async () => {
+      try {
+        await Promise.all([
+          fetchAlumniData(),
+          fetchJobData(),
+          fetchNotifications()
+        ]);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        setDashboardError("Failed to load some dashboard data");
+      }
+    };
+    
+    fetchData();
   }, []);
-  
-  // Function to navigate to university setting page
-  const goToSetUniversity = () => {
-    navigate("/settings/university");
-  };
-  
-  // Function to view mentorship details
-  const viewMentorshipDetails = (mentorship) => {
-    setSelectedMentorship(mentorship);
-    setShowMentorshipModal(true);
-  };
-  
-  // Function to view all mentorships
-  const viewAllMentorships = () => {
-    navigate("/mentorships");
-  };
-  
+
   // Error handling effect
   useEffect(() => {
     try {
@@ -378,16 +186,29 @@ const StudentDashboardPage = () => {
   }
   
   // Connect with mentor
-  const connectWithMentor = (mentorId) => {
-    // Check if already connected/requested
-    const mentor = recommendedMentors.find(m => m.id === mentorId);
-    if (!mentor) return;
-    
-    // In a real app, this would send a connection request to the backend
-    alert(`Connection request sent to ${mentor.name}`);
-    
-    // You could also update the UI to show "Request Sent" instead of "Connect"
-    // This would require additional state to track pending requests
+  const connectWithMentor = async (mentorId) => {
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/request`,
+        { 
+          alumniId: mentorId, // Change to alumniId instead of mentorId
+          message: "I would like to connect with you for mentorship guidance." 
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.status === 201) {
+        alert("Connection request sent successfully");
+      }
+    } catch (error) {
+      console.error("Error sending connection request:", error);
+      alert(`Error: ${error.response?.data?.message || "Failed to send connection request"}`);
+    }
   };
   
   // Navigate to mentors page
@@ -417,102 +238,23 @@ const StudentDashboardPage = () => {
   // View job opportunities
   const viewJobOpportunities = () => {
     navigate("/jobs");
-    // In a real app, this would navigate to a jobs page
-    alert("Navigating to job opportunities");
   };
+  
+  // ... existing functions ...
 
-  // Mark notification as read (new function)
-  const markNotificationAsRead = (notificationId) => {
-    // In a real app, this would update the notification status in the backend
-    // For now, we'll just log it
-    console.log(`Marking notification ${notificationId} as read`);
-  };
-
-  // Mark all notifications as read
-  const markAllNotificationsAsRead = () => {
-    // In a real app, this would update all notifications status in the backend
-    console.log("Marking all notifications as read");
-    
-    // You could also update a local state to visually indicate they're read
-    alert("All notifications marked as read");
-  };
-
-  // Save/bookmark a job
-  const saveJob = (jobId) => {
-    if (savedJobs.includes(jobId)) {
-      setSavedJobs(savedJobs.filter(id => id !== jobId));
-      alert(`Job removed from saved jobs`);
-    } else {
-      setSavedJobs([...savedJobs, jobId]);
-      alert(`Job saved for later reference`);
-    }
-  };
-
-
-  // Handle rating change
-  const handleRatingChange = (mentorshipId, rating) => {
-    setFeedbackData((prev) =>
-      prev.map((data) =>
-        data.id === mentorshipId ? { ...data, rating } : data
-      )
+  // Loading indicator
+  if (isLoading) {
+    return (
+      <div className="container-custom py-10">
+        <div className="flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-lg text-gray-600 dark:text-gray-400">Loading dashboard data...</p>
+        </div>
+      </div>
     );
-  };
+  }
 
-  // Handle feedback change
-  const handleFeedbackChange = (mentorshipId, feedback) => {
-    setFeedbackData((prev) =>
-      prev.map((data) =>
-        data.id === mentorshipId ? { ...data, feedback } : data
-      )
-    );
-  };
-
-  // Submit feedback
-  const submitFeedback = (mentorshipId) => {
-    if (!feedbackData.rating) {
-      alert("Please provide a rating before submitting feedback.");
-      return;
-    }
-    if (!feedbackData.feedback.trim()) {
-      alert("Please provide feedback before submitting.");
-      return;
-    }
-
-    // Simulate API call
-    console.log("Submitting feedback:", { mentorshipId, ...feedbackData });
-    alert("Thank you for your feedback!");
-
-    // Close modal after submission
-    closeFeedbackModal();
-  };
-
-  // Open feedback modal
-  const openFeedbackModal = (mentorship) => {
-    setSelectedMentorship(mentorship);
-    setFeedbackData({ rating: 0, feedback: "" }); // Reset feedback data
-    setShowFeedbackModal(true);
-  };
-
-  useEffect(() => {
-    setFeedbackData(
-      currentMentorships.map((mentorship) => ({
-        id: mentorship.id,
-        rating: 0,
-        feedback: "",
-      }))
-    );
-  }, [currentMentorships]);
-
-  const feedbackPlaceholder = "Write your feedback here...";
-
-  const closeFeedbackModal = () => {
-    setShowFeedbackModal(false);
-    setFeedbackData({
-      rating: 0,
-      feedback: "",
-    });
-  };
-
+  // The rest of your component with now dynamic data
   return (
     <div className="min-h-screen flex flex-col">
       {/* Main content container - Adjusted padding and width */}
@@ -757,35 +499,35 @@ const StudentDashboardPage = () => {
                       </div>
                     </div>
                   ))}
-              </div>
-              
-              {/* Show "View All Mentorships" button if there are more than 2 mentorships */}
-              {currentMentorships.filter((mentorship) => mentorship.progress < 100).length > 2 && (
-                <button
-                  onClick={viewAllMentorships}
-                  className="w-full mt-4 py-2 bg-white dark:bg-slate-800 text-primary hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  View All Mentorships
-                </button>
-              )}
-              
-              {/* Show message if there are no active mentorships */}
-              {currentMentorships.filter((mentorship) => mentorship.progress < 100).length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                  <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-2">No Active Mentorships</h4>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-                    You don't have any active mentorships at the moment.
-                  </p>
+
+                {/* Show "View All Mentorships" button if there are more than 2 mentorships */}
+                {currentMentorships.filter((mentorship) => mentorship.progress < 100).length > 2 && (
                   <button
-                    onClick={() => navigate("/connected-mentors")}
-                    className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
+                    onClick={viewAllMentorships}
+                    className="w-full mt-4 py-2 bg-white dark:bg-slate-800 text-primary hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors font-medium flex items-center justify-center gap-2"
                   >
-                    Find a Mentor
+                    <Users className="h-4 w-4" />
+                    View All Mentorships
                   </button>
-                </div>
-              )}
+                )}
+                
+                {/* Show message if there are no active mentorships */}
+                {currentMentorships.filter((mentorship) => mentorship.progress < 100).length === 0 && (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-2">No Active Mentorships</h4>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+                      You don't have any active mentorships at the moment.
+                    </p>
+                    <button
+                      onClick={() => navigate("/connected-mentors")}
+                      className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Find a Mentor
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Connect with Professionals Section */}

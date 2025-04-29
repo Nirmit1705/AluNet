@@ -28,7 +28,10 @@ export const UniversityProvider = ({ children }) => {
 
   // Extract university name from education string
   const extractUniversity = (educationString) => {
-    if (!educationString) return '';
+    // First, check if educationString is actually a string
+    if (!educationString || typeof educationString !== 'string') {
+      return '';
+    }
     
     // Try to extract university name after the degree
     const matches = educationString.match(/,\s*([^,]+)$/);
@@ -83,4 +86,4 @@ export const UniversityProvider = ({ children }) => {
       {children}
     </UniversityContext.Provider>
   );
-}; 
+};

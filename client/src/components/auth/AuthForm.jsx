@@ -853,14 +853,6 @@ const AuthForm = forwardRef(({
               <label htmlFor="password" className="text-sm font-medium">
                 Password
               </label>
-              {type === "login" && (
-                <Link
-                  to="/forgot-password"
-                  className="text-sm font-medium text-primary hover:text-primary/80"
-                >
-                  Forgot password?
-                </Link>
-              )}
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1152,7 +1144,7 @@ const AuthForm = forwardRef(({
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="college" className="text-xs font-medium">College *</label>
+                <label htmlFor="college" className="text-xs font-medium">College/Institution *</label>
                 <input
                   id="college"
                   name="college"

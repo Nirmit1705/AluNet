@@ -4,6 +4,7 @@ import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, G
 import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
 import Footer from "../layout/Footer"; // Add this import
+import axios from "axios";
 
 // Sample data for student success stories
 const successStories = [
@@ -549,6 +550,150 @@ const viewApplicants = (jobId) => {
   }
 };
 
+  // Add these state variables near your other state declarations
+const [pendingConnectionRequests, setPendingConnectionRequests] = useState([]);
+const [showConnectionRequestsModal, setShowConnectionRequestsModal] = useState(false);
+
+// Add this to your useEffect for data fetching
+useEffect(() => {
+  const fetchConnectionRequests = async () => {
+    try {
+      const response = await axios.get('/api/connections/requests/pending', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.status === 200) {
+        setPendingConnectionRequests(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching connection requests:", error);
+    }
+  };
+  
+  fetchConnectionRequests();
+}, []);
+
+// Add these functions to handle connection requests
+const acceptConnectionRequest = async (requestId) => {
+  try {
+    const response = await axios.put(`/api/connections/requests/${requestId}/respond`, 
+      { status: 'accepted' },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+    );
+    
+    if (response.status === 200) {
+      // Update the local state to remove the accepted request
+      setPendingConnectionRequests(prevRequests => 
+        prevRequests.filter(req => req._id !== requestId)
+      );
+      
+      alert('Connection request accepted');
+    }
+  } catch (error) {
+    console.error("Error accepting connection request:", error);
+    alert('Failed to accept connection request');
+  }
+};
+
+const rejectConnectionRequest = async (requestId) => {
+  try {
+    const response = await axios.put(`/api/connections/requests/${requestId}/respond`, 
+      { status: 'rejected' },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+    );
+    
+    if (response.status === 200) {
+      // Update the local state to remove the rejected request
+      setPendingConnectionRequests(prevRequests => 
+        prevRequests.filter(req => req._id !== requestId)
+      );
+      
+      alert('Connection request rejected');
+    }
+  } catch (error) {
+    console.error("Error rejecting connection request:", error);
+    alert('Failed to reject connection request');
+  }
+};
+// Add a Connection Requests Modal component within your dashboard component
+const ConnectionRequestsModal = () => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-xl p-6 animate-fade-in max-h-[80vh] overflow-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold">Connection Requests</h3>
+        <button 
+          onClick={() => setShowConnectionRequestsModal(false)}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      
+      {pendingConnectionRequests.length === 0 ? (
+        <div className="text-center py-8">
+          <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-medium mb-2">No Pending Requests</h3>
+          <p className="text-muted-foreground">You don't have any pending connection requests at the moment.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {pendingConnectionRequests.map((request) => (
+            <div key={request._id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
+                    {request.from?.details?.profilePicture?.url ? (
+                      <img src={request.from.details.profilePicture.url} alt="" className="h-full w-full rounded-full object-cover" />
+                    ) : (
+                      <Users className="h-6 w-6" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{request.from?.details?.name || "Unknown User"}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Student • {request.from?.details?.branch || ''} 
+                      {request.from?.details?.currentYear ? ` • ${request.from.details.currentYear} Year` : ''}
+                    </p>
+                    {request.from?.details?.university && (
+                      <p className="text-xs text-muted-foreground">
+                        {request.from.details.university}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Requested {new Date(request.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => rejectConnectionRequest(request._id)}
+                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => acceptConnectionRequest(request._id)}
+                    className="px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    Accept
+                  </button>
+                </div>
+              </div>
+              
+              {request.message && (
+                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-sm">{request.message}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
   return (
     <div className="pb-12 relative min-h-screen flex flex-col">
       <div className="container-custom pt-20 flex-grow">
@@ -829,39 +974,38 @@ const viewApplicants = (jobId) => {
 
           {/* Right sidebar - 1/3 width */}
           <div className="space-y-8">
-            {/* Notifications Section */}
+            {/* Replace Notifications Section with Connection Requests Section */}
             <div className="glass-card rounded-xl p-6 animate-fade-in">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Recent Notifications</h3>
-                <button 
-                  className="relative group"
-                  onClick={toggleNotifications}
-                >
-                  <Bell className="h-5 w-5 text-primary" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white w-4 h-4 flex items-center justify-center text-xs rounded-full">
-                    {notifications.length}
-                  </span>
-                </button>
+                <h3 className="font-medium text-lg">Connection Requests</h3>
+                <Users className="h-5 w-5 text-primary" />
               </div>
-              <div className="space-y-3">
-                {notifications.slice(0, 3).map((notification) => (
-                  <div key={notification.id} className="flex p-3 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <div className="rounded-full bg-primary/10 p-2 mr-3">
-                      <notification.icon className="h-4 w-4 text-primary" />
+              
+              {pendingConnectionRequests.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">No pending connection requests</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingConnectionRequests.slice(0, 2).map((request) => (
+                    <div key={request._id} className="flex p-3 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                      <div className="rounded-full bg-primary/10 p-2 mr-3">
+                        <Users className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium">{request.from?.details?.name || "Unknown user"} wants to connect</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {request.from?.model === 'Student' ? 'Student' : 'Alumni'} - {new Date(request.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium">{notification.title}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">{notification.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{notification.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+              
               <button 
                 className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
-                onClick={toggleNotifications}
+                onClick={() => setShowConnectionRequestsModal(true)}
               >
-                View all notifications
+                View all connection requests
                 <ChevronRight className="h-4 w-4 ml-1" />
               </button>
             </div>
@@ -1378,7 +1522,7 @@ const viewApplicants = (jobId) => {
             }}
             className="px-4 py-2 flex items-center justify-center space-x-1 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
             Cancel Session
           </button>
           
@@ -1405,6 +1549,10 @@ const viewApplicants = (jobId) => {
     </div>
   </div>
 )}
+
+      {/* Don't forget to include the modal component in your render */}
+      {showConnectionRequestsModal && <ConnectionRequestsModal />}
+
       <Footer />
     </div>
   );

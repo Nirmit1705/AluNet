@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Search, 
@@ -12,307 +12,501 @@ import {
   MessageSquare, 
   X, 
   Users, 
-  ArrowLeft,
+  ChevronLeft,
   Heart,
   ExternalLink,
   Calendar,
   Mail,
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  School
+  Info,
+  School,
+  Eye,
+  UserPlus,
+  Clock
 } from "lucide-react";
 import { useUniversity } from "../../context/UniversityContext";
-
-// Sample alumni data (in a real app, this would come from an API call)
-// const alumniData = [
-//   {
-//     id: 1,
-//     name: "Dr. Emily Rodriguez",
-//     role: "Senior Software Engineer",
-//     company: "Google",
-//     experience: 8,
-//     location: "San Francisco, CA",
-//     avatar: null,
-//     specialization: "Machine Learning",
-//     graduationYear: 2016,
-//     email: "emily.rodriguez@example.com",
-//     linkedin: "https://linkedin.com/in/emilyrodriguez",
-//     skills: ["Machine Learning", "Python", "TensorFlow"],
-//     education: "Ph.D. Computer Science, Stanford University",
-//     interests: ["AI Ethics", "Mentoring", "Open Source"],
-//     bio: "Experienced ML engineer with a passion for helping students navigate the tech industry. Specializes in career guidance for those interested in AI and data science."
-//   },
-//   {
-//     id: 2,
-//     name: "Michael Chen",
-//     role: "Technical Product Manager",
-//     company: "Microsoft",
-//     experience: 6,
-//     location: "Seattle, WA",
-//     avatar: null,
-//     specialization: "Product Management",
-//     graduationYear: 2018,
-//     email: "michael.chen@example.com",
-//     linkedin: "https://linkedin.com/in/michaelchen",
-//     skills: ["Product Management", "UX Design", "Agile"],
-//     education: "M.S. Computer Science, University of Washington",
-//     interests: ["Product Strategy", "Agile Development", "User Research"],
-//     bio: "Product manager with engineering background who helps students understand the intersection of technology and business. Can provide guidance on technical product roles."
-//   },
-//   {
-//     id: 3,
-//     name: "Sarah Johnson",
-//     role: "Frontend Engineering Lead",
-//     company: "Meta",
-//     experience: 7,
-//     location: "Remote",
-//     avatar: null,
-//     specialization: "Web Development",
-//     graduationYear: 2017,
-//     email: "sarah.johnson@example.com",
-//     linkedin: "https://linkedin.com/in/sarahjohnson",
-//     skills: ["React", "JavaScript", "UI Architecture"],
-//     education: "B.S. Computer Science, MIT",
-//     interests: ["Web Performance", "Design Systems", "Developer Experience"],
-//     bio: "Frontend expert who loves helping students build impressive portfolios and prepare for technical interviews. Specializes in modern JavaScript frameworks and UI architecture."
-//   },
-//   {
-//     id: 4,
-//     name: "David Williams",
-//     role: "Data Science Director",
-//     company: "Amazon",
-//     experience: 10,
-//     location: "New York, NY",
-//     avatar: null,
-//     specialization: "Data Science",
-//     graduationYear: 2014,
-//     email: "david.williams@example.com",
-//     linkedin: "https://linkedin.com/in/davidwilliams",
-//     skills: ["Data Science", "Python", "Machine Learning", "SQL"],
-//     education: "Ph.D. Statistics, Columbia University",
-//     interests: ["Large Language Models", "Data Ethics", "Causal Inference"],
-//     bio: "Data science leader passionate about mentoring the next generation of data professionals. Can provide guidance on projects, career paths, and advanced techniques."
-//   },
-//   {
-//     id: 5,
-//     name: "Jessica Kim",
-//     role: "Security Engineering Manager",
-//     company: "IBM",
-//     experience: 9,
-//     location: "Austin, TX",
-//     avatar: null,
-//     specialization: "Cybersecurity",
-//     graduationYear: 2015,
-//     email: "jessica.kim@example.com",
-//     linkedin: "https://linkedin.com/in/jessicakim",
-//     skills: ["Cybersecurity", "Network Security", "Ethical Hacking"],
-//     education: "M.S. Information Security, Carnegie Mellon University",
-//     interests: ["Security Education", "Ethical Hacking", "Privacy"],
-//     bio: "Cybersecurity expert who helps students navigate the complex world of information security. Provides guidance on security careers, certifications, and practical skills."
-//   },
-//   {
-//     id: 6,
-//     name: "James Wilson",
-//     role: "Backend Developer",
-//     company: "Netflix",
-//     experience: 5,
-//     location: "Los Angeles, CA",
-//     avatar: null,
-//     specialization: "Distributed Systems",
-//     graduationYear: 2019,
-//     email: "james.wilson@example.com",
-//     linkedin: "https://linkedin.com/in/jameswilson",
-//     skills: ["Java", "Microservices", "AWS", "Spring Boot"],
-//     education: "B.S. Computer Engineering, UCLA",
-//     interests: ["System Design", "Cloud Architecture", "Performance Optimization"],
-//     bio: "Backend developer specialized in building scalable systems. Enjoys mentoring students in system design and server-side technologies."
-//   },
-//   {
-//     id: 7,
-//     name: "Olivia Garcia",
-//     role: "UX Research Lead",
-//     company: "Airbnb",
-//     experience: 7,
-//     location: "San Francisco, CA",
-//     avatar: null,
-//     specialization: "User Research",
-//     graduationYear: 2017,
-//     email: "olivia.garcia@example.com",
-//     linkedin: "https://linkedin.com/in/oliviagarcia",
-//     skills: ["User Research", "Usability Testing", "Design Thinking"],
-//     education: "M.S. Human-Computer Interaction, Carnegie Mellon University",
-//     interests: ["Accessible Design", "Behavioral Economics", "Design Ethics"],
-//     bio: "UX researcher passionate about creating user-centered experiences. Mentors students interested in UX careers and research methodologies."
-//   },
-//   {
-//     id: 8,
-//     name: "Robert Taylor",
-//     role: "Mobile Developer",
-//     company: "Spotify",
-//     experience: 6,
-//     location: "Stockholm, Sweden",
-//     avatar: null,
-//     specialization: "Mobile Development",
-//     graduationYear: 2018,
-//     email: "robert.taylor@example.com",
-//     linkedin: "https://linkedin.com/in/roberttaylor",
-//     skills: ["iOS", "Swift", "Android", "Kotlin"],
-//     education: "M.S. Mobile Computing, KTH Royal Institute of Technology",
-//     interests: ["App Architecture", "UI Animation", "Cross-platform Development"],
-//     bio: "Mobile developer with experience in both iOS and Android platforms. Helps students understand mobile development best practices and career paths."
-//   }
-// ];
+import axios from "axios";
+import { toast } from "sonner";
 
 // Component definition starts here
 const AlumniDirectory = () => {
+  const navigate = useNavigate();
+  // Extract userUniversity and related functions from the context
+  const { userUniversity, filterByUniversity, extractUniversity } = useUniversity();
+  
+  // State variables
   const [allAlumni, setAllAlumni] = useState([]);
   const [alumni, setAlumni] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  // ...other state variables
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedAlumni, setSelectedAlumni] = useState(null);
+  const [connections, setConnections] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [favorites, setFavorites] = useState([]);
+  const [noResults, setNoResults] = useState(false);
+  const itemsPerPage = 12;
+  
+  const [filters, setFilters] = useState({
+    companies: [],
+    specializations: [],
+    graduationYears: [],
+    skills: [],
+    universities: []
+  });
+  
+  // Add these state variables to track connection requests
+  const [connectionRequests, setConnectionRequests] = useState({});
+  const [connectedAlumni, setConnectedAlumni] = useState([]);
+
+  // Sample alumni data for testing
+  const alumniData = [
+    {
+      id: 1,
+      name: "Dr. Emily Rodriguez",
+      role: "Senior Software Engineer",
+      company: "Google",
+      experience: 8,
+      location: "San Francisco, CA",
+      avatar: null,
+      specialization: "Machine Learning",
+      graduationYear: 2016,
+      email: "emily.rodriguez@example.com",
+      linkedin: "https://linkedin.com/in/emilyrodriguez",
+      skills: ["Machine Learning", "Python", "TensorFlow"],
+      education: "Ph.D. Computer Science, Stanford University",
+      interests: ["AI Ethics", "Mentoring", "Open Source"],
+      bio: "Experienced ML engineer with a passion for helping students navigate the tech industry. Specializes in career guidance for those interested in AI and data science."
+    },
+    {
+      id: 2,
+      name: "James Wilson",
+      role: "Product Manager",
+      company: "Microsoft",
+      experience: 5,
+      location: "Seattle, WA",
+      avatar: null,
+      specialization: "Product Development",
+      graduationYear: 2018,
+      email: "james.wilson@example.com",
+      linkedin: "https://linkedin.com/in/jameswilson",
+      skills: ["Product Management", "UX Design", "Agile"],
+      education: "MBA, University of Washington",
+      interests: ["Technology Innovation", "Mentoring", "Entrepreneurship"],
+      bio: "Product manager with experience in launching consumer tech products. Happy to help students interested in product management roles."
+    },
+    {
+      id: 3,
+      name: "Sophia Chen",
+      role: "Data Scientist",
+      company: "Netflix",
+      experience: 6,
+      location: "Los Angeles, CA",
+      avatar: null,
+      specialization: "Data Analytics",
+      graduationYear: 2017,
+      email: "sophia.chen@example.com",
+      linkedin: "https://linkedin.com/in/sophiachen",
+      skills: ["Data Science", "Python", "SQL", "Statistics"],
+      education: "M.S. Data Science, UCLA",
+      interests: ["Machine Learning", "Data Visualization", "Career Development"],
+      bio: "Data scientist with expertise in recommendation systems. Passionate about helping students transition into data science roles."
+    },
+    {
+      id: 4,
+      name: "Marcus Johnson",
+      role: "Frontend Developer",
+      company: "Amazon",
+      experience: 4,
+      location: "New York, NY",
+      avatar: null,
+      specialization: "Web Development",
+      graduationYear: 2019,
+      email: "marcus.johnson@example.com",
+      linkedin: "https://linkedin.com/in/marcusjohnson",
+      skills: ["React", "JavaScript", "HTML/CSS"],
+      education: "B.S. Computer Science, NYU",
+      interests: ["Web Accessibility", "UI Design", "Mentoring Juniors"],
+      bio: "Frontend developer focusing on creating accessible web experiences. Happy to mentor students on web development and modern JavaScript."
+    },
+    {
+      id: 5,
+      name: "Priya Patel",
+      role: "Project Manager",
+      company: "IBM",
+      experience: 7,
+      location: "Chicago, IL",
+      avatar: null,
+      specialization: "Project Management",
+      graduationYear: 2016,
+      email: "priya.patel@example.com",
+      linkedin: "https://linkedin.com/in/priyapatel",
+      skills: ["Project Management", "Agile", "Scrum", "Leadership"],
+      education: "MBA, University of Chicago",
+      interests: ["Leadership Development", "Women in Tech", "Public Speaking"],
+      bio: "Project manager with experience in large enterprise software implementations. Passionate about mentoring women in technology."
+    },
+    {
+      id: 6,
+      name: "David Kim",
+      role: "UX Designer",
+      company: "Apple",
+      experience: 9,
+      location: "Cupertino, CA",
+      avatar: null,
+      specialization: "User Experience",
+      graduationYear: 2014,
+      email: "david.kim@example.com",
+      linkedin: "https://linkedin.com/in/davidkim",
+      skills: ["UX Research", "Figma", "User Testing", "Prototyping"],
+      education: "M.F.A. Design, RISD",
+      interests: ["Design Thinking", "Accessibility", "Mentoring"],
+      bio: "UX designer with experience creating human-centered digital experiences. Enjoy mentoring students interested in UX/UI design."
+    },
+    {
+      id: 7,
+      name: "Olivia Martinez",
+      role: "Cybersecurity Analyst",
+      company: "Cisco",
+      experience: 6,
+      location: "San Jose, CA",
+      avatar: null,
+      specialization: "Network Security",
+      graduationYear: 2017,
+      email: "olivia.martinez@example.com",
+      linkedin: "https://linkedin.com/in/oliviamartinez",
+      skills: ["Network Security", "Penetration Testing", "Security Auditing"],
+      education: "M.S. Cybersecurity, Stanford University",
+      interests: ["Digital Forensics", "Security Education", "Women in Cybersecurity"],
+      bio: "Cybersecurity professional specializing in network defense. Passionate about increasing diversity in the cybersecurity field."
+    },
+    {
+      id: 8,
+      name: "Robert Smith",
+      role: "Backend Engineer",
+      company: "Salesforce",
+      experience: 10,
+      location: "San Francisco, CA",
+      avatar: null,
+      specialization: "Cloud Architecture",
+      graduationYear: 2012,
+      email: "robert.smith@example.com",
+      linkedin: "https://linkedin.com/in/robertsmith",
+      skills: ["Java", "Spring Boot", "AWS", "Microservices"],
+      education: "B.S. Computer Engineering, UC Berkeley",
+      interests: ["System Design", "Mentoring", "Open Source Development"],
+      bio: "Experienced backend engineer specializing in scalable cloud architectures. Enjoy mentoring students on system design principles."
+    }
+  ];
 
   // Fetch alumni data when component mounts
   useEffect(() => {
     const fetchAlumni = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/alumni');
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch alumni data');
+        // Try to fetch from API first
+        try {
+          const response = await axios.get('/api/alumni', {
+            params: {
+              includeEducation: true,
+              includeAll: true
+            }
+          });
+          
+          if (response.status === 200 && response.data) {
+            // Process the data to ensure education field is properly formatted
+            const processedData = response.data.map(alum => {
+              // Keep original education data
+              let educationField = '';
+              
+              // Case 1: If education is already a string
+              if (alum.education && typeof alum.education === 'string') {
+                educationField = alum.education;
+              } 
+              // Case 2: If education is an array
+              else if (alum.education && Array.isArray(alum.education) && alum.education.length > 0) {
+                educationField = alum.education.map(edu => {
+                  if (typeof edu === 'object') {
+                    let parts = [];
+                    if (edu.degree) parts.push(edu.degree);
+                    if (edu.fieldOfStudy && !edu.degree?.includes(edu.fieldOfStudy)) {
+                      parts.push(`in ${edu.fieldOfStudy}`);
+                    }
+                    
+                    // Handle both institution and university distinctly
+                    if (edu.institution && edu.university && edu.institution !== edu.university) {
+                      parts.push(`${edu.institution}, ${edu.university}`);
+                    } else if (edu.institution) {
+                      parts.push(edu.institution);
+                    } else if (edu.university) {
+                      parts.push(edu.university);
+                    }
+                    
+                    // Handle years
+                    if (edu.startYear && edu.endYear) {
+                      parts.push(`(${edu.startYear}-${edu.endYear})`);
+                    } else if (edu.endYear) {
+                      parts.push(`(${edu.endYear})`);
+                    }
+                    
+                    return parts.join(' ');
+                  }
+                  return edu;
+                }).join('; ');
+              }
+              // Case 3: Fall back to degree + university
+              else if (alum.degree && alum.university) {
+                educationField = `${alum.degree}, ${alum.university}`;
+              }
+              // Case 4: Final fallback
+              else {
+                educationField = alum.university || 'Education information not available';
+              }
+              
+              return {
+                ...alum,
+                education: educationField,
+                // Keep the original education array if it exists for detailed view
+                previousEducation: Array.isArray(alum.education) ? alum.education : 
+                                   Array.isArray(alum.previousEducation) ? alum.previousEducation : null
+              };
+            });
+            
+            setAllAlumni(processedData);
+            setAlumni(processedData);
+          } else {
+            throw new Error('API returned unexpected response');
+          }
+        } catch (apiError) {
+          console.log('API fetch failed, using sample data:', apiError);
+          // Fall back to sample data if API fails
+          setAllAlumni(alumniData);
+          setAlumni(alumniData);
         }
         
-        const data = await response.json();
-        setAllAlumni(data);
-        setAlumni(data);
+        // Fetch user's connections
+        try {
+          const connectionsResponse = await axios.get('/api/connections', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          
+          if (connectionsResponse.status === 200) {
+            setConnections(connectionsResponse.data.map(conn => conn.userId));
+          }
+        } catch (connectionsError) {
+          console.log('Connections fetch failed:', connectionsError);
+          // No fallback needed for connections
+        }
+        
       } catch (error) {
-        console.error('Error fetching alumni:', error);
+        console.error('Error setting up alumni directory:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAlumni();
+    
+    // Load favorites from localStorage
+    const savedFavorites = localStorage.getItem('favoriteAlumni');
+    if (savedFavorites) {
+      setFavorites(JSON.parse(savedFavorites));
+    }
   }, []);
-  const [selectedAlumni, setSelectedAlumni] = useState(null);
-  const [savedAlumni, setSavedAlumni] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showingAllUniversities, setShowingAllUniversities] = useState(false);
-  const alumniPerPage = 6;
-  
-  // Calculate current alumni to display
-  const indexOfLastAlumni = currentPage * alumniPerPage;
-  const indexOfFirstAlumni = indexOfLastAlumni - alumniPerPage;
-  const currentAlumni = alumni.slice(indexOfFirstAlumni, indexOfLastAlumni);
-  const totalPages = Math.ceil(alumni.length / alumniPerPage);
-  
-  // Filter alumni by university when component mounts or userUniversity changes
+
+  // Add this useEffect to fetch connection requests and connected alumni when component mounts
   useEffect(() => {
-    if (!showingAllUniversities && userUniversity) {
-      const filteredByUniversity = filterByUniversity(alumniData);
-      setAllAlumni(filteredByUniversity);
-      setAlumni(filteredByUniversity);
-    } else {
-      setAllAlumni(alumniData);
-      setAlumni(alumniData);
-    }
-    // Reset pagination when changing university filter
-    setCurrentPage(1);
-  }, [userUniversity, filterByUniversity, showingAllUniversities]);
-  
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  
-  useEffect(() => {
-    // Reset pagination when filtering
-    setCurrentPage(1);
-  }, [alumni]);
-  
-  // Navigate back
-  const goBack = () => {
-    navigate(-1);
-  };
-  
-  // Toggle university filter
-  const toggleUniversityFilter = () => {
-    setShowingAllUniversities(!showingAllUniversities);
-  };
-  
-  // Handle search input
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    filterAlumni(e.target.value, filters);
-  };
-  
-  // Filter alumni based on search and filters
-  const filterAlumni = (searchTerm, filterCriteria) => {
-    let filtered = allAlumni;
-    
-    // Apply text search (name, role, company, skills, education/university)
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(alumnus => 
-        alumnus.name.toLowerCase().includes(term) ||
-        alumnus.role.toLowerCase().includes(term) ||
-        alumnus.company.toLowerCase().includes(term) ||
-        alumnus.specialization.toLowerCase().includes(term) ||
-        alumnus.education?.toLowerCase().includes(term) ||
-        extractUniversity(alumnus.education).toLowerCase().includes(term) ||
-        alumnus.skills.some(skill => skill.toLowerCase().includes(term))
-      );
-    }
-    
-    // Apply company filters
-    if (filterCriteria.companies.length > 0) {
-      filtered = filtered.filter(alumnus => 
-        filterCriteria.companies.includes(alumnus.company)
-      );
-    }
-    
-    // Apply specialization filters
-    if (filterCriteria.specializations.length > 0) {
-      filtered = filtered.filter(alumnus => 
-        filterCriteria.specializations.includes(alumnus.specialization)
-      );
-    }
-    
-    // Apply graduation year filters
-    if (filterCriteria.graduationYears.length > 0) {
-      filtered = filtered.filter(alumnus => 
-        filterCriteria.graduationYears.includes(alumnus.graduationYear.toString())
-      );
-    }
-    
-    // Apply skills filters
-    if (filterCriteria.skills.length > 0) {
-      filtered = filtered.filter(alumnus => 
-        filterCriteria.skills.some(skill => 
-          alumnus.skills.includes(skill)
-        )
-      );
-    }
-    
-    // Apply university filters
-    if (filterCriteria.universities.length > 0) {
-      filtered = filtered.filter(alumnus => {
-        const university = extractUniversity(alumnus.education);
-        return filterCriteria.universities.some(uni => 
-          university.toLowerCase().includes(uni.toLowerCase())
+    const fetchConnectionStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // Fetch pending sent connection requests
+        const pendingResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/requests/sent`, 
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-      });
+        
+        // Create a map of alumni IDs to connection status
+        const requestMap = {};
+        pendingResponse.data.forEach(request => {
+          const alumniId = request.recipient._id || request.recipient.details?._id;
+          if (alumniId) {
+            requestMap[alumniId] = request.status;
+          }
+        });
+        
+        setConnectionRequests(requestMap);
+        
+        // Fetch connected alumni
+        const connectedResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections`, 
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        // Extract alumni IDs from connections
+        const connectedIds = connectedResponse.data
+          .filter(conn => conn.userType === 'Alumni')
+          .map(conn => conn.connectionUserId);
+        
+        setConnectedAlumni(connectedIds);
+        
+      } catch (error) {
+        console.error("Error fetching connection status:", error);
+      }
+    };
+    
+    fetchConnectionStatus();
+  }, []);
+
+  // Handle search
+  const handleSearch = (e) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    
+    if (!query) {
+      setAlumni(allAlumni);
+      setNoResults(false);
+      return;
     }
+    
+    const filtered = allAlumni.filter(alum => 
+      alum.name.toLowerCase().includes(query) ||
+      (alum.company && alum.company.toLowerCase().includes(query)) ||
+      (alum.specialization && alum.specialization.toLowerCase().includes(query)) ||
+      (alum.skills && alum.skills.some(skill => skill.toLowerCase().includes(query)))
+    );
     
     setAlumni(filtered);
+    setNoResults(filtered.length === 0);
+    setCurrentPage(1);
   };
-  
+
   // Toggle filter panel
   const toggleFilter = () => {
     setFilterOpen(!filterOpen);
   };
-  
-  // Handle filter changes
+
+  // Connect with alumni
+  const connectWithAlumni = async (alumniId) => {
+    try {
+      const response = await axios.post(
+        '/api/connections/request', 
+        {
+          alumniId: alumniId, // Explicitly use alumniId field name
+          message: `I'd like to connect with you to learn more about your professional experiences.`
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      
+      if (response.status === 201) {
+        // Update local state to show connection is pending
+        setConnections([...connections, alumniId]);
+        // Show success message
+        alert('Connection request sent successfully');
+      }
+    } catch (error) {
+      console.error('Error connecting with alumni:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to send connection request';
+      alert(errorMessage);
+    }
+  };
+
+  // Message alumni
+  const messageAlumni = (alumniId) => {
+    navigate(`/messages/${alumniId}`);
+  };
+
+  // View alumni details
+  const viewAlumniDetails = (alumni) => {
+    setSelectedAlumni(alumni);
+  };
+
+  // Close alumni details
+  const closeAlumniDetails = () => {
+    setSelectedAlumni(null);
+  };
+
+  // Toggle favorite
+  const toggleFavorite = (alumniId) => {
+    let newFavorites;
+    
+    if (favorites.includes(alumniId)) {
+      newFavorites = favorites.filter(id => id !== alumniId);
+    } else {
+      newFavorites = [...favorites, alumniId];
+    }
+    
+    setFavorites(newFavorites);
+    localStorage.setItem('favoriteAlumni', JSON.stringify(newFavorites));
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    let filteredAlumni = [...allAlumni];
+    
+    // Filter by company
+    if (filters.companies.length > 0) {
+      filteredAlumni = filteredAlumni.filter(alum => 
+        filters.companies.includes(alum.company)
+      );
+    }
+    
+    // Filter by specialization
+    if (filters.specializations.length > 0) {
+      filteredAlumni = filteredAlumni.filter(alum => 
+        filters.specializations.includes(alum.specialization)
+      );
+    }
+    
+    // Filter by graduation year
+    if (filters.graduationYears.length > 0) {
+      filteredAlumni = filteredAlumni.filter(alum => 
+        filters.graduationYears.includes(alum.graduationYear.toString())
+      );
+    }
+    
+    // Filter by skill
+    if (filters.skills.length > 0) {
+      filteredAlumni = filteredAlumni.filter(alum => 
+        alum.skills && filters.skills.some(skill => alum.skills.includes(skill))
+      );
+    }
+    
+    // Filter by university
+    if (filters.universities.length > 0) {
+      filteredAlumni = filteredAlumni.filter(alum => 
+        filters.universities.some(uni => 
+          alum.education && alum.education.toLowerCase().includes(uni.toLowerCase())
+        )
+      );
+    }
+    
+    setAlumni(filteredAlumni);
+    setNoResults(filteredAlumni.length === 0);
+    setCurrentPage(1);
+    setFilterOpen(false);
+  };
+
+  // Reset filters
+  const resetFilters = () => {
+    setFilters({
+      companies: [],
+      specializations: [],
+      graduationYears: [],
+      skills: [],
+      universities: []
+    });
+    setAlumni(allAlumni);
+    setNoResults(false);
+    setFilterOpen(false);
+    setCurrentPage(1);
+  };
+
+  // Handle filter change
   const handleFilterChange = (category, value) => {
     setFilters(prev => {
       const updated = { ...prev };
@@ -326,58 +520,27 @@ const AlumniDirectory = () => {
       return updated;
     });
   };
-  
-  // Apply filters
-  const applyFilters = () => {
-    filterAlumni(searchQuery, filters);
-    setFilterOpen(false);
+
+  // Get all available filter options
+  const getFilterOptions = () => {
+    const options = {
+      companies: Array.from(new Set(allAlumni.map(a => a.company).filter(Boolean))),
+      specializations: Array.from(new Set(allAlumni.map(a => a.specialization).filter(Boolean))),
+      graduationYears: Array.from(new Set(allAlumni.map(a => a.graduationYear?.toString()).filter(Boolean))).sort((a, b) => b - a),
+      skills: Array.from(new Set(allAlumni.flatMap(a => a.skills || []))),
+      universities: Array.from(new Set(allAlumni.map(a => {
+        // Make sure education is a string before calling extractUniversity
+        if (a.education && typeof a.education === 'string') {
+          return extractUniversity(a.education);
+        }
+        return '';
+      }).filter(Boolean)))
+    };
+    
+    return options;
   };
-  
-  // Reset filters
-  const resetFilters = () => {
-    setFilters({
-      companies: [],
-      specializations: [],
-      graduationYears: [],
-      skills: [],
-      universities: []
-    });
-    setSearchQuery("");
-    setAlumni(allAlumni);
-    setFilterOpen(false);
-  };
-  
-  // View alumni profile
-  const viewAlumniProfile = (alumnus) => {
-    setSelectedAlumni(alumnus);
-  };
-  
-  // Close alumni profile
-  const closeAlumniProfile = () => {
-    setSelectedAlumni(null);
-  };
-  
-  // Save/bookmark alumni
-  const saveAlumni = (alumniId) => {
-    if (savedAlumni.includes(alumniId)) {
-      setSavedAlumni(savedAlumni.filter(id => id !== alumniId));
-    } else {
-      setSavedAlumni([...savedAlumni, alumniId]);
-    }
-  };
-  
-  // Connect with alumni
-  const connectWithAlumni = (alumniId) => {
-    // In a real app, this would send a connection request
-    alert(`Connection request sent to alumni #${alumniId}`);
-  };
-  
-  // Message alumni
-  const messageAlumni = (alumniId) => {
-    navigate(`/messages/${alumniId}`);
-  };
-  
-  // Get initials for avatar fallback
+
+  // Get initials from name
   const getInitials = (name) => {
     if (!name) return '';
     return name
@@ -387,178 +550,222 @@ const AlumniDirectory = () => {
       .toUpperCase();
   };
   
-  // Extract unique filter values from the filtered alumni list
-  const companies = [...new Set(allAlumni.map(alumnus => alumnus.company))];
-  const specializations = [...new Set(allAlumni.map(alumnus => alumnus.specialization))];
-  const graduationYears = [...new Set(allAlumni.map(alumnus => alumnus.graduationYear.toString()))];
-  const allSkills = [...new Set(allAlumni.flatMap(alumnus => alumnus.skills))].sort();
-  const universities = [...new Set(allAlumni.map(alumnus => extractUniversity(alumnus.education)))].filter(uni => uni).sort();
-  
+  // Helper function to get profile picture url from various possible field structures
+  const getProfilePictureUrl = (alumni) => {
+    if (!alumni) return null;
+    
+    // Check if profilePicture exists as an object with url property
+    if (alumni.profilePicture && alumni.profilePicture.url) {
+      return alumni.profilePicture.url;
+    }
+    
+    // Check if profilePicture exists as a string
+    if (alumni.profilePicture && typeof alumni.profilePicture === 'string') {
+      return alumni.profilePicture;
+    }
+    
+    // Fall back to avatar field if it exists
+    if (alumni.avatar) {
+      return alumni.avatar;
+    }
+    
+    // No profile picture available
+    return null;
+  };
+
+  // Pagination controls
+  const totalPages = Math.ceil(alumni.length / itemsPerPage);
+  const paginatedAlumni = alumni.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  // Filter options
+  const filterOptions = getFilterOptions();
+
+  // Show only alumni that are not already connected
+  const isConnected = (alumniId) => connections.includes(alumniId);
+  const filteredByConnection = paginatedAlumni.filter(alumni => !isConnected(alumni.id));
+
+  // Filter the alumni list to exclude already connected alumni
+  const filteredAlumni = useMemo(() => {
+    if (!alumni) return [];
+    
+    // First, filter out alumni who are already connected
+    return alumni.filter(alum => !connectedAlumni.includes(alum._id));
+  }, [alumni, connectedAlumni]);
+
   return (
-    <div className="container-custom py-8 pt-20">
-      {/* Alumni header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+    <div className="container-custom pt-24 pb-12">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Alumni Directory</h1>
-          {userUniversity ? (
-            <div className="flex items-center mb-2">
-              <p className="text-gray-600 dark:text-gray-400 mr-2">
-                {showingAllUniversities 
-                  ? "Showing alumni from all universities" 
-                  : `Showing alumni from ${userUniversity}`}
-              </p>
-              <button 
-                onClick={toggleUniversityFilter}
-                className="text-primary hover:text-primary/80 text-sm flex items-center"
-              >
-                <School className="h-4 w-4 mr-1" />
-                {showingAllUniversities ? "Show only my university" : "Show all universities"}
-              </button>
-            </div>
-          ) : (
-            <p className="text-gray-600 dark:text-gray-400">
-              Connect with alumni to expand your professional network
-            </p>
-          )}
-        </div>
-        
-        {/* Search bar with filter toggle */}
-        <div className="mt-4 md:mt-0 md:flex items-center space-x-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-80">
-            <Search className="absolute left-3 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name, skills, or university..."
-              className="pl-10 pr-4 py-2.5 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              value={searchQuery}
-              onChange={handleSearchChange}
-            />
-          </div>
-          <button
-            onClick={toggleFilter}
-            className="mt-2 md:mt-0 px-4 py-2.5 w-full md:w-auto bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg flex items-center justify-center"
-          >
-            <Filter className="h-5 w-5 mr-2" />
-            <span>Filters</span>
-          </button>
+          <h1 className="text-2xl font-bold">Alumni Directory</h1>
+          <p className="text-muted-foreground">
+            Connect with alumni from your university and beyond
+          </p>
         </div>
       </div>
-      
+
+      {/* Search and filter */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search alumni by name, company, or skills..."
+            className="w-full pl-10 pr-4 py-3 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+            value={searchQuery}
+            onChange={handleSearch}
+          />
+        </div>
+        <button
+          onClick={toggleFilter}
+          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+            filterOpen 
+              ? "bg-primary text-white" 
+              : "border border-input hover:bg-gray-50 dark:hover:bg-gray-800"
+          }`}
+        >
+          <Filter className="h-4 w-4" />
+          <span>Filter</span>
+          {Object.values(filters).some(arr => arr.length > 0) && (
+            <span className="flex items-center justify-center w-5 h-5 bg-primary-foreground text-primary text-xs rounded-full">
+              {Object.values(filters).reduce((count, arr) => count + arr.length, 0)}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Filter panel */}
       {filterOpen && (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 mb-8 animate-fade-in shadow-md">
+        <div className="glass-card rounded-xl p-6 mb-8 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold">Filter Alumni</h3>
-            <button 
+            <h3 className="font-medium">Filters</h3>
+            <button
               onClick={toggleFilter}
               className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Companies filter */}
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6">
+            {/* Company filter section */}
             <div>
-              <h4 className="text-sm font-medium mb-2">Companies</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                {companies.map((company) => (
-                  <label key={company} className="flex items-center space-x-2">
+              <h4 className="text-sm font-medium mb-2">Company</h4>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {filterOptions.companies.map(company => (
+                  <div key={company} className="flex items-center">
                     <input
                       type="checkbox"
+                      id={`company-${company}`}
+                      className="mr-2"
                       checked={filters.companies.includes(company)}
                       onChange={() => handleFilterChange('companies', company)}
-                      className="rounded text-primary focus:ring-primary"
                     />
-                    <span className="text-sm">{company}</span>
-                  </label>
+                    <label htmlFor={`company-${company}`} className="text-sm">{company}</label>
+                  </div>
                 ))}
               </div>
             </div>
             
-            {/* Skills filter */}
+            {/* Specialization filter section */}
             <div>
-              <h4 className="text-sm font-medium mb-2">Skills</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                {allSkills.map((skill) => (
-                  <label key={skill} className="flex items-center space-x-2">
+              <h4 className="text-sm font-medium mb-2">Specialization</h4>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {filterOptions.specializations.map(specialization => (
+                  <div key={specialization} className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={filters.skills.includes(skill)}
-                      onChange={() => handleFilterChange('skills', skill)}
-                      className="rounded text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm">{skill}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Universities filter */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Universities</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                {universities.map((university) => (
-                  <label key={university} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={filters.universities.includes(university)}
-                      onChange={() => handleFilterChange('universities', university)}
-                      className="rounded text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm">{university}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Specializations filter */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Specializations</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                {specializations.map((specialization) => (
-                  <label key={specialization} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
+                      id={`specialization-${specialization}`}
+                      className="mr-2"
                       checked={filters.specializations.includes(specialization)}
                       onChange={() => handleFilterChange('specializations', specialization)}
-                      className="rounded text-primary focus:ring-primary"
                     />
-                    <span className="text-sm">{specialization}</span>
-                  </label>
+                    <label htmlFor={`specialization-${specialization}`} className="text-sm">{specialization}</label>
+                  </div>
                 ))}
               </div>
             </div>
             
-            {/* Graduation Years filter */}
+            {/* Graduation Year filter section */}
             <div>
               <h4 className="text-sm font-medium mb-2">Graduation Year</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                {graduationYears.map((year) => (
-                  <label key={year} className="flex items-center space-x-2">
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {filterOptions.graduationYears.map(year => (
+                  <div key={year} className="flex items-center">
                     <input
                       type="checkbox"
+                      id={`year-${year}`}
+                      className="mr-2"
                       checked={filters.graduationYears.includes(year)}
                       onChange={() => handleFilterChange('graduationYears', year)}
-                      className="rounded text-primary focus:ring-primary"
                     />
-                    <span className="text-sm">{year}</span>
-                  </label>
+                    <label htmlFor={`year-${year}`} className="text-sm">{year}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Skills filter section */}
+            <div>
+              <h4 className="text-sm font-medium mb-2">Skills</h4>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {filterOptions.skills.map(skill => (
+                  <div key={skill} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`skill-${skill}`}
+                      className="mr-2"
+                      checked={filters.skills.includes(skill)}
+                      onChange={() => handleFilterChange('skills', skill)}
+                    />
+                    <label htmlFor={`skill-${skill}`} className="text-sm">{skill}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* University filter section */}
+            <div>
+              <h4 className="text-sm font-medium mb-2">University</h4>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {filterOptions.universities.map(university => (
+                  <div key={university} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`university-${university}`}
+                      className="mr-2"
+                      checked={filters.universities.includes(university)}
+                      onChange={() => handleFilterChange('universities', university)}
+                    />
+                    <label htmlFor={`university-${university}`} className="text-sm">{university}</label>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
-          
-          <div className="flex justify-end space-x-3 mt-6">
-            <button
+          <div className="flex justify-end gap-2 mt-6">
+            <button 
               onClick={resetFilters}
-              className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              className="px-4 py-2 rounded-md border border-input hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
             >
               Reset
             </button>
-            <button
+            <button 
               onClick={applyFilters}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+              className="px-4 py-2 rounded-md bg-primary text-white text-sm"
             >
               Apply Filters
             </button>
@@ -566,323 +773,368 @@ const AlumniDirectory = () => {
         </div>
       )}
       
-      {/* Alumni grid */}
-      {alumni.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {currentAlumni.map((alumnus) => (
-              <div
-                key={alumnus.id}
-                className="glass-card rounded-xl p-6 transition-transform hover:scale-[1.02] cursor-pointer"
-                onClick={() => viewAlumniProfile(alumnus)}
-              >
-                <div className="flex justify-between mb-4">
-                  <div className="flex">
-                    {alumnus.avatar ? (
-                      <img
-                        src={alumnus.avatar}
-                        alt={alumnus.name}
-                        className="h-12 w-12 rounded-xl object-cover mr-3"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mr-3">
-                        <span className="text-base font-medium">{getInitials(alumnus.name)}</span>
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="text-base font-medium leading-tight">{alumnus.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">{alumnus.role}</p>
-                      <p className="text-xs text-muted-foreground">{alumnus.company}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      saveAlumni(alumnus.id);
-                    }}
-                    className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center"
-                  >
-                    <Heart className={`h-4 w-4 ${savedAlumni.includes(alumnus.id) ? "fill-primary text-primary" : ""}`} />
-                  </button>
-                </div>
-                
-                <div className="space-y-1 mb-4">
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Briefcase className="h-3.5 w-3.5 mr-2" />
-                    <span>{alumnus.experience} years experience</span>
-                  </div>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5 mr-2" />
-                    <span>{alumnus.location}</span>
-                  </div>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <GraduationCap className="h-3.5 w-3.5 mr-2" />
-                    <span>{alumnus.graduationYear}</span>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <h4 className="text-xs font-medium mb-2">Skills</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {alumnus.skills.slice(0, 3).map((skill, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full text-xs"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                    {alumnus.skills.length > 3 && (
-                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs">
-                        +{alumnus.skills.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      connectWithAlumni(alumnus.id);
-                    }}
-                    className="flex-1 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs flex items-center justify-center"
-                  >
-                    <Users className="h-3.5 w-3.5 mr-1.5" />
-                    Connect
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      messageAlumni(alumnus.id);
-                    }}
-                    className="flex-1 py-1.5 bg-primary text-white hover:bg-primary/90 rounded-lg text-xs flex items-center justify-center"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                    Message
-                  </button>
+      {/* Results count and pagination info */}
+      <div className="flex justify-between items-center mb-6">
+        <p className="text-muted-foreground">
+          {isLoading 
+            ? "Loading alumni..." 
+            : noResults 
+              ? "No alumni found matching your criteria" 
+              : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, alumni.length)} of ${alumni.length} alumni`
+          }
+        </p>
+        
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={prevPage} 
+              disabled={currentPage === 1}
+              className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span>Page {currentPage} of {totalPages}</span>
+            <button 
+              onClick={nextPage} 
+              disabled={currentPage === totalPages}
+              className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, index) => (
+            <div key={index} className="glass-card rounded-xl p-6 animate-pulse">
+              <div className="flex items-center">
+                <div className="w-16 h-16 bg-gray-300 dark:bg-gray-700 rounded-full mr-4"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
                 </div>
               </div>
-            ))}
-          </div>
-          
-          {/* Pagination */}
-          {alumni.length > alumniPerPage && (
-            <div className="flex justify-center mt-10">
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={prevPage}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                
-                {[...Array(totalPages)].map((_, index) => {
-                  const pageNumber = index + 1;
-                  // Show current page, first, last, and pages around current
-                  if (
-                    pageNumber === 1 ||
-                    pageNumber === totalPages ||
-                    (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={pageNumber}
-                        onClick={() => paginate(pageNumber)}
-                        className={`h-8 w-8 flex items-center justify-center rounded-lg ${
-                          currentPage === pageNumber
-                            ? 'bg-primary text-white'
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        {pageNumber}
-                      </button>
-                    );
-                  } else if (
-                    (pageNumber === currentPage - 2 && currentPage > 3) ||
-                    (pageNumber === currentPage + 2 && currentPage < totalPages - 2)
-                  ) {
-                    return <span key={pageNumber}>...</span>;
-                  }
-                  return null;
-                })}
-                
-                <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+              <div className="mt-4 space-y-2">
+                <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-5/6"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-4/6"></div>
+              </div>
+              <div className="mt-4 flex justify-between">
+                <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-2/5"></div>
+                <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-2/5"></div>
               </div>
             </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <div className="bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <Search className="h-8 w-8 text-primary" />
-          </div>
-          <h3 className="text-xl font-medium mb-2">No alumni found</h3>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-          <button
+          ))}
+        </div>
+      ) : noResults ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-medium mb-2">No Alumni Found</h3>
+          <p className="text-muted-foreground mb-6">No alumni match your search criteria. Try adjusting your filters or search terms.</p>
+          <button 
             onClick={resetFilters}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+            className="px-4 py-2 bg-primary text-white rounded-md inline-flex items-center"
           >
+            <Filter className="h-4 w-4 mr-2" />
             Reset Filters
           </button>
         </div>
-      )}
-      
-      {/* Alumni Profile Modal */}
-      {selectedAlumni && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-xl animate-fade-in max-h-[90vh] overflow-y-auto">
-            <div className="relative h-28 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-t-xl">
-              <button 
-                onClick={closeAlumniProfile}
-                className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 rounded-full text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <div className="absolute -bottom-10 left-6">
-                {selectedAlumni.avatar ? (
-                  <img
-                    src={selectedAlumni.avatar}
-                    alt={selectedAlumni.name}
-                    className="h-20 w-20 rounded-xl object-cover border-4 border-white dark:border-gray-900"
-                  />
-                ) : (
-                  <div className="h-20 w-20 rounded-xl bg-primary/10 text-primary flex items-center justify-center border-4 border-white dark:border-gray-900">
-                    <span className="text-lg font-medium">{getInitials(selectedAlumni.name)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="pt-12 px-6 pb-6">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-bold">{selectedAlumni.name}</h2>
-                  <p className="text-sm text-muted-foreground">{selectedAlumni.role} at {selectedAlumni.company}</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredAlumni.map((alum) => (
+            <div key={alum._id} className="glass-card rounded-xl p-6 animate-fade-in">
+              <div className="flex items-start">
+                <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
+                  {alum.profilePicture?.url ? (
+                    <img src={alum.profilePicture.url} alt={alum.name} className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    getInitials(alum.name)
+                  )}
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => saveAlumni(selectedAlumni.id)}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    <Heart className={`h-5 w-5 ${savedAlumni.includes(selectedAlumni.id) ? "fill-primary text-primary" : ""}`} />
-                  </button>
-                  <button
-                    onClick={() => messageAlumni(selectedAlumni.id)}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    <MessageSquare className="h-5 w-5" />
-                  </button>
+                <div className="flex-1">
+                  <h4 className="font-medium text-lg">{alum.name}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {alum.position ? `${alum.position} at ${alum.company || 'Company'}` : 'Alumni'}
+                  </p>
+                  <div className="flex items-center mt-1">
+                    <Calendar className="h-3 w-3 text-muted-foreground mr-1.5" />
+                    <span className="text-xs text-muted-foreground">
+                      Class of {alum.graduationYear || 'N/A'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
-              {/* Profile modal details section */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="space-y-2">
-                  <div className="flex items-center text-xs">
-                    <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{selectedAlumni.experience} years experience</span>
-                  </div>
-                  <div className="flex items-center text-xs">
-                    <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{selectedAlumni.location}</span>
-                  </div>
-                  <div className="flex items-center text-xs">
-                    <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>Class of {selectedAlumni.graduationYear}</span>
-                  </div>
-                </div>
+              <div className="mt-4 flex gap-2">
+                <button 
+                  className="flex-1 px-3 py-2 text-xs border border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  onClick={() => viewAlumniDetails(alum)}
+                >
+                  <Eye className="h-3 w-3 inline mr-1" />
+                  View Profile
+                </button>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center text-xs">
-                    <BookOpen className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{selectedAlumni.education}</span>
-                  </div>
-                  <div className="flex items-center text-xs">
-                    <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <a href={`mailto:${selectedAlumni.email}`} className="hover:text-primary">
-                      {selectedAlumni.email}
-                    </a>
-                  </div>
-                  {selectedAlumni.linkedin && (
-                    <div className="flex items-center text-xs">
-                      <ExternalLink className="h-4 w-4 mr-2 text-muted-foreground" />
+                {connectionRequests[alum._id] === 'pending' ? (
+                  <button 
+                    className="flex-1 px-3 py-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                    disabled
+                  >
+                    <Clock className="h-3 w-3 inline mr-1" />
+                    Request Pending
+                  </button>
+                ) : (
+                  <button 
+                    className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                    onClick={() => connectWithAlumni(alum._id)}
+                  >
+                    <UserPlus className="h-3 w-3 inline mr-1" />
+                    Connect
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Pagination controls */}
+      {!isLoading && !noResults && totalPages > 1 && (
+        <div className="mt-8 flex justify-center">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={prevPage} 
+              disabled={currentPage === 1}
+              className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={`page-${page}`}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-md flex items-center justify-center ${
+                  currentPage === page 
+                    ? 'bg-primary text-white' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button 
+              onClick={nextPage} 
+              disabled={currentPage === totalPages}
+              className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Alumni Details Modal */}
+      {selectedAlumni && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl max-h-[90vh] overflow-y-auto animate-fade-in">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 p-6 border-b border-border flex justify-between items-center z-10">
+              <button 
+                onClick={closeAlumniDetails}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold">Alumni Profile</h2>
+              <button 
+                className="text-gray-400 hover:text-red-500 transition-colors"
+                onClick={() => toggleFavorite(selectedAlumni.id)}
+              >
+                <Heart className={`h-5 w-5 ${favorites.includes(selectedAlumni.id) ? "fill-red-500 text-red-500" : ""}`} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="flex items-center mb-6">
+                <div className="h-24 w-24 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-6 text-3xl font-bold">
+                  {getProfilePictureUrl(selectedAlumni) ? (
+                    <img 
+                      src={getProfilePictureUrl(selectedAlumni)} 
+                      alt={selectedAlumni.name} 
+                      className="h-full w-full rounded-full object-cover" 
+                    />
+                  ) : (
+                    getInitials(selectedAlumni.name)
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">{selectedAlumni.name}</h3>
+                  <p className="text-lg text-muted-foreground">{selectedAlumni.role}</p>
+                  
+                  <div className="flex mt-2 gap-4">
+                    {selectedAlumni.linkedin && (
                       <a 
                         href={selectedAlumni.linkedin} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="hover:text-primary"
+                        className="text-sm text-primary flex items-center hover:underline"
                       >
-                        LinkedIn Profile
+                        <Link2 className="h-4 w-4 mr-1" />
+                        LinkedIn
                       </a>
+                    )}
+                    
+                    <a 
+                      href={`mailto:${selectedAlumni.email}`}
+                      className="text-sm text-primary flex items-center hover:underline"
+                    >
+                      <Mail className="h-4 w-4 mr-1" />
+                      Email
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {selectedAlumni.company && (
+                  <div className="flex items-start">
+                    <Briefcase className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium">Company</h4>
+                      <p>{selectedAlumni.company}</p>
                     </div>
+                  </div>
+                )}
+                
+                {selectedAlumni.location && (
+                  <div className="flex items-start">
+                    <MapPin className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium">Location</h4>
+                      <p>{selectedAlumni.location}</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-start">
+                  <GraduationCap className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium">Graduation</h4>
+                    <p>Class of {selectedAlumni.graduationYear}</p>
+                  </div>
+                </div>
+                
+                {selectedAlumni.experience && (
+                  <div className="flex items-start">
+                    <Calendar className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium">Experience</h4>
+                      <p>{selectedAlumni.experience} years</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {selectedAlumni.bio && (
+                <div className="mb-6">
+                  <h4 className="font-medium mb-2">About</h4>
+                  <p className="text-muted-foreground">{selectedAlumni.bio}</p>
+                </div>
+              )}
+              
+              <div className="mb-6">
+                <h4 className="font-medium mb-2">Education</h4>
+                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  {selectedAlumni.education && selectedAlumni.education !== 'Education information not available' ? (
+                    <div>
+                      {Array.isArray(selectedAlumni.previousEducation) && selectedAlumni.previousEducation.length > 0 ? (
+                        // If we have detailed previous education data
+                        selectedAlumni.previousEducation.map((edu, index) => (
+                          <div key={index} className="mb-3 last:mb-0">
+                            <div className="flex items-start">
+                              <School className="h-4 w-4 text-primary mr-2 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="font-medium">
+                                  {edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}
+                                </p>
+                                <div className="text-sm text-muted-foreground">
+                                  {edu.institution && edu.university && edu.institution !== edu.university ? (
+                                    <p>
+                                      {edu.institution}, {edu.university}
+                                    </p>
+                                  ) : (
+                                    <p>{edu.institution || edu.university}</p>
+                                  )}
+                                  <p>{edu.startYear} - {edu.endYear || 'Present'}</p>
+                                  {edu.description && (
+                                    <p className="text-sm italic mt-1">{edu.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        // If we only have a string representation of education
+                        <div className="flex items-center">
+                          <School className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                          <p>{selectedAlumni.education}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm italic">Education information not available</p>
                   )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h4 className="font-medium mb-2">Skills</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedAlumni.skills && selectedAlumni.skills.map((skill, idx) => (
+                      <span key={idx} className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 
                 <div>
-                  <h4 className="text-xs font-medium mb-2">Specialized in</h4>
-                  <span className="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-xs">
-                    {selectedAlumni.specialization}
-                  </span>
+                  <h4 className="font-medium mb-2">Interests</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedAlumni.interests && selectedAlumni.interests.map((interest, idx) => (
+                      <span key={idx} className="text-sm bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-full">
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-              
-              <div className="mb-6">
-                <h4 className="text-sm font-medium mb-2">Bio</h4>
-                <p className="text-xs text-muted-foreground">{selectedAlumni.bio}</p>
-              </div>
-              
-              <div className="mb-6">
-                <h4 className="text-sm font-medium mb-2">Skills</h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedAlumni.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full text-xs"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="mb-8">
-                <h4 className="text-sm font-medium mb-2">Interests</h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedAlumni.interests.map((interest, index) => (
-                    <span
-                      key={index}
-                      className="px-2.5 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300 rounded-full text-xs"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => connectWithAlumni(selectedAlumni.id)}
-                  className="flex-1 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg flex items-center justify-center"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Connect
-                </button>
-                <button
-                  onClick={() => messageAlumni(selectedAlumni.id)}
-                  className="flex-1 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg flex items-center justify-center"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Message
-                </button>
-              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  connectWithAlumni(selectedAlumni.id);
+                  closeAlumniDetails();
+                }}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Connect
+              </button>
+              <button
+                onClick={() => {
+                  messageAlumni(selectedAlumni.id);
+                  closeAlumniDetails();
+                }}
+                className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors"
+              >
+                Message
+              </button>
             </div>
           </div>
         </div>
@@ -891,4 +1143,4 @@ const AlumniDirectory = () => {
   );
 };
 
-export default AlumniDirectory; 
+export default AlumniDirectory;
