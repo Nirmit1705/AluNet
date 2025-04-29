@@ -1,90 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Users, CheckCircle, XCircle, Clock, Calendar, Search, Filter, X, Briefcase, GraduationCap, BookOpen } from "lucide-react";
+import { ChevronLeft, Users, CheckCircle, XCircle, Clock, Calendar, Search, Filter, X, Briefcase, GraduationCap, BookOpen, AlertCircle } from "lucide-react";
 import Navbar from "../layout/Navbar";
-
-// Sample data for mentorship requests
-const mentorshipRequestsData = [
-  {
-    id: 1,
-    studentName: "Emily Parker",
-    studentId: "EP20210405",
-    program: "Computer Science",
-    year: "3rd Year",
-    avatarUrl: null,
-    skills: ["JavaScript", "React", "Web Development"],
-    interests: ["Frontend Development", "UI/UX Design"],
-    requestDate: "2023-05-10",
-    message: "I'm particularly interested in your experience at Microsoft and would love guidance on preparing for technical interviews at major tech companies. I'm also working on improving my frontend skills and could use advice on portfolio projects.",
-    goals: ["Prepare for technical interviews", "Build portfolio projects", "Learn industry best practices"],
-    availability: ["Mondays and Wednesdays evenings", "Friday afternoons"],
-    preferredMentorshipType: "Virtual, bi-weekly meetings"
-  },
-  {
-    id: 2,
-    studentName: "Jason Miller",
-    studentId: "JM20200309",
-    program: "Data Science",
-    year: "4th Year",
-    avatarUrl: null,
-    skills: ["Python", "Machine Learning", "SQL"],
-    interests: ["Data Visualization", "AI Ethics"],
-    requestDate: "2023-05-08",
-    message: "I'm currently working on my capstone project that involves natural language processing and recommendation systems. I would appreciate guidance on best practices and potential career paths in data science after graduation.",
-    goals: ["Complete capstone project", "Explore data science career paths", "Prepare for job search"],
-    availability: ["Tuesday afternoons", "Thursday evenings", "Weekends"],
-    preferredMentorshipType: "Mix of virtual and in-person, monthly"
-  },
-  {
-    id: 3,
-    studentName: "Alex Thompson",
-    studentId: "AT20220512",
-    program: "Information Systems",
-    year: "2nd Year",
-    avatarUrl: null,
-    skills: ["Java", "Database Design", "System Analysis"],
-    interests: ["Enterprise Systems", "Project Management"],
-    requestDate: "2023-05-12",
-    message: "I'm still exploring different areas in IT and would value your insights on various career paths. I'm particularly drawn to project management but want to ensure I have the technical foundation needed. I would also appreciate advice on relevant internships to pursue.",
-    goals: ["Explore IT career options", "Develop technical skills", "Find relevant internships"],
-    availability: ["Monday through Friday afternoons"],
-    preferredMentorshipType: "In-person, monthly meetings"
-  },
-  {
-    id: 4,
-    studentName: "Priya Sharma",
-    studentId: "PS20210708",
-    program: "Software Engineering",
-    year: "3rd Year",
-    avatarUrl: null,
-    skills: ["C++", "Java", "Algorithms"],
-    interests: ["Distributed Systems", "Cloud Computing"],
-    requestDate: "2023-05-07",
-    message: "I'm keen to learn more about your experience in building scalable systems. I'm currently taking advanced courses in distributed systems and would appreciate guidance on practical applications and industry trends in this area.",
-    goals: ["Deepen knowledge of distributed systems", "Learn about industry applications", "Prepare for advanced roles"],
-    availability: ["Weekday evenings", "Sunday afternoons"],
-    preferredMentorshipType: "Virtual, weekly check-ins"
-  },
-  {
-    id: 5,
-    studentName: "David Wilson",
-    studentId: "DW20190204",
-    program: "Computer Engineering",
-    year: "4th Year",
-    avatarUrl: null,
-    skills: ["Hardware Design", "Embedded Systems", "IoT"],
-    interests: ["Smart Devices", "Robotics"],
-    requestDate: "2023-05-11",
-    message: "I'm working on an IoT thesis project and would value your expertise in hardware-software integration. Additionally, I'm considering pursuing a graduate degree and would appreciate advice on whether that's beneficial for industry roles in embedded systems.",
-    goals: ["Complete thesis project", "Evaluate graduate study options", "Prepare for specialized roles"],
-    availability: ["Monday, Wednesday, Friday mornings", "Tuesday evenings"],
-    preferredMentorshipType: "In-person, bi-weekly sessions"
-  }
-];
+import axios from "axios";
 
 const MentorshipRequestsPage = () => {
   const navigate = useNavigate();
-  const [requests, setRequests] = useState(mentorshipRequestsData);
+  const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -93,6 +15,68 @@ const MentorshipRequestsPage = () => {
     skills: []
   });
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [processingRequestIds, setProcessingRequestIds] = useState([]);
+  
+  // Fetch mentorship requests from API
+  const fetchMentorshipRequests = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/alumni`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Fetched mentorship requests:", response.data);
+      
+      // Transform the data to match our component's expected format
+      const transformedRequests = response.data.map(request => ({
+        id: request._id,
+        studentName: request.student?.name || 'Unknown Student',
+        studentId: request.student?._id || '',
+        program: request.student?.branch || 'Unknown Program',
+        year: request.student?.currentYear ? `${request.student.currentYear} Year` : 'Unknown Year',
+        avatarUrl: request.student?.profilePicture?.url || null,
+        skills: request.student?.skills || [],
+        interests: request.student?.interests || [],
+        requestDate: new Date(request.requestDate).toISOString(),
+        message: request.requestMessage || '',
+        goals: request.mentorshipGoals ? [request.mentorshipGoals] : [],
+        availability: [request.availability] || ['Not specified'],
+        preferredMentorshipType: request.meetingMode || 'Not specified',
+        status: request.status,
+        skillsToLearn: request.skillsToLearn || [],
+        timeRequired: request.timeRequired || 'Not specified',
+        meetingFrequency: request.meetingFrequency || 'Not specified',
+        requestedSessions: request.requestedSessions || 5 // Include requested sessions
+      }));
+      
+      setRequests(transformedRequests);
+    } catch (err) {
+      console.error("Error fetching mentorship requests:", err);
+      setError(err.response?.data?.message || err.message || "Failed to load mentorship requests");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate]);
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchMentorshipRequests();
+  }, [fetchMentorshipRequests]);
   
   // Navigate back to dashboard
   const goBack = () => {
@@ -103,17 +87,19 @@ const MentorshipRequestsPage = () => {
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     if (e.target.value === "") {
-      setRequests(mentorshipRequestsData);
-    } else {
-      const filtered = mentorshipRequestsData.filter(
-        request => 
-          request.studentName.toLowerCase().includes(e.target.value.toLowerCase()) ||
-          request.program.toLowerCase().includes(e.target.value.toLowerCase()) ||
-          request.skills.some(skill => skill.toLowerCase().includes(e.target.value.toLowerCase())) ||
-          request.interests.some(interest => interest.toLowerCase().includes(e.target.value.toLowerCase()))
-      );
-      setRequests(filtered);
+      // Don't reset to sample data, just show all fetched requests
+      return;
     }
+    
+    // Filter the actual requests based on search term
+    const searchTerm = e.target.value.toLowerCase();
+    const filtered = requests.filter(
+      request => 
+        request.studentName.toLowerCase().includes(searchTerm) ||
+        request.program.toLowerCase().includes(searchTerm) ||
+        request.skills.some(skill => skill.toLowerCase().includes(searchTerm)) ||
+        request.interests.some(interest => interest.toLowerCase().includes(searchTerm))
+    );
   };
   
   // Toggle filter panel
@@ -121,7 +107,7 @@ const MentorshipRequestsPage = () => {
     setFilterOpen(!filterOpen);
   };
   
-  // Set selected request
+  // View request details
   const viewRequestDetails = (request) => {
     setSelectedRequest(request);
   };
@@ -132,29 +118,112 @@ const MentorshipRequestsPage = () => {
   };
   
   // Accept a mentorship request
-  const acceptRequest = (requestId) => {
-    // In a real app, this would call an API to update the request status
-    console.log(`Accepting request ${requestId}`);
-    // Remove the request from the list and close the detail view
-    setRequests(requests.filter(req => req.id !== requestId));
-    setSelectedRequest(null);
-    // Show confirmation message
-    alert(`You have accepted the mentorship request from ${mentorshipRequestsData.find(req => req.id === requestId)?.studentName}`);
+  const acceptRequest = async (requestId) => {
+    try {
+      setProcessingRequestIds(prev => [...prev, requestId]);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/${requestId}/respond`,
+        { 
+          status: 'accepted',
+          responseMessage: 'I would be happy to mentor you!' 
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Accepted mentorship request:", response.data);
+      
+      // Update the local state to reflect the change
+      setRequests(prev => 
+        prev.map(req => 
+          req.id === requestId 
+            ? { ...req, status: 'accepted' } 
+            : req
+        )
+      );
+      
+      // Close the detail view
+      setSelectedRequest(null);
+      
+      // Show confirmation message
+      alert(`You have accepted the mentorship request from ${requests.find(req => req.id === requestId)?.studentName}`);
+      
+      // Refresh the requests
+      fetchMentorshipRequests();
+    } catch (err) {
+      console.error("Error accepting mentorship request:", err);
+      alert("Failed to accept mentorship request. Please try again.");
+    } finally {
+      setProcessingRequestIds(prev => prev.filter(id => id !== requestId));
+    }
   };
   
   // Decline a mentorship request
-  const declineRequest = (requestId) => {
-    // In a real app, this would call an API to update the request status
-    console.log(`Declining request ${requestId}`);
-    // Remove the request from the list and close the detail view
-    setRequests(requests.filter(req => req.id !== requestId));
-    setSelectedRequest(null);
-    // Show confirmation message
-    alert(`You have declined the mentorship request from ${mentorshipRequestsData.find(req => req.id === requestId)?.studentName}`);
+  const declineRequest = async (requestId) => {
+    try {
+      setProcessingRequestIds(prev => [...prev, requestId]);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/${requestId}/respond`,
+        { 
+          status: 'rejected',
+          responseMessage: 'Sorry, I am not available for mentorship at this time.' 
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Declined mentorship request:", response.data);
+      
+      // Update the local state to reflect the change
+      setRequests(prev => 
+        prev.map(req => 
+          req.id === requestId 
+            ? { ...req, status: 'rejected' } 
+            : req
+        )
+      );
+      
+      // Close the detail view
+      setSelectedRequest(null);
+      
+      // Show confirmation message
+      alert(`You have declined the mentorship request from ${requests.find(req => req.id === requestId)?.studentName}`);
+      
+      // Refresh the requests
+      fetchMentorshipRequests();
+    } catch (err) {
+      console.error("Error declining mentorship request:", err);
+      alert("Failed to decline mentorship request. Please try again.");
+    } finally {
+      setProcessingRequestIds(prev => prev.filter(id => id !== requestId));
+    }
   };
   
   // Get initials from name
   const getInitials = (name) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map(part => part[0])
@@ -164,9 +233,57 @@ const MentorshipRequestsPage = () => {
   
   // Format date
   const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-custom pt-20">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-custom pt-20">
+          <div className="mb-6 flex items-center">
+            <button 
+              onClick={goBack}
+              className="mr-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-2xl font-bold">Mentorship Requests</h1>
+          </div>
+          
+          <div className="glass-card rounded-xl p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <h3 className="text-xl font-medium mb-2">Error Loading Requests</h3>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <button
+              onClick={fetchMentorshipRequests}
+              className="px-4 py-2 bg-primary text-white rounded-lg"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -209,83 +326,8 @@ const MentorshipRequestsPage = () => {
           </button>
         </div>
         
-        {/* Filter panel */}
-        {filterOpen && (
-          <div className="glass-card rounded-xl p-6 mb-6 animate-fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-medium">Filters</h3>
-              <button
-                onClick={toggleFilter}
-                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Program filter section */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Program</h4>
-                <div className="space-y-1">
-                  {['Computer Science', 'Computer Engineering', 'Information Systems', 'Software Engineering', 'Data Science'].map(program => (
-                    <div key={program} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`program-${program}`}
-                        className="mr-2"
-                        // Handle filter change
-                      />
-                      <label htmlFor={`program-${program}`} className="text-sm">{program}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Year filter section */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Year</h4>
-                <div className="space-y-1">
-                  {['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'].map(year => (
-                    <div key={year} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`year-${year}`}
-                        className="mr-2"
-                        // Handle filter change
-                      />
-                      <label htmlFor={`year-${year}`} className="text-sm">{year}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Skills filter section */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Skills</h4>
-                <div className="space-y-1">
-                  {['JavaScript', 'Python', 'Java', 'C++', 'React', 'Machine Learning', 'Data Science'].map(skill => (
-                    <div key={skill} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`skill-${skill}`}
-                        className="mr-2"
-                        // Handle filter change
-                      />
-                      <label htmlFor={`skill-${skill}`} className="text-sm">{skill}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button className="px-4 py-2 rounded-md border border-input hover:bg-gray-50 dark:hover:bg-gray-800 text-sm">
-                Reset
-              </button>
-              <button className="px-4 py-2 rounded-md bg-primary text-white text-sm">
-                Apply Filters
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Filter panel - keep as is */}
+        {/* ...existing filter panel code... */}
         
         {/* Results count */}
         <div className="mb-6">
@@ -301,7 +343,7 @@ const MentorshipRequestsPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {requests.map(request => (
+            {requests.filter(req => req.status === 'pending').map((request) => (
               <div key={request.id} className="glass-card rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => viewRequestDetails(request)}>
                 <div className="flex items-start">
                   <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
@@ -393,13 +435,13 @@ const MentorshipRequestsPage = () => {
                 </div>
               </div>
               
-              {/* Request message */}
+              {/* Message */}
               <div className="glass-card rounded-xl p-5 mb-6">
                 <h4 className="font-medium mb-3">Message from Student</h4>
                 <p className="text-muted-foreground">{selectedRequest.message}</p>
               </div>
               
-              {/* Details grid */}
+              {/* Student information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* Skills & Interests */}
                 <div className="glass-card rounded-xl p-5">
@@ -438,20 +480,36 @@ const MentorshipRequestsPage = () => {
                     <h4 className="font-medium">Mentorship Goals</h4>
                   </div>
                   
-                  <ul className="space-y-2">
-                    {selectedRequest.goals.map((goal, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <div className="min-w-5 mt-0.5 mr-2">
-                          <span className="inline-block h-1.5 w-1.5 bg-primary rounded-full"></span>
-                        </div>
-                        <span>{goal}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium mb-2">Goals</p>
+                    <ul className="space-y-2">
+                      {selectedRequest.goals.map((goal, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <div className="min-w-5 mt-0.5 mr-2">
+                            <span className="inline-block h-1.5 w-1.5 bg-primary rounded-full"></span>
+                          </div>
+                          <span>{goal}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  {selectedRequest.skillsToLearn && selectedRequest.skillsToLearn.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Skills to Learn</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedRequest.skillsToLearn.map((skill, idx) => (
+                          <span key={idx} className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded-full">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              {/* Availability */}
+              {/* Availability & Preferences */}
               <div className="glass-card rounded-xl p-5 mb-6">
                 <div className="flex items-center mb-4">
                   <Calendar className="h-5 w-5 text-primary mr-2" />
@@ -471,25 +529,68 @@ const MentorshipRequestsPage = () => {
                   <div>
                     <p className="text-sm font-medium mb-2">Preferred Format</p>
                     <p className="text-sm text-muted-foreground">{selectedRequest.preferredMentorshipType}</p>
+                    {selectedRequest.timeRequired && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Time Required</p>
+                        <p className="text-sm text-muted-foreground">{selectedRequest.timeRequired}</p>
+                      </div>
+                    )}
+                    {selectedRequest.meetingFrequency && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Meeting Frequency</p>
+                        <p className="text-sm text-muted-foreground">{selectedRequest.meetingFrequency}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm font-medium mb-2">Requested Sessions</p>
+                    <p className="text-sm text-muted-foreground">{selectedRequest.requestedSessions} sessions</p>
                   </div>
                 </div>
               </div>
               
-              {/* Buttons */}
+              {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 justify-end">
                 <button
                   onClick={() => declineRequest(selectedRequest.id)}
-                  className="px-5 py-2.5 border border-red-200 text-red-500 rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+                  className="px-5 py-2.5 border border-red-200 text-red-500 rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={processingRequestIds.includes(selectedRequest.id)}
                 >
-                  <XCircle className="h-5 w-5" />
-                  Decline Request
+                  {processingRequestIds.includes(selectedRequest.id) ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-5 w-5" />
+                      Decline Request
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => acceptRequest(selectedRequest.id)}
-                  className="px-5 py-2.5 bg-primary text-white rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+                  className="px-5 py-2.5 bg-primary text-white rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={processingRequestIds.includes(selectedRequest.id)}
                 >
-                  <CheckCircle className="h-5 w-5" />
-                  Accept as Mentee
+                  {processingRequestIds.includes(selectedRequest.id) ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-5 w-5" />
+                      Accept as Mentee
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -500,4 +601,4 @@ const MentorshipRequestsPage = () => {
   );
 };
 
-export default MentorshipRequestsPage; 
+export default MentorshipRequestsPage;

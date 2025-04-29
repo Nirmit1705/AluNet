@@ -4,6 +4,7 @@ import { Briefcase, MapPin, Calendar, ExternalLink, Mail, BookOpen, Award, Check
 import MentorshipRequestForm from "../mentorship/MentorshipRequestForm";
 
 const ProfileCard = ({
+  id,
   name,
   role,
   avatar,
@@ -20,12 +21,15 @@ const ProfileCard = ({
   rating = 0,  
   ratingCount = 0,
   graduationYear,
-  previousEducation = []
+  previousEducation = [],
+  mentorshipAvailable = false,
+  mentorshipAreas = []
 }) => {
   const [connectionSent, setConnectionSent] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isMentorshipModalOpen, setIsMentorshipModalOpen] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState(false); // Check if a mentorship request is pending
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -42,6 +46,15 @@ const ProfileCard = ({
       setIsOwnProfile(true);
     }
   }, [name, email]);
+
+  // Add useEffect to check for pending requests
+  useEffect(() => {
+    // Check localStorage for pending requests
+    const pendingRequests = JSON.parse(localStorage.getItem('pendingMentorshipRequests') || '[]');
+    if (pendingRequests.includes(id)) {
+      setPendingRequest(true);
+    }
+  }, [id]);
   
   // Handle connect button click
   const handleConnect = () => {
@@ -67,6 +80,10 @@ const ProfileCard = ({
   
   // Handle requesting mentorship
   const handleRequestMentorship = () => {
+    if (pendingRequest) {
+      // If request is already pending, do nothing
+      return;
+    }
     setIsMentorshipModalOpen(true);
   };
   
@@ -74,6 +91,14 @@ const ProfileCard = ({
   const handleMentorshipSubmit = (formData) => {
     // In a real app, this would send a mentorship request to the backend
     console.log("Sending mentorship request:", formData);
+    
+    // Update local storage to track pending status
+    const pendingRequests = JSON.parse(localStorage.getItem('pendingMentorshipRequests') || '[]');
+    pendingRequests.push(id);
+    localStorage.setItem('pendingMentorshipRequests', JSON.stringify(pendingRequests));
+    
+    // Update local state
+    setPendingRequest(true);
     
     // Close modal and show confirmation
     setIsMentorshipModalOpen(false);
@@ -93,6 +118,31 @@ const ProfileCard = ({
       .map(part => part[0])
       .join('')
       .toUpperCase();
+  };
+
+  // Render mentorship button based on status
+  const renderMentorshipButton = () => {
+    if (pendingRequest) {
+      return (
+        <button 
+          className="px-4 py-2 flex items-center justify-center gap-2 w-full bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg cursor-not-allowed"
+          disabled
+        >
+          <Clock className="h-4 w-4" />
+          Request Pending
+        </button>
+      );
+    } else {
+      return (
+        <button 
+          onClick={handleRequestMentorship}
+          className="px-4 py-2 flex items-center justify-center gap-2 w-full bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          <GraduationCap className="h-4 w-4" />
+          Request Mentorship
+        </button>
+      );
+    }
   };
 
   return (
@@ -178,14 +228,10 @@ const ProfileCard = ({
                 </button>
                 
                 {/* Only show Request Mentorship button for students viewing alumni profiles */}
-                {isStudent && role === "Alumni" && (
-                  <button
-                    onClick={handleRequestMentorship}
-                    className="button-secondary text-sm px-4 py-2 rounded-lg flex items-center transition-colors"
-                  >
-                    <GraduationCap className="h-4 w-4 mr-1" />
-                    <span>Request Mentorship</span>
-                  </button>
+                {mentorshipAvailable && (
+                  <div className="mt-4">
+                    {renderMentorshipButton()}
+                  </div>
                 )}
               </>
             )}

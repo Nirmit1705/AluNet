@@ -70,6 +70,10 @@ const Profile = () => {
     current: false
   });
 
+  // Add state for mentorship fields
+  const [mentorshipAreas, setMentorshipAreas] = useState([]);
+  const [newMentorshipArea, setNewMentorshipArea] = useState("");
+
   // Create axios instance with authentication
   const api = axios.create({
     baseURL: 'http://localhost:5000/api',
@@ -141,7 +145,14 @@ const Profile = () => {
         bio: userData.bio || "",
         graduationYear: userData.graduationYear || "",
         previousEducation: userData.previousEducation || [],
+        mentorshipAvailable: userData.mentorshipAvailable || false,
+        mentorshipAreas: userData.mentorshipAreas || [],
       };
+      
+      // Set mentorship areas if they exist
+      if (userData.mentorshipAreas && Array.isArray(userData.mentorshipAreas)) {
+        setMentorshipAreas(userData.mentorshipAreas);
+      }
       
       setProfile(profileData);
       setEditForm(profileData);
@@ -483,6 +494,14 @@ const Profile = () => {
         }
       }
       
+      // Ensure mentorship fields are included for alumni only
+      if (userRole === "alumni") {
+        // Ensure mentorshipAreas is an array
+        if (formDataToSubmit.mentorshipAreas && !Array.isArray(formDataToSubmit.mentorshipAreas)) {
+          formDataToSubmit.mentorshipAreas = formDataToSubmit.mentorshipAreas.split(',').map(area => area.trim());
+        }
+      }
+      
       console.log("Submitting profile update:", formDataToSubmit);
       
       const token = localStorage.getItem("token");
@@ -675,6 +694,141 @@ const Profile = () => {
     
     toast.success("Education entry removed");
   };
+
+  // Add mentorship area to the form
+  const addMentorshipArea = () => {
+    if (newMentorshipArea.trim() && !editForm.mentorshipAreas.includes(newMentorshipArea.trim())) {
+      setEditForm({
+        ...editForm,
+        mentorshipAreas: [...editForm.mentorshipAreas, newMentorshipArea.trim()],
+      });
+      setNewMentorshipArea("");
+    }
+  };
+
+  // Remove mentorship area from the form
+  const removeMentorshipArea = (areaToRemove) => {
+    setEditForm({
+      ...editForm,
+      mentorshipAreas: editForm.mentorshipAreas.filter(area => area !== areaToRemove),
+    });
+  };
+
+  if (loading && !profile.name) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-12 w-12 bg-primary/20 rounded-full mb-4"></div>
+          <div className="h-4 w-32 bg-primary/20 rounded mb-3"></div>
+          <div className="h-3 w-24 bg-primary/10 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-20 pb-12">
+          <div className="container-custom">
+            <div className="glass-card p-8 rounded-xl text-center">
+              <h2 className="text-xl font-bold text-red-600 mb-4">Error Loading Profile</h2>
+              <p className="mb-6">{error}</p>
+              <button 
+                onClick={() => fetchUserProfile()}
+                className="px-4 py-2 bg-primary text-white rounded-lg"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render mentorship fields in the edit form (add this where appropriate in your rendering logic)
+  const renderMentorshipFields = () => {
+    if (userRole !== "alumni") return null;
+    
+    return (
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold mb-4">Mentorship Information</h3>
+        
+        <div className="mb-4">
+          <div className="flex items-center mb-2">
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                checked={editForm.mentorshipAvailable || false}
+                onChange={(e) => 
+                  setEditForm({...editForm, mentorshipAvailable: e.target.checked})
+                }
+              />
+              <span className="ml-2 text-sm font-medium">Available for Mentorship</span>
+            </label>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Enable this to show that you're open to mentoring students.
+          </p>
+          
+          {editForm.mentorshipAvailable && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Mentorship Areas
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newMentorshipArea}
+                  onChange={(e) => setNewMentorshipArea(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addMentorshipArea();
+                    }
+                  }}
+                  placeholder="E.g., Career Guidance, Technical Skills..."
+                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={addMentorshipArea}
+                  className="px-4 py-2 bg-primary text-white rounded-md"
+                >
+                  Add
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {editForm.mentorshipAreas?.map((area, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                  >
+                    {area}
+                    <button
+                      type="button"
+                      onClick={() => removeMentorshipArea(area)}
+                      className="ml-1 hover:text-red-500"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {(!editForm.mentorshipAreas || editForm.mentorshipAreas.length === 0) && (
+                  <span className="text-sm text-gray-500">
+                    No mentorship areas added yet. Add areas where you can provide guidance.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1297,6 +1451,82 @@ const Profile = () => {
                           </div>
                         </div>
 
+                        {/* Mentorship Section - Alumni only */}
+                        {userRole === "alumni" && (
+                          <div className="space-y-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <h4 className="text-lg font-semibold">Mentorship Settings</h4>
+                            
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="mentorshipAvailable"
+                                checked={editForm.mentorshipAvailable || false}
+                                onChange={(e) => setEditForm({
+                                  ...editForm,
+                                  mentorshipAvailable: e.target.checked
+                                })}
+                                className="w-4 h-4 text-primary focus:ring-primary"
+                              />
+                              <label htmlFor="mentorshipAvailable" className="font-medium">
+                                Available for Mentorship
+                              </label>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <label className="font-medium block">Mentorship Areas</label>
+                              <p className="text-sm text-muted-foreground">
+                                Add areas where you can provide mentorship (e.g., "Career Guidance", "Technical Skills")
+                              </p>
+                              
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={newMentorshipArea}
+                                  onChange={(e) => setNewMentorshipArea(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      addMentorshipArea();
+                                    }
+                                  }}
+                                  placeholder="E.g., Career Guidance, Technical Skills..."
+                                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={addMentorshipArea}
+                                  className="px-4 py-2 bg-primary text-white rounded-md"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {editForm.mentorshipAreas?.map((area, index) => (
+                                  <span
+                                    key={index}
+                                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                                  >
+                                    {area}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeMentorshipArea(area)}
+                                      className="ml-1 hover:text-red-500"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </span>
+                                ))}
+                                {(!editForm.mentorshipAreas || editForm.mentorshipAreas.length === 0) && (
+                                  <span className="text-sm text-gray-500">
+                                    No mentorship areas added yet. Add areas where you can provide guidance.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex justify-end space-x-2 pt-4 border-t">
                           <button
                             type="button"
@@ -1428,6 +1658,49 @@ const Profile = () => {
                   <p className="text-muted-foreground">No education information available.</p>
                 )}
               </div>
+              
+              {/* Mentorship Section - Only show for Alumni */}
+              {profile.role === "Alumni" && (
+                <div className="glass-card rounded-xl p-6 animate-scale-in animate-delay-300">
+                  <h3 className="text-xl font-bold mb-4">Mentorship</h3>
+                  
+                  {profile.mentorshipAvailable ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 rounded-full text-sm font-medium">
+                          Available for Mentoring
+                        </div>
+                      </div>
+                      
+                      {profile.mentorshipAreas && profile.mentorshipAreas.length > 0 ? (
+                        <div>
+                          <h4 className="text-base font-medium mb-2">Mentorship Areas:</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {profile.mentorshipAreas.map((area, index) => (
+                              <span 
+                                key={index} 
+                                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                              >
+                                {area}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">No specific mentorship areas listed.</p>
+                      )}
+                      
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          Reach out to connect with this alumni for mentorship opportunities through the messaging system.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">This alumni is not currently available for mentorship.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

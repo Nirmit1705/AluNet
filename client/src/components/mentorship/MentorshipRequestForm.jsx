@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { X, Users, Calendar } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Users, Calendar, AlertCircle } from "lucide-react";
+import axios from "axios";
+import { toast } from 'sonner';
 
-const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose }) => {
+const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, mentor, onClose, onSubmit }) => {
   const [mentorshipDetails, setMentorshipDetails] = useState({
     message: "",
     goals: "",
@@ -9,10 +11,33 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
     availability: "",
     meetingMode: "online",
     requiredDomains: [],
-    preferredSlot: ""
+    preferredSlot: "",
+    requestedSessions: 5 // Default to 5 sessions
   });
   const [newDomain, setNewDomain] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   
+  // Extract mentor information from either direct props or mentor object
+  const actualMentorId = mentorId || mentor?.id;
+  const actualMentorName = mentorName || mentor?.name;
+  const actualMentorRole = mentorRole || mentor?.role;
+  const actualMentorEmail = mentorEmail || mentor?.email;
+  
+  useEffect(() => {
+    // Log mentor details for debugging
+    console.log("Mentor information in request form:", { 
+      actualMentorId, 
+      actualMentorName,
+      directMentorId: mentorId,
+      mentorObjectId: mentor?.id 
+    });
+    
+    if (!actualMentorId) {
+      console.error("No mentor ID available");
+    }
+  }, [actualMentorId, actualMentorName, mentorId, mentor]);
+
   // Handle mentorship form input changes
   const handleMentorshipInputChange = (e) => {
     const { name, value } = e.target;
@@ -49,18 +74,93 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
     }
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Here you would typically send the mentorship request to your backend
-    // For now, we'll just log it and close the form
-    console.log("Sending mentorship request to", mentorName, mentorEmail, "with details:", mentorshipDetails);
-    
-    // Show success message to user
-    alert(`Mentorship request sent to ${mentorName}!`);
-    
-    // Close the form
-    onClose();
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      // Validate form with all required fields
+      if (!mentorshipDetails.message.trim()) {
+        throw new Error("Please provide a message to the mentor");
+      }
+      
+      if (!mentorshipDetails.goals.trim()) {
+        throw new Error("Please provide your mentorship goals");
+      }
+      
+      if (!mentorshipDetails.availability.trim()) {
+        throw new Error("Please specify your availability");
+      }
+      
+      if (!mentorshipDetails.preferredSlot) {
+        throw new Error("Please select a preferred time slot");
+      }
+      
+      // Validate the mentorId
+      if (!actualMentorId) {
+        throw new Error("Invalid mentor selection. Please try again or contact support.");
+      }
+      
+      // Prepare data for API
+      const requestData = {
+        alumniId: actualMentorId, // Changed from 'alumni' to 'alumniId' to match API expectation
+        requestMessage: mentorshipDetails.message,
+        mentorshipGoals: mentorshipDetails.goals,
+        timeRequired: mentorshipDetails.timeRequired,
+        availability: mentorshipDetails.availability,
+        meetingMode: mentorshipDetails.meetingMode,
+        skillsToLearn: mentorshipDetails.requiredDomains,
+        preferredSlot: mentorshipDetails.preferredSlot,
+        requestedSessions: mentorshipDetails.requestedSessions
+      };
+      
+      console.log("Submitting mentorship request:", requestData);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("You must be logged in to request mentorship");
+      }
+      
+      // Submit the request to the API - use the correct endpoint
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship`, // Updated endpoint
+        requestData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Mentorship request response:", response.data);
+      
+      // Store in localStorage to update UI status
+      const pendingRequests = JSON.parse(localStorage.getItem('pendingMentorshipRequests') || '[]');
+      pendingRequests.push(actualMentorId);
+      localStorage.setItem('pendingMentorshipRequests', JSON.stringify(pendingRequests));
+      
+      // Show success message
+      toast.success("Mentorship request sent successfully");
+      
+      // Call the onSubmit callback if it exists
+      if (onSubmit) {
+        onSubmit(requestData);
+      }
+      
+      // Close the form
+      onClose();
+      
+    } catch (err) {
+      console.error("Error submitting mentorship request:", err);
+      setError(err.message || "Failed to send mentorship request");
+      toast.error(err.message || "Failed to send mentorship request");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -78,9 +178,16 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
         
         <div className="p-6">
           <p className="text-muted-foreground mb-6">
-            You are requesting mentorship from <span className="font-semibold text-foreground">{mentorName}</span>. 
+            You are requesting mentorship from <span className="font-semibold text-foreground">{actualMentorName}</span>. 
             Please provide details about what you're looking for in this mentorship.
           </p>
+          
+          {error && (
+            <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center text-red-600 dark:text-red-400">
+              <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
           
           <div className="space-y-4">
             <div>
@@ -213,6 +320,27 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
               </div>
             </div>
             
+            {/* Add this new field before the meetingMode field */}
+            <div>
+              <label htmlFor="requestedSessions" className="block text-sm font-medium mb-2">
+                Number of Sessions*
+              </label>
+              <input
+                type="number"
+                id="requestedSessions"
+                name="requestedSessions"
+                value={mentorshipDetails.requestedSessions}
+                onChange={handleMentorshipInputChange}
+                min="1"
+                max="20"
+                className="w-full p-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                How many mentoring sessions would you like to have? (between 1 and 20)
+              </p>
+            </div>
+            
             <div>
               <label htmlFor="meetingMode" className="block text-sm font-medium mb-2">
                 Preferred Meeting Mode
@@ -235,14 +363,24 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-lg border border-border hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+              className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors flex items-center"
+              disabled={isSubmitting}
             >
-              Send Request
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : "Send Request"}
             </button>
           </div>
         </div>
@@ -251,4 +389,4 @@ const MentorshipRequestForm = ({ mentorName, mentorRole, mentorEmail, onClose })
   );
 };
 
-export default MentorshipRequestForm; 
+export default MentorshipRequestForm;

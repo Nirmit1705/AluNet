@@ -13,6 +13,7 @@ import {
   X, 
   Users, 
   ChevronLeft,
+  ChevronRight, // Added ChevronRight
   Heart,
   ExternalLink,
   Calendar,
@@ -22,7 +23,8 @@ import {
   School,
   Eye,
   UserPlus,
-  Clock
+  Clock,
+  ArrowLeft // Added ArrowLeft which was missing
 } from "lucide-react";
 import { useUniversity } from "../../context/UniversityContext";
 import axios from "axios";
@@ -315,49 +317,29 @@ const AlumniDirectory = () => {
     }
   }, []);
 
-  // Add this useEffect to fetch connection requests and connected alumni when component mounts
+  // Add this useEffect to check for pending requests
   useEffect(() => {
-    const fetchConnectionStatus = async () => {
+    // Load pending mentorship requests from localStorage
+    const pendingRequests = localStorage.getItem('pendingMentorshipRequests');
+    if (pendingRequests) {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        // Fetch pending sent connection requests
-        const pendingResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/requests/sent`, 
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const requestsArray = JSON.parse(pendingRequests);
         
-        // Create a map of alumni IDs to connection status
-        const requestMap = {};
-        pendingResponse.data.forEach(request => {
-          const alumniId = request.recipient._id || request.recipient.details?._id;
-          if (alumniId) {
-            requestMap[alumniId] = request.status;
-          }
+        // Create a map of alumni IDs to pending status
+        const pendingMap = {};
+        requestsArray.forEach(id => {
+          pendingMap[id] = true;
         });
         
-        setConnectionRequests(requestMap);
-        
-        // Fetch connected alumni
-        const connectedResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections`, 
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        // Extract alumni IDs from connections
-        const connectedIds = connectedResponse.data
-          .filter(conn => conn.userType === 'Alumni')
-          .map(conn => conn.connectionUserId);
-        
-        setConnectedAlumni(connectedIds);
-        
+        // Add to the existing connection requests
+        setConnectionRequests(prev => ({
+          ...prev,
+          ...pendingMap
+        }));
       } catch (error) {
-        console.error("Error fetching connection status:", error);
+        console.error("Error parsing pending mentorship requests:", error);
       }
-    };
-    
-    fetchConnectionStatus();
+    }
   }, []);
 
   // Handle search
@@ -865,6 +847,15 @@ const AlumniDirectory = () => {
                       Class of {alum.graduationYear || 'N/A'}
                     </span>
                   </div>
+                  {/* Mentorship availability indicator */}
+                  {alum.mentorshipAvailable && (
+                    <div className="mt-2 flex items-center">
+                      <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full flex items-center">
+                        <GraduationCap className="h-3 w-3 mr-1" />
+                        Available for Mentorship
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -1044,6 +1035,33 @@ const AlumniDirectory = () => {
                   <p className="text-muted-foreground">{selectedAlumni.bio}</p>
                 </div>
               )}
+
+              {/* Add this in the alumni details modal, inside the detailed view of an alumni */}
+              {selectedAlumni && selectedAlumni.mentorshipAvailable && (
+                <div className="mb-6">
+                  <h4 className="font-medium mb-2">Mentorship</h4>
+                  <div className="px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-start">
+                      <GraduationCap className="h-4 w-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-green-600">Available for Mentorship</p>
+                        {selectedAlumni.mentorshipAreas && selectedAlumni.mentorshipAreas.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-sm font-medium">Mentorship areas:</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {selectedAlumni.mentorshipAreas.map((area, index) => (
+                                <span key={index} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2 py-1 rounded-full">
+                                  {area}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="mb-6">
                 <h4 className="font-medium mb-2">Education</h4>
@@ -1117,18 +1135,28 @@ const AlumniDirectory = () => {
             </div>
             
             <div className="flex gap-3 mt-6">
+              {connectionRequests[selectedAlumni._id] === 'pending' || connectionRequests[selectedAlumni.id] ? (
+                <button
+                  disabled
+                  className="flex-1 px-4 py-2 bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Request Pending
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    connectWithAlumni(selectedAlumni._id || selectedAlumni.id);
+                    closeAlumniDetails();
+                  }}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Connect
+                </button>
+              )}
               <button
                 onClick={() => {
-                  connectWithAlumni(selectedAlumni.id);
-                  closeAlumniDetails();
-                }}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Connect
-              </button>
-              <button
-                onClick={() => {
-                  messageAlumni(selectedAlumni.id);
+                  messageAlumni(selectedAlumni._id || selectedAlumni.id);
                   closeAlumniDetails();
                 }}
                 className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors"

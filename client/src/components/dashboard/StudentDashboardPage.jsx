@@ -6,6 +6,7 @@ import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, B
 import { useUniversity } from "../../context/UniversityContext";
 import Footer from "../layout/Footer"; 
 import axios from "axios";
+import CurrentMentorshipsSection from './student/CurrentMentorshipsSection';
 
 // Example reference job recommendation (keeping one as reference)
 const jobRecommendationExample = {
@@ -434,101 +435,7 @@ const StudentDashboardPage = () => {
           {/* Two equal columns for Mentorships and Professionals sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Current Mentorships Section */}
-            <div className="glass-card rounded-xl p-6 animate-fade-in h-full">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-medium text-lg">Current Mentorships</h3>
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              
-              <div className="space-y-4">
-                {currentMentorships
-                  .filter((mentorship) => mentorship.progress < 100)
-                  .slice(0, 2)
-                  .map((mentorship) => (
-                    <div 
-                      key={mentorship.id} 
-                      className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
-                      onClick={() => viewMentorshipDetails(mentorship)}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <Avatar className="h-12 w-12 border border-primary/20">
-                          <AvatarImage src={mentorship.mentorAvatar} alt={mentorship.mentorName} />
-                          <AvatarFallback>{mentorship.mentorName.substring(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1">
-                          <h4 className="font-medium text-primary">{mentorship.mentorName}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{mentorship.mentorTitle}</p>
-                        </div>
-                        
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Next Session</div>
-                          <div className="text-sm font-medium">
-                            {new Date(mentorship.nextSession).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          <span>Progress</span>
-                          <span>{mentorship.completedSessions}/{mentorship.totalSessions} Sessions</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full" 
-                            style={{ width: `${mentorship.progress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {mentorship.focusAreas.map((area, index) => (
-                          <span 
-                            key={index} 
-                            className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
-                          >
-                            {area}
-                          </span>
-                        ))}
-                        {mentorship.focusAreas.length > 2 && (
-                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
-                            +{mentorship.focusAreas.length - 2} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                {/* Show "View All Mentorships" button if there are more than 2 mentorships */}
-                {currentMentorships.filter((mentorship) => mentorship.progress < 100).length > 2 && (
-                  <button
-                    onClick={viewAllMentorships}
-                    className="w-full mt-4 py-2 bg-white dark:bg-slate-800 text-primary hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors font-medium flex items-center justify-center gap-2"
-                  >
-                    <Users className="h-4 w-4" />
-                    View All Mentorships
-                  </button>
-                )}
-                
-                {/* Show message if there are no active mentorships */}
-                {currentMentorships.filter((mentorship) => mentorship.progress < 100).length === 0 && (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                    <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-2">No Active Mentorships</h4>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-                      You don't have any active mentorships at the moment.
-                    </p>
-                    <button
-                      onClick={() => navigate("/connected-mentors")}
-                      className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Find a Mentor
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <CurrentMentorshipsSection />
 
             {/* Connect with Professionals Section */}
             <div className="glass-card rounded-xl p-6 animate-fade-in h-full">
@@ -577,6 +484,24 @@ const StudentDashboardPage = () => {
                         </button>
                       </div>
                       <p className="text-sm text-muted-foreground">{mentor.role}</p>
+                      
+                      {/* First display mentorship areas if available */}
+                      {Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {mentor.mentorshipAreas.slice(0, 3).map((area, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                              {area}
+                            </span>
+                          ))}
+                          {mentor.mentorshipAreas.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                              +{mentor.mentorshipAreas.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Then display specialties if available */}
                       <div className="flex flex-wrap gap-1 mt-2">
                         {mentor.specialties.map((specialty, idx) => (
                           <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
@@ -584,6 +509,7 @@ const StudentDashboardPage = () => {
                           </span>
                         ))}
                       </div>
+                      
                       <div className="flex items-center mt-3">
                         <Clock className="h-3 w-3 text-green-600 mr-1" />
                         <span className="text-xs text-green-600">{mentor.availability}</span>

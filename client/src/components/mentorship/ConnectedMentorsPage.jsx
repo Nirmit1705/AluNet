@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Users, Search, Filter, X, GraduationCap, MessageSquare, Heart, ExternalLink, Calendar, Briefcase, MapPin, Mail, BookOpen, Info, School } from "lucide-react";
+import axios from "axios";
+import { ChevronLeft, Users, Search, Filter, X, GraduationCap, MessageSquare, Heart, ExternalLink, Calendar, Briefcase, MapPin, Mail, BookOpen, Info, School, Clock } from "lucide-react";
 import Navbar from "../layout/Navbar";
 import MentorshipRequestForm from "./MentorshipRequestForm";
 import { useUniversity } from "../../context/UniversityContext";
-import axios from "axios";
 
 const ConnectedMentorsPage = () => {
   const navigate = useNavigate();
@@ -30,6 +30,34 @@ const ConnectedMentorsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Add this new state
+  const [mentorshipRequests, setMentorshipRequests] = useState([]);
+  
+  // Add a function to fetch mentorship requests
+  const fetchMentorshipRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/student`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Fetched mentorship requests:", response.data);
+      setMentorshipRequests(response.data || []);
+    } catch (err) {
+      console.error("Error fetching mentorship requests:", err);
+    }
+  }, [navigate]);
+  
   // Fetch connected mentors when component mounts
   useEffect(() => {
     // Update the fetchConnectedMentors function to properly handle education data
@@ -53,12 +81,13 @@ const ConnectedMentorsPage = () => {
           }
         );
         
-        console.log("Fetched mentor data:", response.data); // Add debug logging
+        // Enhanced debug logging for the raw API response
+        console.log("Fetched mentor data:", response.data);
         
         // Ensure we always set arrays, even if response.data is null or undefined
         const mentorsData = response.data || [];
         
-        // Transform data if needed to ensure all required properties are present
+        // Transform data to ensure all required properties are present
         const transformedMentors = mentorsData.map(mentor => {
           // Create a formatted education string if it's an object
           let educationString = mentor.education;
@@ -67,11 +96,39 @@ const ConnectedMentorsPage = () => {
             educationString = formatEducation(mentor.education);
           }
           
+          // Handle mentorshipAreas field specifically - ensure it's an array
+          let mentorshipAreas = [];
+          
+          // First, directly check if mentorshipAreas exists and is an array
+          if (Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0) {
+            mentorshipAreas = [...mentor.mentorshipAreas];
+            console.log(`Using mentorshipAreas array directly for ${mentor.name}:`, mentorshipAreas);
+          }
+          // If it's a string, split by commas
+          else if (mentor.mentorshipAreas && typeof mentor.mentorshipAreas === 'string') {
+            mentorshipAreas = mentor.mentorshipAreas.split(',').map(area => area.trim());
+            console.log(`Converted mentorshipAreas string to array for ${mentor.name}:`, mentorshipAreas);
+          }
+          // If we don't have mentorshipAreas, check if we have expertise that can be used
+          else if (mentor.expertise && Array.isArray(mentor.expertise) && mentor.expertise.length > 0) {
+            mentorshipAreas = [...mentor.expertise];
+            console.log(`Using expertise as fallback for ${mentor.name}:`, mentorshipAreas);
+          }
+          // If we still don't have anything, use an empty array
+          else {
+            console.log(`No mentorship areas found for ${mentor.name}, using empty array`);
+          }
+          
+          // Extract specialties separately (don't use this as mentorshipAreas)
+          const specialties = mentor.specialties || mentor.expertise || mentor.skills || [];
+          
           return {
             id: mentor.id || mentor._id,
             name: mentor.name || 'Unknown Mentor',
             role: mentor.role || `${mentor.position || 'Professional'} at ${mentor.company || 'Company'}`,
-            specialties: mentor.specialties || mentor.expertise || mentor.skills || [],
+            position: mentor.position || 'Professional',
+            specialties: specialties,
+            mentorshipAreas: mentorshipAreas, // Use our properly processed mentorshipAreas
             availability: mentor.availability || "Available by appointment",
             location: mentor.location || mentor.city || "Remote",
             experience: mentor.experience || "N/A",
@@ -83,8 +140,15 @@ const ConnectedMentorsPage = () => {
             email: mentor.email || "",
             linkedin: mentor.linkedin || "#",
             avatar: mentor.profilePicture || mentor.avatar || null,
-            company: mentor.company || "Company"
+            company: mentor.company || "Company",
+            mentorshipAvailable: mentor.mentorshipAvailable !== false
           };
+        });
+        
+        // Log transformed mentors to check mentorshipAreas
+        console.log("Transformed mentors mentorship areas check:");
+        transformedMentors.forEach(mentor => {
+          console.log(`${mentor.name}: mentorshipAreas=${JSON.stringify(mentor.mentorshipAreas)}`);
         });
         
         setAllMentors(transformedMentors);
@@ -101,7 +165,9 @@ const ConnectedMentorsPage = () => {
     };
     
     fetchConnectedMentors();
-  }, [navigate]);
+    // Fetch mentorship requests on component mount
+    fetchMentorshipRequests();
+  }, [navigate, fetchMentorshipRequests]);
   
   // Filter mentors by university when userUniversity changes
   useEffect(() => {
@@ -223,33 +289,71 @@ const ConnectedMentorsPage = () => {
     alert(`Navigating to message with mentor #${mentorId}`);
   };
   
-  // Request mentorship with specific mentor
+  // Update the requestMentorship function to check for existing requests first
   const requestMentorship = (mentorId) => {
     const mentor = allMentors.find(m => m.id === mentorId);
-    if (!mentor) return;
+    if (!mentor) {
+      console.error("Mentor not found with ID:", mentorId);
+      return;
+    }
+    
+    // Check if mentorship already exists
+    const status = getMentorshipStatus(mentorId);
+    if (status === 'accepted') {
+      // Redirect to existing mentorship
+      navigate('/mentorships');
+      return;
+    } else if (status === 'pending') {
+      alert("You already have a pending mentorship request with this mentor.");
+      return;
+    }
+    
+    console.log("Requesting mentorship with mentor:", mentor);
     
     // Show the mentorship request form
     setSelectedMentorForRequest(mentor);
     setShowMentorshipForm(true);
   };
   
-  // Handle mentorship request submission
-  const handleMentorshipSubmit = (formData) => {
-    // In a real app, this would send the request to the backend
-    console.log("Submitting mentorship request:", formData);
-    
-    // For demo purposes:
-    alert(`Mentorship request for ${formData.mentorName} has been submitted successfully!`);
-    
-    // Close the form
-    setShowMentorshipForm(false);
-    setSelectedMentorForRequest(null);
+  // Update the handleMentorshipSubmit function
+  const handleMentorshipSubmit = async (formData) => {
+    try {
+      // This is now handled in the MentorshipRequestForm component
+      console.log("Mentorship request submitted:", formData);
+      
+      // Refresh the mentorship requests
+      fetchMentorshipRequests();
+      
+      // Close the form
+      setShowMentorshipForm(false);
+      setSelectedMentorForRequest(null);
+    } catch (error) {
+      console.error("Error handling mentorship submission:", error);
+    }
   };
   
-  // Cancel mentorship request
-  const cancelMentorshipRequest = () => {
-    setShowMentorshipForm(false);
-    setSelectedMentorForRequest(null);
+  // Update the getMentorshipStatus function to properly check mentorship status
+  const getMentorshipStatus = (mentorId) => {
+    if (!mentorshipRequests || !mentorshipRequests.length || !mentorId) {
+      return null;
+    }
+    
+    console.log("Checking status for mentor ID:", mentorId);
+    console.log("Available mentorship requests:", mentorshipRequests);
+    
+    // Find the mentorship request for this mentor
+    const request = mentorshipRequests.find(req => {
+      // Handle different ways the alumni ID might be stored
+      const reqAlumniId = req.alumni?._id || req.alumni;
+      const alumniIdStr = reqAlumniId?.toString();
+      const mentorIdStr = mentorId?.toString();
+      
+      console.log(`Comparing: reqAlumniId=${alumniIdStr}, mentorId=${mentorIdStr}`);
+      return alumniIdStr === mentorIdStr;
+    });
+    
+    console.log("Found request:", request);
+    return request ? request.status : null;
   };
   
   // Get initials from name
@@ -276,6 +380,71 @@ const ConnectedMentorsPage = () => {
     "Weekend Evenings"
   ];
 
+  // Enhance the renderMentorshipButton function to properly handle all states
+  const renderMentorshipButton = (mentor) => {
+    const status = getMentorshipStatus(mentor.id);
+    
+    console.log(`Mentor ${mentor.name} (${mentor.id}) has status:`, status);
+    
+    if (status === 'pending') {
+      return (
+        <button 
+          className="flex-1 px-3 py-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+          disabled
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Clock className="h-3 w-3 inline mr-1" />
+          Request Pending
+        </button>
+      );
+    } else if (status === 'accepted') {
+      return (
+        <button 
+          className="flex-1 px-3 py-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate('/mentorships');
+          }}
+        >
+          <GraduationCap className="h-3 w-3 inline mr-1" />
+          View Mentorship
+        </button>
+      );
+    } else {
+      return (
+        <button 
+          className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            requestMentorship(mentor.id);
+          }}
+        >
+          <GraduationCap className="h-3 w-3 inline mr-1" />
+          Request Mentorship
+        </button>
+      );
+    }
+  };
+  
+  // Add helper function to get mentorship ID
+  const getMentorshipId = (mentorId) => {
+    if (!mentorshipRequests || !mentorshipRequests.length || !mentorId) {
+      return null;
+    }
+    
+    const request = mentorshipRequests.find(
+      req => req.alumni?.toString() === mentorId?.toString()
+    );
+    
+    return request ? request._id : null;
+  };
+  
+  // Add a missing cancel function
+  const cancelMentorshipRequest = () => {
+    setShowMentorshipForm(false);
+    setSelectedMentorForRequest(null);
+  };
+  
   // Render loading state
   if (isLoading) {
     return (
@@ -468,11 +637,7 @@ const ConnectedMentorsPage = () => {
         {mentors && mentors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {mentors.map((mentor) => (
-              <div 
-                key={mentor.id || `mentor-${mentor.name}`} 
-                className="glass-card rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow" 
-                onClick={() => viewMentorProfile(mentor)}
-              >
+              <div key={mentor.id || `mentor-${mentor.name}`} className="glass-card rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => viewMentorProfile(mentor)}>
                 <div className="flex items-start">
                   <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
                     {mentor.avatar ? (
@@ -515,6 +680,31 @@ const ConnectedMentorsPage = () => {
                       )}
                     </div>
                   </div>
+                  
+                  {Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0 ? (
+                    <div className="mb-3">
+                      <p className="text-xs font-medium mb-1">Mentorship Areas</p>
+                      <div className="flex flex-wrap gap-1">
+                        {mentor.mentorshipAreas.slice(0, 3).map((area, idx) => (
+                          <span key={idx} className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                            {area}
+                          </span>
+                        ))}
+                        {mentor.mentorshipAreas.length > 3 && (
+                          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-full">
+                            +{mentor.mentorshipAreas.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Add a placeholder for mentorship areas when none are available
+                    <div className="mb-3">
+                      <p className="text-xs font-medium mb-1">Mentorship Areas</p>
+                      <span className="text-xs text-gray-500">General mentorship</span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3 mr-1" />
                     <span>{mentor.location || "Location not specified"}</span>
@@ -536,19 +726,12 @@ const ConnectedMentorsPage = () => {
                     <MessageSquare className="h-3 w-3 inline mr-1" />
                     Message
                   </button>
-                  <button 
-                    className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      requestMentorship(mentor.id);
-                    }}
-                  >
-                    <Users className="h-3 w-3 inline mr-1" />
-                    Request Mentorship
-                  </button>
+                  
+                  {renderMentorshipButton(mentor)}
                 </div>
               </div>
             ))}
+
           </div>
         ) : (
           <div className="glass-card rounded-xl p-12 text-center">
@@ -616,13 +799,33 @@ const ConnectedMentorsPage = () => {
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Send Message
                     </button>
-                    <button 
-                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center"
-                      onClick={() => requestMentorship(selectedMentor.id)}
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Request Mentorship
-                    </button>
+                    
+                    {/* Conditionally render button based on mentorship status */}
+                    {getMentorshipStatus(selectedMentor.id) === 'accepted' ? (
+                      <button 
+                        className="px-4 py-2 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:opacity-90 transition-colors flex items-center"
+                        onClick={() => navigate('/mentorships')}
+                      >
+                        <GraduationCap className="h-4 w-4 mr-2" />
+                        View Mentorship
+                      </button>
+                    ) : getMentorshipStatus(selectedMentor.id) === 'pending' ? (
+                      <button 
+                        className="px-4 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center cursor-not-allowed"
+                        disabled
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Request Pending
+                      </button>
+                    ) : (
+                      <button 
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center"
+                        onClick={() => requestMentorship(selectedMentor.id)}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Request Mentorship
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -631,30 +834,11 @@ const ConnectedMentorsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left column */}
                 <div className="space-y-6">
-                  {/* Contact information */}
-                  <div className="glass-card rounded-xl p-5">
-                    <h4 className="font-medium mb-4">Contact Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center text-sm">
-                        <Mail className="h-4 w-4 mr-2 text-primary" />
-                        <a href={`mailto:${selectedMentor.email}`} className="hover:text-primary transition-colors">
-                          {selectedMentor.email}
-                        </a>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <ExternalLink className="h-4 w-4 mr-2 text-primary" />
-                        <a href={selectedMentor.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                          LinkedIn Profile
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                  
                   {/* Education */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Education</h4>
                     <div className="flex items-start">
-                      <BookOpen className="h-4 w-4 mr-2 text-primary mt-0.5" />
+                      <School className="h-4 w-4 mr-2 text-primary mt-0.5" />
                       <span className="text-sm">
                         {formatEducation(selectedMentor.education)}
                       </span>
@@ -682,6 +866,22 @@ const ConnectedMentorsPage = () => {
                           {specialty}
                         </span>
                       ))}
+                    </div>
+                  </div>
+                  
+                  {/* Mentorship Areas */}
+                  <div className="glass-card rounded-xl p-5">
+                    <h4 className="font-medium mb-4">Mentorship Areas</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.isArray(selectedMentor.mentorshipAreas) && selectedMentor.mentorshipAreas.length > 0 ? (
+                        selectedMentor.mentorshipAreas.map((area, idx) => (
+                          <span key={idx} className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm rounded-full">
+                            {area}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-500">General mentorship</span>
+                      )}
                     </div>
                   </div>
                   
@@ -723,9 +923,13 @@ const ConnectedMentorsPage = () => {
       {/* Mentorship Request Form */}
       {showMentorshipForm && selectedMentorForRequest && (
         <MentorshipRequestForm 
+          mentorName={selectedMentorForRequest.name}
+          mentorId={selectedMentorForRequest.id}
+          mentorRole={selectedMentorForRequest.role}
+          mentorEmail={selectedMentorForRequest.email}
           mentor={selectedMentorForRequest}
           onSubmit={handleMentorshipSubmit}
-          onCancel={cancelMentorshipRequest}
+          onClose={cancelMentorshipRequest}
         />
       )}
     </div>

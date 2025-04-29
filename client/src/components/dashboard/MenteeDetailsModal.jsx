@@ -7,6 +7,18 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
   
   if (!selectedMentee) return null;
   
+  // Add console log to see the actual data
+  console.log('MenteeDetailsModal - selectedMentee data:', {
+    id: selectedMentee.id,
+    name: selectedMentee.name,
+    sessionsCompleted: selectedMentee.sessionsCompleted,
+    totalSessions: selectedMentee.totalSessions,
+    progress: selectedMentee.progress,
+    // Log data types to help debug conversion issues
+    sessionsCompletedType: typeof selectedMentee.sessionsCompleted,
+    totalSessionsType: typeof selectedMentee.totalSessions
+  });
+  
   const handleScheduleSession = () => {
     setShowScheduleModal(true);
   };
@@ -32,8 +44,16 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
           <div className="flex justify-between items-start p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center">
-              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
-                <Users className="h-6 w-6" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 overflow-hidden">
+                {selectedMentee.profileImg ? (
+                  <img 
+                    src={selectedMentee.profileImg} 
+                    alt={`${selectedMentee.name}'s profile`}
+                    className="h-full w-full object-cover" 
+                  />
+                ) : (
+                  <Users className="h-6 w-6" />
+                )}
               </div>
               <div>
                 <h3 className="text-lg font-medium">{selectedMentee.name}</h3>
@@ -52,7 +72,7 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mentorship Started</h4>
-                <p className="font-medium">January 15, 2024</p>
+                <p className="font-medium">{selectedMentee.startDate}</p>
               </div>
               <div>
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Next Session</h4>
@@ -71,7 +91,7 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Focus Areas</h4>
               <div className="flex flex-wrap gap-2">
-                {["Technical Skills", "Career Guidance", "Interview Preparation"].map((area, index) => (
+                {selectedMentee.focusAreas && selectedMentee.focusAreas.map((area, index) => (
                   <span 
                     key={index} 
                     className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
@@ -82,23 +102,29 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
               </div>
             </div>
             
+            {/* Modify the Progress section to ensure we display valid numbers */}
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Progress</h4>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
                 <div 
                   className="bg-primary h-2 rounded-full" 
-                  style={{ width: `60%` }}
+                  style={{ width: `${selectedMentee.progress || 0}%` }}
                 ></div>
               </div>
               <div className="text-right text-sm text-gray-500 dark:text-gray-400">
-                3 of 5 Sessions Completed
+                {(() => {
+                  // Parse values as integers and provide fallbacks
+                  const completed = parseInt(selectedMentee.sessionsCompleted || 0, 10);
+                  const total = parseInt(selectedMentee.totalSessions || 5, 10);
+                  return `${completed} of ${total} Sessions Completed`;
+                })()}
               </div>
             </div>
             
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h4>
               <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg text-sm">
-                Working on improving technical skills in React and preparing for internship interviews. Next session will focus on system design concepts.
+                {selectedMentee.mentorshipGoals || selectedMentee.notes || "No mentorship goals or notes available."}
               </p>
             </div>
             
