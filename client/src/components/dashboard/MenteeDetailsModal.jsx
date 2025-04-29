@@ -102,7 +102,7 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
               </div>
             </div>
             
-            {/* Modify the Progress section to ensure we display valid numbers */}
+            {/* Update the Progress section to better handle total sessions */}
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Progress</h4>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
@@ -113,9 +113,26 @@ const MenteeDetailsModal = ({ selectedMentee, setSelectedMentee, messageMentee }
               </div>
               <div className="text-right text-sm text-gray-500 dark:text-gray-400">
                 {(() => {
-                  // Parse values as integers and provide fallbacks
-                  const completed = parseInt(selectedMentee.sessionsCompleted || 0, 10);
-                  const total = parseInt(selectedMentee.totalSessions || 5, 10);
+                  // Parse values as integers with fallbacks if needed
+                  const completed = typeof selectedMentee.sessionsCompleted === 'number' 
+                    ? selectedMentee.sessionsCompleted 
+                    : parseInt(selectedMentee.sessionsCompleted || 0, 10);
+                    
+                  // Use the actual total sessions from data instead of hardcoded 5
+                  const total = typeof selectedMentee.totalSessions === 'number'
+                    ? selectedMentee.totalSessions
+                    : parseInt(selectedMentee.totalSessions || 5, 10);
+                    
+                  // Add debug logging to understand the data types
+                  console.log('Session counts in modal:', { 
+                    completed, 
+                    total,
+                    completedType: typeof completed,
+                    totalType: typeof total,
+                    rawCompleted: selectedMentee.sessionsCompleted,
+                    rawTotal: selectedMentee.totalSessions
+                  });
+                    
                   return `${completed} of ${total} Sessions Completed`;
                 })()}
               </div>

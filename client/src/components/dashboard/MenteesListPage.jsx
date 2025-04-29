@@ -97,17 +97,60 @@ const MenteesListPage = () => {
         // Check if we have locally stored schedule data for this mentee
         const cachedSchedule = menteeSchedules[menteeId];
         
-        // Use locally cached next session if it exists
-        let nextSessionText = mentee.nextSession || "Not scheduled";
+        // Use locally cached next session if it exists and verify it's still valid
+        let nextSessionText = "Not scheduled";
         let nextSessionDate = null;
         let requestStatus = mentee.status || "pending";
+        let nextSessionId = null;
+        let nextSessionEndTime = null;
+        let nextSessionCompleted = false;
         
-        if (cachedSchedule) {
+        // First check the actual data from the server
+        if (mentee.nextSessionDate && new Date(mentee.nextSessionDate) > new Date()) {
+          // Server indicates an upcoming session that hasn't passed yet
+          nextSessionText = mentee.nextSession || new Date(mentee.nextSessionDate).toLocaleDateString();
+          nextSessionDate = mentee.nextSessionDate;
+          nextSessionId = mentee.nextSessionId;
+          requestStatus = "scheduled";
+        } else if (cachedSchedule) {
+          // Check if we have a valid cached schedule (not in the past)
           console.log(`Found cached schedule for mentee ${mentee.name}:`, cachedSchedule);
-          nextSessionText = cachedSchedule.nextSession;
-          nextSessionDate = cachedSchedule.rawDate; // Use the stored raw date
-          requestStatus = cachedSchedule.requestStatus || requestStatus;
+          
+          const cachedDate = new Date(cachedSchedule.rawDate);
+          const now = new Date();
+          
+          // Only use cached data if the session hasn't passed yet or if it's marked as completed
+          if ((cachedDate > now && !cachedSchedule.completed) || 
+              (cachedSchedule.status && cachedSchedule.status !== 'completed')) {
+            nextSessionText = cachedSchedule.nextSession;
+            nextSessionDate = cachedSchedule.rawDate;
+            nextSessionId = cachedSchedule.sessionId;
+            nextSessionEndTime = cachedSchedule.endTime;
+            requestStatus = cachedSchedule.requestStatus || requestStatus;
+          } else {
+            // If the cached session has passed, mark it as completed
+            menteeSchedules[menteeId] = {
+              ...cachedSchedule,
+              completed: true,
+              status: 'completed'
+            };
+            localStorage.setItem('menteeSchedules', JSON.stringify(menteeSchedules));
+            nextSessionCompleted = true;
+          }
         }
+        
+        // Parse session counts ensuring they are valid numbers
+        const sessionsCompleted = parseInt(mentee.sessionsCompleted || 0, 10);
+        
+        // Important: Use the actual totalPlannedSessions from the database
+        // Only fall back to default 5 if no value exists
+        const totalSessions = mentee.totalPlannedSessions ? parseInt(mentee.totalPlannedSessions, 10) : 5;
+        
+        // Log the actual values for debugging
+        console.log(`Mentee ${mentee.name} - Sessions: ${sessionsCompleted}/${totalSessions}`);
+        
+        // Calculate progress based on actual sessions
+        const progress = totalSessions > 0 ? Math.min(100, Math.round((sessionsCompleted / totalSessions) * 100)) : 0;
         
         return {
           id: menteeId,
@@ -117,33 +160,27 @@ const MenteesListPage = () => {
           lastInteraction: mentee.lastInteraction || '2 days ago',
           lastInteractionDate: mentee.lastInteractionDate,
           nextSession: nextSessionText,
-          nextSessionDate: nextSessionDate, // Store actual date for sorting
+          nextSessionDate: nextSessionDate,
           profileImg: mentee.profilePicture?.url || null,
           status: mentee.status || "Active",
-          requestStatus: requestStatus, // Add this to store the request status
+          requestStatus: requestStatus,
           focusAreas: Array.isArray(mentee.focusAreas) && mentee.focusAreas.length > 0 
             ? mentee.focusAreas 
             : mentee.skillsToLearn && mentee.skillsToLearn.length > 0 
               ? mentee.skillsToLearn 
               : ["Career Guidance"],
-          // Fix these session-related fields to ensure they're numbers
-          sessionsCompleted: parseInt(mentee.sessionsCompleted || 0, 10),
-          totalSessions: parseInt(mentee.totalPlannedSessions || 5, 10),
-          // Recalculate progress based on completed sessions
-          progress: (() => {
-            const completed = parseInt(mentee.sessionsCompleted || 0, 10);
-            const total = parseInt(mentee.totalPlannedSessions || 5, 10);
-            return total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-          })(),
+          // Store session counts as numbers
+          sessionsCompleted: sessionsCompleted,
+          totalSessions: totalSessions,
+          progress: progress,
           startDate: mentee.startDate ? new Date(mentee.startDate).toLocaleDateString() : "January 15, 2023",
           email: mentee.email || 'unknown@example.com',
           notes: mentee.notes || "Working on mentorship goals.",
-          mentorshipId: mentee.mentorshipId, // Keep the mentorship ID for scheduling sessions
+          mentorshipId: mentee.mentorshipId,
           mentorshipGoals: mentee.mentorshipGoals || "",
-          nextSessionId: cachedSchedule?.sessionId || mentee.nextSessionId, // Use cached session ID if available
-          // Add these for tracking session completion
-          nextSessionEndTime: cachedSchedule?.endTime || mentee.nextSessionEndTime,
-          nextSessionCompleted: cachedSchedule?.completed || false
+          nextSessionId: nextSessionId,
+          nextSessionEndTime: nextSessionEndTime,
+          nextSessionCompleted: nextSessionCompleted
         };
       });
       

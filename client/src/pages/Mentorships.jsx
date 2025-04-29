@@ -96,8 +96,19 @@ const MentorshipsPage = () => {
           
           // Calculate progress based on completed and total sessions
           const completedSessions = mentorship.sessionsCompleted || 0;
-          const totalSessions = mentorship.totalPlannedSessions || 5;
-          const progress = totalSessions > 0 ? Math.floor((completedSessions / totalSessions) * 100) : 0;
+          
+          // Use the actual totalPlannedSessions from the database, with a fallback to 5
+          // Log the raw value for debugging
+          console.log(`Raw totalPlannedSessions for ${mentorship.alumni?.name}:`, mentorship.totalPlannedSessions);
+          
+          const totalSessions = mentorship.totalPlannedSessions 
+            ? parseInt(mentorship.totalPlannedSessions, 10) 
+            : 5;
+          
+          // Calculate progress as a percentage
+          const progress = totalSessions > 0 
+            ? Math.floor((completedSessions / totalSessions) * 100) 
+            : 0;
           
           return {
             id: mentorship._id,

@@ -48,6 +48,36 @@ const CurrentMentorshipsSection = () => {
         
         // Transform data for display
         const transformedMentorships = activeMentorships.map(mentorship => {
+          // Process nextSession - ensure it's not showing past dates
+          let nextSession = "Not scheduled";
+          
+          if (mentorship.nextSessionDate) {
+            const nextSessionDate = new Date(mentorship.nextSessionDate);
+            const now = new Date();
+            
+            if (nextSessionDate > now) {
+              // Only display sessions in the future
+              nextSession = nextSessionDate.toLocaleDateString();
+              
+              // If we have more specific time info
+              if (mentorship.nextSession && mentorship.nextSession.includes("at")) {
+                nextSession = mentorship.nextSession;
+              }
+            }
+          }
+          
+          // Parse sessions data and calculate progress properly
+          const sessionsCompleted = parseInt(mentorship.sessionsCompleted || 0, 10);
+          const totalPlannedSessions = parseInt(mentorship.totalPlannedSessions || 5, 10);
+          
+          // Calculate progress percentage
+          const progress = totalPlannedSessions > 0 
+            ? Math.floor((sessionsCompleted / totalPlannedSessions) * 100) 
+            : 0;
+          
+          // Log for debugging
+          console.log(`Mentorship for ${mentorship.alumni?.name || 'Unknown'}: ${sessionsCompleted}/${totalPlannedSessions} sessions (${progress}%)`);
+          
           return {
             id: mentorship._id,
             mentorName: mentorship.alumni?.name || "Unnamed Mentor",
@@ -57,10 +87,10 @@ const CurrentMentorshipsSection = () => {
             avatar: mentorship.alumni?.profilePicture?.url || null,
             focusAreas: mentorship.skillsToLearn || ["General mentorship"],
             startDate: new Date(mentorship.startDate || mentorship.createdAt).toLocaleDateString(),
-            nextSession: mentorship.nextSession || "Not scheduled",
-            progress: mentorship.sessionsCompleted 
-              ? Math.floor((mentorship.sessionsCompleted / (mentorship.totalPlannedSessions || 5)) * 100) 
-              : 0
+            nextSession: nextSession,
+            progress: progress,
+            sessionsCompleted: sessionsCompleted,
+            totalSessions: totalPlannedSessions
           };
         });
         

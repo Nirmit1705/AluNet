@@ -1,71 +1,14 @@
 import mongoose from 'mongoose';
-import MentorshipSession from '../Models/MentorshipSession.js';
-import Mentorship from '../Models/Mentorship.js';
-
-/**
- * Checks for sessions that have passed their end time and updates their status to 'completed'
- * Also updates the associated mentorship progress
- */
-export const updateExpiredSessions = async () => {
-  try {
-    const currentDate = new Date();
-    
-    // Find all scheduled sessions that have ended
-    const expiredSessions = await MentorshipSession.find({
-      status: 'scheduled',
-      date: { $lte: currentDate },
-    });
-    
-    if (!expiredSessions.length) {
-      return { updated: 0 };
-    }
-    
-    const sessionIdsToUpdate = [];
-    const mentorshipIdsToUpdate = new Set();
-    
-    // Filter sessions whose end time has passed
-    for (const session of expiredSessions) {
-      const sessionDate = new Date(session.date);
-      const [hours, minutes] = session.endTime.split(':').map(Number);
-      
-      sessionDate.setHours(hours, minutes, 0, 0);
-      
-      if (currentDate >= sessionDate) {
-        sessionIdsToUpdate.push(session._id);
-        mentorshipIdsToUpdate.add(session.mentorship.toString());
-      }
-    }
-    
-    if (sessionIdsToUpdate.length === 0) {
-      return { updated: 0 };
-    }
-    
-    // Update all expired sessions to 'completed'
-    await MentorshipSession.updateMany(
-      { _id: { $in: sessionIdsToUpdate } },
-      { $set: { status: 'completed' } }
-    );
-    
-    // Update mentorship statistics for each affected mentorship
-    for (const mentorshipId of mentorshipIdsToUpdate) {
-      await updateMentorshipProgress(mentorshipId);
-    }
-    
-    return { 
-      updated: sessionIdsToUpdate.length,
-      mentorships: mentorshipIdsToUpdate.size
-    };
-  } catch (error) {
-    console.error('Error updating expired sessions:', error);
-    return { error: error.message };
-  }
-};
 
 /**
  * Updates the progress and session stats for a specific mentorship
  */
 export const updateMentorshipProgress = async (mentorshipId) => {
   try {
+    // Import models
+    const Mentorship = mongoose.model('Mentorship');
+    const MentorshipSession = mongoose.model('MentorshipSession');
+    
     const mentorship = await Mentorship.findById(mentorshipId);
     if (!mentorship) {
       return { error: 'Mentorship not found' };
@@ -117,5 +60,93 @@ export const updateMentorshipProgress = async (mentorshipId) => {
   } catch (error) {
     console.error(`Error updating mentorship progress for ID ${mentorshipId}:`, error);
     return { error: error.message };
+  }
+};
+
+/**
+ * Update mentorship records when session status changes
+ */
+export const updateMentorshipNextSession = async (mentorshipId) => {
+  try {
+    // Import models
+    const Mentorship = mongoose.model('Mentorship');
+    const MentorshipSession = mongoose.model('MentorshipSession');
+    
+    // Find the mentorship
+    const mentorship = await Mentorship.findById(mentorshipId);
+    if (!mentorship) {
+      console.log(`Mentorship not found with ID: ${mentorshipId}`);
+      return false;
+    }
+    
+    // Find upcoming sessions for this mentorship
+    const now = new Date();
+    const upcomingSessions = await MentorshipSession.find({
+      mentorship: mentorshipId,
+      status: 'scheduled',
+      date: { $gt: now }
+    }).sort({ date: 1 });
+    
+    // Update the mentorship's nextSessionDate
+    if (upcomingSessions.length > 0) {
+      // Set to the earliest upcoming session
+      mentorship.nextSessionDate = upcomingSessions[0].date;
+      console.log(`Updated mentorship ${mentorshipId} with next session date: ${mentorship.nextSessionDate}`);
+    } else {
+      // No upcoming sessions, clear the next session date
+      mentorship.nextSessionDate = null;
+      console.log(`Cleared next session date for mentorship ${mentorshipId}`);
+    }
+    
+    await mentorship.save();
+    return true;
+  } catch (error) {
+    console.error('Error updating mentorship next session:', error);
+    return false;
+  }
+};
+
+/**
+ * Checks for sessions that have passed their end time and updates their status to 'completed'
+ * Also updates the associated mentorship progress
+ */
+export const updateExpiredSessions = async () => {
+  try {
+    // Import models if needed
+    const MentorshipSession = mongoose.model('MentorshipSession');
+    
+    // Find sessions that have passed but are still marked as scheduled
+    const now = new Date();
+    const expiredSessions = await MentorshipSession.find({
+      status: 'scheduled',
+      date: { $lt: now } // Sessions with dates in the past
+    });
+    
+    console.log(`Found ${expiredSessions.length} expired sessions to update`);
+    
+    // Track mentorships that need next session updates
+    const mentorshipsToUpdate = new Set();
+    
+    // Update each expired session
+    for (const session of expiredSessions) {
+      session.status = 'completed';
+      await session.save();
+      
+      // Add to list of mentorships to update
+      mentorshipsToUpdate.add(session.mentorship.toString());
+    }
+    
+    // Update next session date for each affected mentorship
+    for (const mentorshipId of mentorshipsToUpdate) {
+      await updateMentorshipNextSession(mentorshipId);
+    }
+    
+    return {
+      updated: expiredSessions.length,
+      mentorshipsUpdated: mentorshipsToUpdate.size
+    };
+  } catch (error) {
+    console.error('Error updating expired sessions:', error);
+    return { updated: 0, failed: 1, error: error.message };
   }
 };

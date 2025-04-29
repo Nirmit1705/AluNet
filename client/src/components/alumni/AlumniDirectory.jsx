@@ -13,7 +13,7 @@ import {
   X, 
   Users, 
   ChevronLeft,
-  ChevronRight, // Added ChevronRight
+  ChevronRight,
   Heart,
   ExternalLink,
   Calendar,
@@ -24,7 +24,8 @@ import {
   Eye,
   UserPlus,
   Clock,
-  ArrowLeft // Added ArrowLeft which was missing
+  ArrowLeft,
+  Check // Added Check icon
 } from "lucide-react";
 import { useUniversity } from "../../context/UniversityContext";
 import axios from "axios";
@@ -201,13 +202,48 @@ const AlumniDirectory = () => {
     }
   ];
 
+  // Get all available filter options - moved up before its first usage
+  const getFilterOptions = () => {
+    const options = {
+      companies: Array.from(new Set(allAlumni.map(a => a.company).filter(Boolean))),
+      specializations: Array.from(new Set(allAlumni.map(a => a.specialization).filter(Boolean))),
+      graduationYears: Array.from(new Set(allAlumni.map(a => a.graduationYear?.toString()).filter(Boolean))).sort((a, b) => b - a),
+      skills: Array.from(new Set(allAlumni.flatMap(a => a.skills || []))),
+      universities: Array.from(new Set(allAlumni.map(a => {
+        // Make sure education is a string before calling extractUniversity
+        if (a.education && typeof a.education === 'string') {
+          return extractUniversity(a.education);
+        }
+        return '';
+      }).filter(Boolean)))
+    };
+    
+    return options;
+  };
+
   // Fetch alumni data when component mounts
   useEffect(() => {
     const fetchAlumni = async () => {
       try {
         setIsLoading(true);
         
-        // Try to fetch from API first
+        // IMPORTANT: Load all connected alumni IDs from localStorage FIRST
+        const savedConnections = localStorage.getItem('connectedAlumni');
+        let localConnections = [];
+        if (savedConnections) {
+          try {
+            localConnections = JSON.parse(savedConnections);
+            console.log('🔄 Loaded connections from localStorage:', localConnections);
+            // Set the connections immediately to avoid race conditions
+            setConnections(localConnections);
+          } catch (e) {
+            console.error('Error parsing saved connections:', e);
+            localStorage.removeItem('connectedAlumni'); // Clear corrupted data
+          }
+        }
+        
+        // Fetch all alumni data from API or use sample data
+        let fetchedAlumni = [];
         try {
           const response = await axios.get('/api/alumni', {
             params: {
@@ -218,7 +254,7 @@ const AlumniDirectory = () => {
           
           if (response.status === 200 && response.data) {
             // Process the data to ensure education field is properly formatted
-            const processedData = response.data.map(alum => {
+            fetchedAlumni = response.data.map(alum => {
               // Keep original education data
               let educationField = '';
               
@@ -275,35 +311,103 @@ const AlumniDirectory = () => {
               };
             });
             
-            setAllAlumni(processedData);
-            setAlumni(processedData);
+            setAllAlumni(fetchedAlumni);
           } else {
             throw new Error('API returned unexpected response');
           }
         } catch (apiError) {
           console.log('API fetch failed, using sample data:', apiError);
-          // Fall back to sample data if API fails
+          fetchedAlumni = alumniData;
           setAllAlumni(alumniData);
-          setAlumni(alumniData);
         }
         
-        // Fetch user's connections
+        // Fetch connections from the API and merge with local storage
         try {
           const connectionsResponse = await axios.get('/api/connections', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           
           if (connectionsResponse.status === 200) {
-            setConnections(connectionsResponse.data.map(conn => conn.userId));
+            // Extract IDs from API response
+            const apiConnections = connectionsResponse.data.map(conn => {
+              // Extract the alumni ID from each connection
+              let alumniId = null;
+              
+              // Handle different formats - some connections might store as alumniId, others as userId
+              if (conn.alumniId) {
+                alumniId = conn.alumniId;
+              } else if (conn.alumni && conn.alumni._id) {
+                alumniId = conn.alumni._id;
+              } else if (conn.userId) {
+                alumniId = conn.userId;
+              } else if (conn._id) {
+                // Try the connection's own ID if nothing else works
+                alumniId = conn._id;
+              }
+              
+              console.log('Found connection with ID:', alumniId);
+              return alumniId;
+            }).filter(id => id !== null);
+            
+            // Merge with the local connections and remove duplicates
+            const mergedConnections = [...new Set([...localConnections, ...apiConnections])];
+            
+            console.log('🔄 Merged connections from API and localStorage:', mergedConnections);
+            
+            // Update state and localStorage
+            setConnections(mergedConnections);
+            localStorage.setItem('connectedAlumni', JSON.stringify(mergedConnections));
+            
+            // CRITICAL: Now we filter the alumni list to exclude connected alumni
+            // This needs to happen AFTER we have the complete list of connections
+            const filteredAlumni = fetchedAlumni.filter(alum => {
+              const possibleIds = [
+                alum._id, 
+                alum.id, 
+                alum.userId, 
+                alum.alumniId
+              ].filter(Boolean).map(String);
+              
+              // Check if any ID matches any connection
+              const isConnectedAlum = mergedConnections.some(connId => {
+                const connIdStr = String(connId);
+                return possibleIds.some(alumId => 
+                  alumId === connIdStr || 
+                  connIdStr.includes(alumId) || 
+                  alumId.includes(connIdStr)
+                );
+              });
+              
+              return !isConnectedAlum; // Keep only unconnected alumni
+            });
+            
+            console.log(`🔍 Filtered alumni: Showing ${filteredAlumni.length} out of ${fetchedAlumni.length} total`);
+            
+            // Set the filtered alumni list directly - not just setting allAlumni
+            setAlumni(filteredAlumni);
+            // If all alumni are filtered out, show no results
+            setNoResults(filteredAlumni.length === 0);
           }
         } catch (connectionsError) {
           console.log('Connections fetch failed:', connectionsError);
-          // No fallback needed for connections
+          // Fall back to just filtering with localStorage connections
+          const filteredAlumni = fetchedAlumni.filter(alum => {
+            const possibleIds = [alum._id, alum.id, alum.userId, alum.alumniId].filter(Boolean).map(String);
+            return !localConnections.some(connId => {
+              const connIdStr = String(connId);
+              return possibleIds.some(alumId => 
+                alumId === connIdStr || connIdStr.includes(alumId) || alumId.includes(connIdStr)
+              );
+            });
+          });
+          
+          setAlumni(filteredAlumni);
+          setNoResults(filteredAlumni.length === 0);
         }
         
+        setIsLoading(false);
       } catch (error) {
         console.error('Error setting up alumni directory:', error);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -316,52 +420,28 @@ const AlumniDirectory = () => {
       setFavorites(JSON.parse(savedFavorites));
     }
   }, []);
-
-  // Add this useEffect to check for pending requests
-  useEffect(() => {
-    // Load pending mentorship requests from localStorage
-    const pendingRequests = localStorage.getItem('pendingMentorshipRequests');
-    if (pendingRequests) {
-      try {
-        const requestsArray = JSON.parse(pendingRequests);
-        
-        // Create a map of alumni IDs to pending status
-        const pendingMap = {};
-        requestsArray.forEach(id => {
-          pendingMap[id] = true;
-        });
-        
-        // Add to the existing connection requests
-        setConnectionRequests(prev => ({
-          ...prev,
-          ...pendingMap
-        }));
-      } catch (error) {
-        console.error("Error parsing pending mentorship requests:", error);
-      }
-    }
-  }, []);
-
+  
   // Handle search
   const handleSearch = (e) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
     
     if (!query) {
-      setAlumni(allAlumni);
-      setNoResults(false);
+      // When clearing search, filter again by connections
+      filterAlumniByConnections(allAlumni, connections);
       return;
     }
     
-    const filtered = allAlumni.filter(alum => 
+    // First filter by search criteria
+    const searchFiltered = allAlumni.filter(alum => 
       alum.name.toLowerCase().includes(query) ||
       (alum.company && alum.company.toLowerCase().includes(query)) ||
       (alum.specialization && alum.specialization.toLowerCase().includes(query)) ||
       (alum.skills && alum.skills.some(skill => skill.toLowerCase().includes(query)))
     );
     
-    setAlumni(filtered);
-    setNoResults(filtered.length === 0);
+    // Then apply connection filtering to the search results
+    filterAlumniByConnections(searchFiltered, connections);
     setCurrentPage(1);
   };
 
@@ -370,13 +450,25 @@ const AlumniDirectory = () => {
     setFilterOpen(!filterOpen);
   };
 
-  // Connect with alumni
+  // Connect with alumni - Add check before sending request
   const connectWithAlumni = async (alumniId) => {
+    // First check if already connected
+    if (isConnected(alumniId)) {
+      alert('You are already connected with this alumni');
+      return;
+    }
+    
     try {
+      // Update UI immediately to prevent multiple clicks
+      setConnectionRequests({
+        ...connectionRequests,
+        [alumniId]: 'pending'
+      });
+
       const response = await axios.post(
         '/api/connections/request', 
         {
-          alumniId: alumniId, // Explicitly use alumniId field name
+          alumniId: alumniId,
           message: `I'd like to connect with you to learn more about your professional experiences.`
         },
         {
@@ -385,15 +477,59 @@ const AlumniDirectory = () => {
       );
       
       if (response.status === 201) {
-        // Update local state to show connection is pending
-        setConnections([...connections, alumniId]);
+        // Add to connections list and update state
+        const updatedConnections = [...connections, alumniId];
+        setConnections(updatedConnections);
+        
+        // IMPORTANT: Update localStorage immediately
+        localStorage.setItem('connectedAlumni', JSON.stringify(updatedConnections));
+        
+        // IMPORTANT: Remove this alumni from the displayed list
+        // Also remove from allAlumni to ensure it doesn't come back
+        setAlumni(prevAlumni => {
+          return prevAlumni.filter(alum => {
+            const id = alum._id || alum.id;
+            return String(id) !== String(alumniId);
+          });
+        });
+        
+        setAllAlumni(prevAllAlumni => {
+          return prevAllAlumni.filter(alum => {
+            const id = alum._id || alum.id;
+            return String(id) !== String(alumniId);
+          });
+        });
+        
         // Show success message
         alert('Connection request sent successfully');
       }
     } catch (error) {
       console.error('Error connecting with alumni:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to send connection request';
-      alert(errorMessage);
+      
+      // If there was an error, reset the UI state for this alumni
+      if (error.response?.data?.message === "You are already connected with this alumni") {
+        // Add this ID to connections to prevent future attempts
+        const updatedConnections = [...connections, alumniId];
+        setConnections(updatedConnections);
+        localStorage.setItem('connectedAlumni', JSON.stringify(updatedConnections));
+        
+        // Remove this alumni from the displayed list
+        setAlumni(alumni => alumni.filter(alum => {
+          const id = alum._id || alum.id;
+          return id !== alumniId;
+        }));
+        
+        alert('You are already connected with this alumni');
+      } else {
+        // Reset pending state for this alumni
+        setConnectionRequests(prev => {
+          const updated = {...prev};
+          delete updated[alumniId];
+          return updated;
+        });
+        const errorMessage = error.response?.data?.message || 'Failed to send connection request';
+        alert(errorMessage);
+      }
     }
   };
 
@@ -426,10 +562,31 @@ const AlumniDirectory = () => {
     localStorage.setItem('favoriteAlumni', JSON.stringify(newFavorites));
   };
 
-  // Apply filters
+  // Filter options
+  const filterOptions = getFilterOptions();
+
+  // Show only alumni that are not already connected
+  const filteredAlumni = useMemo(() => {
+    if (!alumni || !Array.isArray(alumni) || alumni.length === 0) return [];
+    
+    // Slice for pagination but don't filter again - already filtered in the useEffect
+    return alumni.slice(
+      (currentPage - 1) * itemsPerPage, 
+      currentPage * itemsPerPage
+    );
+  }, [alumni, currentPage, itemsPerPage]);
+
+  // Apply filters without losing the connection filtering
   const applyFilters = () => {
     let filteredAlumni = [...allAlumni];
     
+    // First filter out connected alumni
+    filteredAlumni = filteredAlumni.filter(alum => {
+      const alumniId = alum._id || alum.id;
+      return !isConnected(alumniId);
+    });
+    
+    // Then apply the other filters
     // Filter by company
     if (filters.companies.length > 0) {
       filteredAlumni = filteredAlumni.filter(alum => 
@@ -473,7 +630,7 @@ const AlumniDirectory = () => {
     setFilterOpen(false);
   };
 
-  // Reset filters
+  // Also update reset filters to maintain connection filtering
   const resetFilters = () => {
     setFilters({
       companies: [],
@@ -482,8 +639,15 @@ const AlumniDirectory = () => {
       skills: [],
       universities: []
     });
-    setAlumni(allAlumni);
-    setNoResults(false);
+    
+    // Filter out connected alumni when resetting other filters
+    const unconnectedAlumni = allAlumni.filter(alum => {
+      const alumniId = alum._id || alum.id;
+      return !isConnected(alumniId);
+    });
+    
+    setAlumni(unconnectedAlumni);
+    setNoResults(unconnectedAlumni.length === 0);
     setFilterOpen(false);
     setCurrentPage(1);
   };
@@ -501,25 +665,6 @@ const AlumniDirectory = () => {
       
       return updated;
     });
-  };
-
-  // Get all available filter options
-  const getFilterOptions = () => {
-    const options = {
-      companies: Array.from(new Set(allAlumni.map(a => a.company).filter(Boolean))),
-      specializations: Array.from(new Set(allAlumni.map(a => a.specialization).filter(Boolean))),
-      graduationYears: Array.from(new Set(allAlumni.map(a => a.graduationYear?.toString()).filter(Boolean))).sort((a, b) => b - a),
-      skills: Array.from(new Set(allAlumni.flatMap(a => a.skills || []))),
-      universities: Array.from(new Set(allAlumni.map(a => {
-        // Make sure education is a string before calling extractUniversity
-        if (a.education && typeof a.education === 'string') {
-          return extractUniversity(a.education);
-        }
-        return '';
-      }).filter(Boolean)))
-    };
-    
-    return options;
   };
 
   // Get initials from name
@@ -573,20 +718,34 @@ const AlumniDirectory = () => {
     }
   };
 
-  // Filter options
-  const filterOptions = getFilterOptions();
-
-  // Show only alumni that are not already connected
-  const isConnected = (alumniId) => connections.includes(alumniId);
-  const filteredByConnection = paginatedAlumni.filter(alumni => !isConnected(alumni.id));
-
-  // Filter the alumni list to exclude already connected alumni
-  const filteredAlumni = useMemo(() => {
-    if (!alumni) return [];
+  // Also update the isConnected function to use the same improved logic
+  const isConnected = (alumniId) => {
+    if (!alumniId) return false;
     
-    // First, filter out alumni who are already connected
-    return alumni.filter(alum => !connectedAlumni.includes(alum._id));
-  }, [alumni, connectedAlumni]);
+    // Convert to string
+    const alumIdStr = String(alumniId);
+    
+    // Check each connection
+    const connected = connections.some(connId => {
+      const connIdStr = String(connId);
+      
+      // Try exact match
+      if (alumIdStr === connIdStr) {
+        console.log(`Connected match found: ${alumIdStr} === ${connIdStr}`);
+        return true;
+      }
+      
+      // Try substring match
+      if (connIdStr.includes(alumIdStr) || alumIdStr.includes(connIdStr)) {
+        console.log(`Connected substring match: ${connIdStr} includes ${alumIdStr}`);
+        return true;
+      }
+      
+      return false;
+    });
+    
+    return connected;
+  };
 
   return (
     <div className="container-custom pt-24 pb-12">
@@ -762,7 +921,7 @@ const AlumniDirectory = () => {
             ? "Loading alumni..." 
             : noResults 
               ? "No alumni found matching your criteria" 
-              : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, alumni.length)} of ${alumni.length} alumni`
+              : `Showing ${filteredAlumni.length} of ${alumni.length} alumni (excluding connections)`
           }
         </p>
         
@@ -826,68 +985,93 @@ const AlumniDirectory = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredAlumni.map((alum) => (
-            <div key={alum._id} className="glass-card rounded-xl p-6 animate-fade-in">
-              <div className="flex items-start">
-                <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
-                  {alum.profilePicture?.url ? (
-                    <img src={alum.profilePicture.url} alt={alum.name} className="h-full w-full rounded-full object-cover" />
-                  ) : (
-                    getInitials(alum.name)
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-lg">{alum.name}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {alum.position ? `${alum.position} at ${alum.company || 'Company'}` : 'Alumni'}
-                  </p>
-                  <div className="flex items-center mt-1">
-                    <Calendar className="h-3 w-3 text-muted-foreground mr-1.5" />
-                    <span className="text-xs text-muted-foreground">
-                      Class of {alum.graduationYear || 'N/A'}
-                    </span>
+          {filteredAlumni.length > 0 ? (
+            filteredAlumni.map((alum) => (
+              <div key={alum._id} className="glass-card rounded-xl p-6 animate-fade-in">
+                <div className="flex items-start">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
+                    {alum.profilePicture?.url ? (
+                      <img src={alum.profilePicture.url} alt={alum.name} className="h-full w-full rounded-full object-cover" />
+                    ) : (
+                      getInitials(alum.name)
+                    )}
                   </div>
-                  {/* Mentorship availability indicator */}
-                  {alum.mentorshipAvailable && (
-                    <div className="mt-2 flex items-center">
-                      <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full flex items-center">
-                        <GraduationCap className="h-3 w-3 mr-1" />
-                        Available for Mentorship
+                  <div className="flex-1">
+                    <h4 className="font-medium text-lg">{alum.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {alum.position ? `${alum.position} at ${alum.company || 'Company'}` : 'Alumni'}
+                    </p>
+                    <div className="flex items-center mt-1">
+                      <Calendar className="h-3 w-3 text-muted-foreground mr-1.5" />
+                      <span className="text-xs text-muted-foreground">
+                        Class of {alum.graduationYear || 'N/A'}
                       </span>
                     </div>
+                    {/* Mentorship availability indicator */}
+                    {alum.mentorshipAvailable && (
+                      <div className="mt-2 flex items-center">
+                        <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full flex items-center">
+                          <GraduationCap className="h-3 w-3 mr-1" />
+                          Available for Mentorship
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <button 
+                    className="flex-1 px-3 py-2 text-xs border border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => viewAlumniDetails(alum)}
+                  >
+                    <Eye className="h-3 w-3 inline mr-1" />
+                    View Profile
+                  </button>
+                  
+                  {connectionRequests[alum._id || alum.id] === 'pending' ? (
+                    <button 
+                      className="flex-1 px-3 py-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                      disabled
+                    >
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      Request Pending
+                    </button>
+                  ) : isConnected(alum._id || alum.id) ? (
+                    <button 
+                      className="flex-1 px-3 py-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                      disabled
+                    >
+                      <Check className="h-3 w-3 inline mr-1" />
+                      Connected
+                    </button>
+                  ) : (
+                    <button 
+                      className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                      onClick={() => connectWithAlumni(alum._id || alum.id)}
+                    >
+                      <UserPlus className="h-3 w-3 inline mr-1" />
+                      Connect
+                    </button>
                   )}
                 </div>
               </div>
-              
-              <div className="mt-4 flex gap-2">
-                <button 
-                  className="flex-1 px-3 py-2 text-xs border border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  onClick={() => viewAlumniDetails(alum)}
-                >
-                  <Eye className="h-3 w-3 inline mr-1" />
-                  View Profile
-                </button>
-                
-                {connectionRequests[alum._id] === 'pending' ? (
-                  <button 
-                    className="flex-1 px-3 py-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
-                    disabled
-                  >
-                    <Clock className="h-3 w-3 inline mr-1" />
-                    Request Pending
-                  </button>
-                ) : (
-                  <button 
-                    className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
-                    onClick={() => connectWithAlumni(alum._id)}
-                  >
-                    <UserPlus className="h-3 w-3 inline mr-1" />
-                    Connect
-                  </button>
-                )}
-              </div>
+            ))
+          ) : (
+            <div className="col-span-full glass-card rounded-xl p-12 text-center">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-xl font-medium mb-2">No New Alumni to Connect With</h3>
+              <p className="text-muted-foreground mb-6">
+                You're already connected with all alumni in this view. Try adjusting your search or filters to discover more alumni.
+              </p>
+              <button 
+                onClick={resetFilters}
+                className="px-4 py-2 bg-primary text-white rounded-md inline-flex items-center"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Reset Filters
+              </button>
             </div>
-          ))}
+          )}
         </div>
       )}
       
@@ -1135,13 +1319,21 @@ const AlumniDirectory = () => {
             </div>
             
             <div className="flex gap-3 mt-6">
-              {connectionRequests[selectedAlumni._id] === 'pending' || connectionRequests[selectedAlumni.id] ? (
+              {connectionRequests[selectedAlumni?._id || selectedAlumni?.id] === 'pending' ? (
                 <button
                   disabled
                   className="flex-1 px-4 py-2 bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Request Pending
+                </button>
+              ) : isConnected(selectedAlumni?._id || selectedAlumni?.id) ? (
+                <button
+                  disabled
+                  className="flex-1 px-4 py-2 bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Connected
                 </button>
               ) : (
                 <button
@@ -1155,10 +1347,7 @@ const AlumniDirectory = () => {
                 </button>
               )}
               <button
-                onClick={() => {
-                  messageAlumni(selectedAlumni._id || selectedAlumni.id);
-                  closeAlumniDetails();
-                }}
+                onClick={() => messageAlumni(selectedAlumni._id || selectedAlumni.id)}
                 className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors"
               >
                 Message

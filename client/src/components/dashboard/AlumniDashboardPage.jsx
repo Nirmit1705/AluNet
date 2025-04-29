@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Calendar, Users, Briefcase, MessageSquare, Award, Bell, ChevronRight, GraduationCap, Clock, X, Edit, Trash, UserPlus, Star } from "lucide-react";
 import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
-import Footer from "../layout/Footer"; // Add this import
+import Footer from "../layout/Footer"; 
 import axios from "axios";
 
 // Sample data for student success stories
@@ -49,58 +49,6 @@ const menteeRequests = [
     interests: ["Machine Learning", "Data Visualization"],
     message: "I'm working on a capstone project related to ML and would love some advice on industry best practices."
   }
-];
-
-// Sample data for mentees
-const currentMentees = [
-  {
-    id: 1,
-    name: "Sophia Williams",
-    program: "Computer Engineering",
-    year: "4th Year",
-    lastInteraction: "2 days ago",
-    nextSession: "May 20, 2023"
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    program: "Information Systems",
-    year: "3rd Year",
-    lastInteraction: "1 week ago",
-    nextSession: "May 18, 2023"
-  },
-  {
-    id: 3,
-    name: "Olivia Johnson",
-    program: "Software Engineering",
-    year: "2nd Year",
-    lastInteraction: "Yesterday",
-    nextSession: "May 25, 2023"
-  }
-];
-
-const notifications = [
-  {
-    id: 1,
-    title: "New mentee request",
-    description: "Emily Parker has requested mentorship",
-    time: "5 minutes ago",
-    icon: UserPlus,
-  },
-  {
-    id: 2,
-    title: "New message",
-    description: "You have a new message from Sophia Williams",
-    time: "1 hour ago",
-    icon: MessageSquare,
-  },
-  {
-    id: 3,
-    title: "Volunteer opportunity",
-    description: "New guest lecture opportunity is available",
-    time: "3 hours ago",
-    icon: Award,
-  },
 ];
 
 const AlumniDashboardPage = () => {
@@ -163,537 +111,130 @@ const AlumniDashboardPage = () => {
     }
   }, []);
   
-  // If there's a render error, show error message
-  if (renderError) {
-    return (
-      <div className="container-custom py-8">
-        <div className="glass-card rounded-xl p-6 text-center">
-          <h3 className="text-xl font-bold text-red-500 mb-4">Error Loading Dashboard</h3>
-          <p className="mb-4">{renderError}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded-md"
-          >
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
-  // Navigate to courses page
-  const goToCourses = () => {
-    navigate("/courses");
-    // In a real app, this would navigate to a courses page
-    alert("Navigating to all courses");
-  };
-  
-  // Navigate to jobs page
-  const goToJobs = () => {
-    navigate("/jobs");
-  };
-  
-  // Navigate to students page
-  const goToStudents = () => {
-    navigate("/student-connections");
-  };
-  
-  // Toggle notifications panel
-  const toggleNotifications = () => {
-    setShowNotificationsPanel(!showNotificationsPanel);
-  };
-  
-  // Toggle job post modal
-  const toggleJobPostModal = () => {
-    setJobPostModal(!jobPostModal);
-  };
-  
-  // Endorse a student
-  const endorseStudent = (studentId) => {
-    if (endorsedStudents.includes(studentId)) {
-      setEndorsedStudents(endorsedStudents.filter(id => id !== studentId));
-    } else {
-      setEndorsedStudents([...endorsedStudents, studentId]);
+  // Sample data for mentees
+  const [currentMentees, setCurrentMentees] = useState([
+    {
+      id: 1,
+      name: "Sophia Williams",
+      program: "Computer Engineering",
+      year: "4th Year",
+      lastInteraction: "2 days ago",
+      nextSession: "May 20, 2023"
+    },
+    {
+      id: 2,
+      name: "Michael Chen",
+      program: "Information Systems",
+      year: "3rd Year",
+      lastInteraction: "1 week ago",
+      nextSession: "May 18, 2023"
+    },
+    {
+      id: 3,
+      name: "Olivia Johnson",
+      program: "Software Engineering",
+      year: "2nd Year",
+      lastInteraction: "Yesterday",
+      nextSession: "May 25, 2023"
     }
-  };
-  
-  // Delete a job post
-  const deleteJobPost = (jobId) => {
-    // Confirm deletion with user
-    if (window.confirm("Are you sure you want to delete this job posting?")) {
-      setMyPostedJobs(myPostedJobs.filter(job => job.id !== jobId));
-    }
-  };
-  
-  // Edit a job post
-  const editJobPost = (jobId) => {
-    const jobToEdit = myPostedJobs.find((job) => job.id === jobId);
-    if (jobToEdit) {
-      setNewJobPost(jobToEdit);
-      setJobPostModal(true);
-    }
-  };
-  
-  // Message a mentee
-  const messageMentee = (menteeId) => {
-    navigate(`/messages?mentee=${menteeId}`);
-    // In a real app, this would navigate to the messaging interface with the specific mentee selected
-  };
-  
-  // View all mentees
-  const viewAllMentees = () => {
-    navigate('/mentees');
-  };
+  ]);
 
-  // View all success stories
-  const viewAllSuccessStories = () => {
-    navigate("/success-stories");
-    // In a real app, this would navigate to a success stories page
-    alert("Navigating to success stories");
-  };
-
-  // Navigate to mentorship opportunities
-  const goToMentorship = () => {
-    navigate("/mentorship-requests");
-  };
-
-  // Handle job form input changes
-  const handleJobFormChange = (e) => {
-    const { id, value } = e.target;
-    setNewJobPost(prev => ({
-      ...prev,
-      [id]: value
-    }));
-  };
-  
-  // Submit job posting
-  const submitJobPosting = () => {
-    // Validate form
-    if (!newJobPost.title || !newJobPost.company || !newJobPost.location || !newJobPost.description || !newJobPost.applicationLink) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    // Create new job object
-    const newJob = {
-      id: Date.now(), // Using timestamp as a simple ID
-      title: newJobPost.title,
-      company: newJobPost.company,
-      location: newJobPost.location,
-      type: newJobPost.type,
-      description: newJobPost.description,
-      requirements: newJobPost.requirements.split('\n').filter(req => req.trim() !== ''),
-      datePosted: 'Just now',
-      applicants: 0,
-      skills: [],
-      applicationLink: newJobPost.applicationLink
-    };
-    
-    // Add job to list
-    setMyPostedJobs(prev => [newJob, ...prev]);
-    
-    // Reset form and close modal
-    setNewJobPost({
-      title: '',
-      company: '',
-      location: '',
-      type: 'Full Time',
-      description: '',
-      requirements: '',
-      applicationLink: ''
-    });
-    setJobPostModal(false);
-    
-    // Show success message
-    alert('Job posted successfully!');
-  };
-
-  // Mark notification as read
-  const markNotificationAsRead = (notificationId) => {
-    // In a real app, this would update the notification status in the backend
-    console.log(`Marking notification ${notificationId} as read`);
-  };
-  
-  // Mark all notifications as read
-  const markAllNotificationsAsRead = () => {
-    // In a real app, this would update all notifications status in the backend
-    console.log("Marking all notifications as read");
-    alert("All notifications marked as read");
-  };
-
-  // Function to view mentee details
-  const viewMenteeDetails = (mentee) => {
-    setSelectedMentee(mentee);
-  };
-
-  // Add these states to your component
-  const [selectedMenteeForScheduling, setSelectedMenteeForScheduling] = useState(null);
-  const [showDirectScheduleModal, setShowDirectScheduleModal] = useState(false);
-
-  // Add these functions to your component
-  const openScheduleModal = (mentee) => {
-    setSelectedMenteeForScheduling(mentee);
-    setShowDirectScheduleModal(true);
-  };
-
-  const handleCloseScheduleModal = () => {
-    setShowDirectScheduleModal(false);
-  };
-
-  // Replace your existing handleSessionScheduled function with this improved version:
-const handleSessionScheduled = (mentee, sessionDetails) => {
-  try {
-    if (!mentee || !sessionDetails) {
-      console.error("Missing mentee or session details");
-      return;
-    }
-    
-    // Format date correctly if it's not already a string
-    const formattedDate = typeof sessionDetails.date === 'object' 
-      ? sessionDetails.date.toISOString().split('T')[0] 
-      : sessionDetails.date;
-    
-    // Create a new session object
-    const newSession = {
-      id: Date.now(), // Simple ID generation
-      menteeId: mentee.id,
-      menteeName: mentee.name,
-      date: formattedDate,
-      time: sessionDetails.time,
-      duration: sessionDetails.duration || 30,
-      topic: sessionDetails.topic || "Mentorship Session",
-      location: sessionDetails.location || "Video Call",
-      status: "upcoming"
-    };
-    
-    // Check if there's already a session for this mentee
-    const existingSessionIndex = scheduledSessions.findIndex(
-      session => session.menteeId === mentee.id && session.status === "upcoming"
-    );
-    
-    let updatedSessions;
-    if (existingSessionIndex >= 0) {
-      // Replace existing session
-      updatedSessions = [...scheduledSessions];
-      updatedSessions[existingSessionIndex] = newSession;
-      setScheduledSessions(updatedSessions);
-      console.log("Updated existing session for mentee:", mentee.name);
-    } else {
-      // Add new session
-      updatedSessions = [...scheduledSessions, newSession];
-      setScheduledSessions(updatedSessions);
-      console.log("Added new session for mentee:", mentee.name);
-    }
-    
-    // Log current sessions for debugging
-    console.log("Current scheduled sessions:", updatedSessions);
-    
-    // Give feedback
-    alert(`Session scheduled with ${mentee.name} on ${formattedDate} at ${sessionDetails.time}`);
-    
-    // Close modal
-    setShowDirectScheduleModal(false);
-    setSelectedMenteeForScheduling(null);
-  } catch (error) {
-    console.error("Error scheduling session:", error);
-    alert("There was an error scheduling the session. Please try again.");
-  }
-};
-
-  // Replace your existing getActiveMenteeSession function with this improved version:
-const getActiveMenteeSession = (menteeId) => {
-  try {
-    console.log("Looking for active session for mentee ID:", menteeId);
-    console.log("Available sessions:", scheduledSessions);
-    
-    const session = scheduledSessions.find(
-      session => session.menteeId === menteeId && session.status === "upcoming"
-    );
-    
-    console.log("Found session:", session);
-    return session;
-  } catch (error) {
-    console.error("Error getting active session:", error);
-    return null;
-  }
-};
-
-  // Add these state variables at the top of your component, near your other useState declarations:
-const [showApplicantsModal, setShowApplicantsModal] = useState(false);
-const [showApplicantDetailModal, setShowApplicantDetailModal] = useState(false);
-const [currentJobId, setCurrentJobId] = useState(null);
-const [currentJobApplicants, setCurrentJobApplicants] = useState([]);
-const [selectedApplicant, setSelectedApplicant] = useState(null);
-const [scheduledSessions, setScheduledSessions] = useState([]);
-const [showEditSessionModal, setShowEditSessionModal] = useState(false);
-const [sessionToEdit, setSessionToEdit] = useState(null);
-
-// Add these handler functions:
-const closeApplicantsModal = () => {
-  setShowApplicantsModal(false);
-  setCurrentJobId(null);
-  setCurrentJobApplicants([]);
-};
-
-const viewApplicantDetails = (applicant) => {
-  setSelectedApplicant(applicant);
-  setShowApplicantDetailModal(true);
-};
-
-const closeApplicantDetailModal = () => {
-  setShowApplicantDetailModal(false);
-  setSelectedApplicant(null);
-};
-
-const handleReferralDecision = (applicantId, decision) => {
-  // Update the applicant status
-  const updatedApplicants = currentJobApplicants.map(applicant => {
-    if (applicant.id === applicantId) {
-      return {
-        ...applicant,
-        status: decision === 'refer' ? 'referred' : 'declined'
-      };
-    }
-    return applicant;
-  });
-  
-  setCurrentJobApplicants(updatedApplicants);
-  setShowApplicantDetailModal(false);
-  
-  // Show confirmation
-  alert(`You have ${decision === 'refer' ? 'provided a referral' : 'declined the request'} for this student.`);
-};
-
-// Add these functions for session editing
-const openEditSessionModal = (session) => {
-  setSessionToEdit(session);
-  setShowEditSessionModal(true);
-};
-
-const handleSessionUpdate = (updatedSession) => {
-  try {
-    const updatedSessions = scheduledSessions.map(session => 
-      session.id === updatedSession.id ? updatedSession : session
-    );
-    
-    setScheduledSessions(updatedSessions);
-    setShowEditSessionModal(false);
-    setSessionToEdit(null);
-    
-    alert(`Session with ${updatedSession.menteeName} updated successfully!`);
-  } catch (error) {
-    console.error("Error updating session:", error);
-    alert("There was an error updating the session. Please try again.");
-  }
-};
-
-const cancelSession = (sessionId) => {
-  try {
-    const updatedSessions = scheduledSessions.map(session => {
-      if (session.id === sessionId) {
-        return { ...session, status: "cancelled" };
-      }
-      return session;
-    });
-    
-    setScheduledSessions(updatedSessions);
-    setShowEditSessionModal(false);
-    setSessionToEdit(null);
-    
-    alert("Session cancelled successfully!");
-  } catch (error) {
-    console.error("Error cancelling session:", error);
-    alert("There was an error cancelling the session. Please try again.");
-  }
-};
-
-  // Instead, add a function to navigate to the alumni job board
-  const goToJobBoard = () => {
-    navigate("/alumni-job-board");
-  };
-
-  // Add this function with your other handler functions:
-const viewApplicants = (jobId) => {
-  const job = myPostedJobs.find(job => job.id === jobId);
-  if (job) {
-    // Simulate applicants for now
-    const sampleApplicants = [
-      {
-        id: 1,
-        name: "Jessica Zhang",
-        email: "jessica.zhang@example.com",
-        phone: "555-123-4567",
-        program: "Computer Science",
-        year: "4th Year",
-        appliedDate: "2 days ago",
-        status: "pending",
-        coverLetter: "I'm very interested in this position at Tech Solutions Inc. I've been working with React for the past 2 years and have completed several projects...",
-        resumeUrl: "#" // In a real app, this would be an actual URL
-      },
-      {
-        id: 2,
-        name: "David Wilson",
-        email: "david.wilson@example.com",
-        phone: "555-987-6543",
-        program: "Software Engineering",
-        year: "3rd Year",
-        appliedDate: "1 week ago",
-        status: "referred",
-        coverLetter: "I believe my skills in frontend development make me a strong candidate for this position...",
-        resumeUrl: "#"
-      }
-    ];
-    
-    setCurrentJobId(jobId);
-    setCurrentJobApplicants(sampleApplicants);
-    setShowApplicantsModal(true);
-  }
-};
-
-  // Add these state variables near your other state declarations
-const [pendingConnectionRequests, setPendingConnectionRequests] = useState([]);
-const [showConnectionRequestsModal, setShowConnectionRequestsModal] = useState(false);
-
-// Add this to your useEffect for data fetching
-useEffect(() => {
-  const fetchConnectionRequests = async () => {
+  // Function to fetch mentee data - moved inside the component
+  const fetchCurrentMentees = async () => {
     try {
-      const response = await axios.get('/api/connections/requests/pending', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No auth token found');
+        return; // Keep using sample data
+      }
       
-      if (response.status === 200) {
-        setPendingConnectionRequests(response.data);
+      // Fetch mentees data from API
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/mentees`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        console.log('Fetched mentee data:', response.data);
+        
+        // Transform API data to match component's expected format
+        const transformedMentees = response.data.map(mentee => {
+          // Get next session data
+          let nextSession = "Not scheduled";
+          if (mentee.nextSessionDate) {
+            const nextSessionDate = new Date(mentee.nextSessionDate);
+            if (nextSessionDate > new Date()) {
+              nextSession = nextSessionDate.toLocaleDateString();
+              if (mentee.nextSessionTime) {
+                nextSession += ` at ${mentee.nextSessionTime}`;
+              }
+            }
+          }
+          
+          // Get last interaction time
+          const lastInteraction = mentee.lastInteraction || '2 days ago';
+          
+          return {
+            id: mentee._id,
+            name: mentee.name || 'Unknown Mentee',
+            program: mentee.branch || 'Unknown Program',
+            year: mentee.currentYear ? `${mentee.currentYear} Year` : 'Unknown Year',
+            lastInteraction,
+            nextSession,
+            sessionsCompleted: parseInt(mentee.sessionsCompleted || 0, 10),
+            totalSessions: parseInt(mentee.totalPlannedSessions || 5, 10)
+          };
+        });
+        
+        console.log('Transformed mentee data:', transformedMentees);
+        
+        // Update state with actual mentee data
+        if (transformedMentees.length > 0) {
+          setCurrentMentees(transformedMentees);
+        }
       }
     } catch (error) {
-      console.error("Error fetching connection requests:", error);
+      console.error('Error fetching current mentees:', error);
+      // Keep the default mentees data if there's an error
     }
   };
-  
-  fetchConnectionRequests();
-}, []);
 
-// Add these functions to handle connection requests
-const acceptConnectionRequest = async (requestId) => {
-  try {
-    const response = await axios.put(`/api/connections/requests/${requestId}/respond`, 
-      { status: 'accepted' },
-      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-    );
-    
-    if (response.status === 200) {
-      // Update the local state to remove the accepted request
-      setPendingConnectionRequests(prevRequests => 
-        prevRequests.filter(req => req._id !== requestId)
-      );
-      
-      alert('Connection request accepted');
-    }
-  } catch (error) {
-    console.error("Error accepting connection request:", error);
-    alert('Failed to accept connection request');
-  }
-};
+  // Call this function when component mounts
+  useEffect(() => {
+    fetchCurrentMentees();
+  }, []);
 
-const rejectConnectionRequest = async (requestId) => {
-  try {
-    const response = await axios.put(`/api/connections/requests/${requestId}/respond`, 
-      { status: 'rejected' },
-      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-    );
-    
-    if (response.status === 200) {
-      // Update the local state to remove the rejected request
-      setPendingConnectionRequests(prevRequests => 
-        prevRequests.filter(req => req._id !== requestId)
-      );
-      
-      alert('Connection request rejected');
-    }
-  } catch (error) {
-    console.error("Error rejecting connection request:", error);
-    alert('Failed to reject connection request');
-  }
-};
-// Add a Connection Requests Modal component within your dashboard component
-const ConnectionRequestsModal = () => (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white dark:bg-gray-900 w-full max-w-3xl rounded-xl p-6 animate-fade-in max-h-[80vh] overflow-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold">Connection Requests</h3>
-        <button 
-          onClick={() => setShowConnectionRequestsModal(false)}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      
-      {pendingConnectionRequests.length === 0 ? (
-        <div className="text-center py-8">
-          <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-xl font-medium mb-2">No Pending Requests</h3>
-          <p className="text-muted-foreground">You don't have any pending connection requests at the moment.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {pendingConnectionRequests.map((request) => (
-            <div key={request._id} className="p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
-                    {request.from?.details?.profilePicture?.url ? (
-                      <img src={request.from.details.profilePicture.url} alt="" className="h-full w-full rounded-full object-cover" />
-                    ) : (
-                      <Users className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{request.from?.details?.name || "Unknown User"}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Student • {request.from?.details?.branch || ''} 
-                      {request.from?.details?.currentYear ? ` • ${request.from.details.currentYear} Year` : ''}
-                    </p>
-                    {request.from?.details?.university && (
-                      <p className="text-xs text-muted-foreground">
-                        {request.from.details.university}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Requested {new Date(request.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => rejectConnectionRequest(request._id)}
-                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
-                  >
-                    Decline
-                  </button>
-                  <button
-                    onClick={() => acceptConnectionRequest(request._id)}
-                    className="px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    Accept
-                  </button>
-                </div>
-              </div>
-              
-              {request.message && (
-                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-sm">{request.message}</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
-);
+  const notifications = [
+    {
+      id: 1,
+      title: "New mentee request",
+      description: "Emily Parker has requested mentorship",
+      time: "5 minutes ago",
+      icon: UserPlus,
+    },
+    {
+      id: 2,
+      title: "New message",
+      description: "You have a new message from Sophia Williams",
+      time: "1 hour ago",
+      icon: MessageSquare,
+    },
+    {
+      id: 3,
+      title: "Volunteer opportunity",
+      description: "New guest lecture opportunity is available",
+      time: "3 hours ago",
+      icon: Award,
+    },
+  ];
 
+  // ...existing code...
+
+  // Update the Mentee card section to properly display session counts
   return (
     <div className="pb-12 relative min-h-screen flex flex-col">
       <div className="container-custom pt-20 flex-grow">
@@ -814,6 +355,13 @@ const ConnectionRequestsModal = () => (
                         <div className="flex-1 cursor-pointer" onClick={() => viewMenteeDetails(mentee)}>
                           <h4 className="font-medium text-primary">{mentee.name}</h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400">{mentee.program} • {mentee.year}</p>
+                          
+                          {/* Add sessions count display */}
+                          {mentee.totalSessions && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Sessions: {mentee.sessionsCompleted || 0}/{mentee.totalSessions}
+                            </p>
+                          )}
                         </div>
                         
                         <div className="text-right">

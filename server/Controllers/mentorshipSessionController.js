@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import MentorshipSession from '../Models/MentorshipSession.js';
 import Mentorship from '../Models/Mentorship.js';
 import { createNotification } from './notificationController.js';
-import { updateExpiredSessions, updateMentorshipProgress } from '../utils/sessionStatusChecker.js';
+import { updateExpiredSessions, updateMentorshipProgress, updateMentorshipNextSession } from '../utils/sessionStatusChecker.js';
 
 // @desc    Schedule a new mentorship session
 // @route   POST /api/mentorship/:mentorshipId/sessions
@@ -277,11 +277,20 @@ const updateSession = asyncHandler(async (req, res) => {
   if (startTime) session.startTime = startTime;
   if (endTime) session.endTime = endTime;
   if (meetingLink !== undefined) session.meetingLink = meetingLink;
+  
+  // Handle status changes
+  const oldStatus = session.status;
   if (status && ['scheduled', 'completed', 'cancelled'].includes(status)) {
     session.status = status;
   }
 
   const updatedSession = await session.save();
+
+  // If status changed to completed or cancelled, update the mentorship's next session date
+  if (oldStatus !== updatedSession.status && 
+      (updatedSession.status === 'completed' || updatedSession.status === 'cancelled')) {
+    await updateMentorshipNextSession(session.mentorship);
+  }
 
   // Send notification to the other party
   const isStudent = session.student.toString() === req.user._id.toString();
@@ -329,6 +338,9 @@ const cancelSession = asyncHandler(async (req, res) => {
   // Cancel session
   session.status = 'cancelled';
   const updatedSession = await session.save();
+
+  // Update the mentorship's next session date
+  await updateMentorshipNextSession(session.mentorship);
 
   // Send notification to the other party
   const isStudent = session.student.toString() === req.user._id.toString();
