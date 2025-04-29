@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import axios from "axios";
 
 const MentorshipsPage = () => {
   const navigate = useNavigate();
@@ -44,129 +45,90 @@ const MentorshipsPage = () => {
   const [selectedMentorship, setSelectedMentorship] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackData, setFeedbackData] = useState({ rating: 0, feedback: "" });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch mentorships data
+  // Fetch mentorships data from API
   useEffect(() => {
-    // In a real application, this would be an API call
-    // Here we're using sample data
-    const sampleMentorships = [
-      {
-        id: "m1",
-        mentorName: "Dr. Sarah Chen",
-        mentorTitle: "Senior Data Scientist at Google",
-        mentorAvatar: "https://randomuser.me/api/portraits/women/44.jpg",
-        startDate: "2023-09-15",
-        nextSession: "2023-11-20",
-        totalSessions: 12,
-        completedSessions: 5,
-        focusAreas: ["Machine Learning", "Career Guidance", "Data Analysis"],
-        status: "active",
-        progress: 42,
-        notes: "We're working on building a recommendation system project.",
-        contact: {
-          email: "sarah.chen@example.com",
-          linkedin: "linkedin.com/in/sarahchen"
-        },
-        rating: 4.5, // Average rating
-        ratingCount: 10 // Number of ratings
-      },
-      {
-        id: "m2",
-        mentorName: "Michael Rodriguez",
-        mentorTitle: "Frontend Engineering Manager at Netflix",
-        mentorAvatar: "https://randomuser.me/api/portraits/men/32.jpg",
-        startDate: "2023-08-10",
-        nextSession: "2023-11-15",
-        totalSessions: 10,
-        completedSessions: 7,
-        focusAreas: ["React", "System Design", "Career Development"],
-        status: "active",
-        progress: 70,
-        notes: "Michael is helping me improve my React skills.",
-        contact: {
-          email: "michael.r@example.com",
-          linkedin: "linkedin.com/in/michaelrodriguez"
-        },
-        rating: 4.8,
-        ratingCount: 15
-      },
-      {
-        id: "m3",
-        mentorName: "Aisha Johnson",
-        mentorTitle: "Product Manager at Microsoft",
-        mentorAvatar: "https://randomuser.me/api/portraits/women/68.jpg",
-        startDate: "2023-07-22",
-        nextSession: "2023-11-22",
-        totalSessions: 8,
-        completedSessions: 6,
-        focusAreas: ["Product Strategy", "UX Research", "User Interviews"],
-        status: "active",
-        progress: 75,
-        notes: "Aisha is helping me transition from engineering to product management. We've been working on case studies and practicing product interviews.",
-        contact: {
-          email: "aisha.j@example.com",
-          linkedin: "linkedin.com/in/aishajohnson"
+    const fetchMentorships = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
         }
-      },
-      {
-        id: "m4",
-        mentorName: "David Park",
-        mentorTitle: "Mobile Developer at Spotify",
-        mentorAvatar: "https://randomuser.me/api/portraits/men/22.jpg",
-        startDate: "2023-10-05",
-        nextSession: "2023-11-18",
-        totalSessions: 6,
-        completedSessions: 2,
-        focusAreas: ["Mobile Development", "React Native", "App Architecture"],
-        status: "active",
-        progress: 33,
-        notes: "David is helping me build my first React Native app. We're focusing on performance optimization and component reusability.",
-        contact: {
-          email: "david.p@example.com",
-          linkedin: "linkedin.com/in/davidpark"
-        }
-      },
-      {
-        id: "m5",
-        mentorName: "Elena Martinez",
-        mentorTitle: "Data Engineering Lead at Amazon",
-        mentorAvatar: "https://randomuser.me/api/portraits/women/28.jpg",
-        startDate: "2023-06-12",
-        nextSession: null,
-        totalSessions: 12,
-        completedSessions: 12,
-        focusAreas: ["Big Data", "ETL Pipelines", "Data Warehousing"],
-        status: "completed",
-        progress: 100,
-        notes: "Elena helped me master data engineering concepts and AWS services. Our mentorship was focused on building scalable data pipelines.",
-        contact: {
-          email: "elena.m@example.com",
-          linkedin: "linkedin.com/in/elenamartinez"
-        }
-      },
-      {
-        id: "m6",
-        mentorName: "Raj Patel",
-        mentorTitle: "Backend Engineer at Stripe",
-        mentorAvatar: "https://randomuser.me/api/portraits/men/45.jpg",
-        startDate: "2023-05-20",
-        nextSession: "2023-11-25",
-        totalSessions: 8,
-        completedSessions: 3,
-        focusAreas: ["Node.js", "API Design", "Database Optimization"],
-        status: "paused",
-        progress: 38,
-        notes: "Our mentorship is temporarily paused due to Raj's travel schedule. We'll resume in late November to continue our work on designing RESTful APIs.",
-        contact: {
-          email: "raj.p@example.com",
-          linkedin: "linkedin.com/in/rajpatel"
-        }
+        
+        // Make API request to get student's mentorships
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/student`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        console.log("Fetched mentorships data:", response.data);
+        
+        // Transform the data to match our component's expected format
+        const transformedMentorships = response.data.map(mentorship => {
+          // Get mentorship status
+          const status = mentorship.status === 'accepted' ? 'active' : mentorship.status;
+          
+          // Get next session data if exists
+          let nextSession = null;
+          if (mentorship.nextSessionDate) {
+            nextSession = new Date(mentorship.nextSessionDate).toISOString();
+          }
+          
+          // Calculate progress based on completed and total sessions
+          const completedSessions = mentorship.sessionsCompleted || 0;
+          const totalSessions = mentorship.totalPlannedSessions || 5;
+          const progress = totalSessions > 0 ? Math.floor((completedSessions / totalSessions) * 100) : 0;
+          
+          return {
+            id: mentorship._id,
+            mentorName: mentorship.alumni?.name || "Unnamed Mentor",
+            mentorTitle: mentorship.alumni?.position 
+              ? `${mentorship.alumni.position} at ${mentorship.alumni.company || 'Company'}`
+              : "Mentor",
+            mentorAvatar: mentorship.alumni?.profilePicture?.url || null,
+            startDate: mentorship.startDate || mentorship.createdAt,
+            nextSession: nextSession,
+            totalSessions: totalSessions,
+            completedSessions: completedSessions,
+            focusAreas: mentorship.skillsToLearn || ["General mentorship"],
+            status: status,
+            progress: progress,
+            notes: mentorship.mentorshipGoals || "Working on mentorship goals.",
+            contact: {
+              email: mentorship.alumni?.email || "unknown@example.com",
+              linkedin: mentorship.alumni?.linkedin || "#"
+            },
+            rating: 0, // Initialize with 0, can be updated with feedback data
+            ratingCount: 0
+          };
+        });
+        
+        setMentorships(transformedMentorships);
+        setFilteredMentorships(transformedMentorships);
+      } catch (err) {
+        console.error("Error fetching mentorships:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load mentorships");
+        
+        // Initialize with empty arrays on error
+        setMentorships([]);
+        setFilteredMentorships([]);
+      } finally {
+        setIsLoading(false);
       }
-    ];
-
-    setMentorships(sampleMentorships);
-    setFilteredMentorships(sampleMentorships);
-  }, []);
+    };
+    
+    fetchMentorships();
+  }, [navigate]);
 
   // Apply filters and sorting
   useEffect(() => {
@@ -275,6 +237,34 @@ const MentorshipsPage = () => {
     // Close modal after submission
     closeFeedbackModal();
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-xl text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <button 
+            className="px-4 py-2 bg-primary text-white rounded-lg"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
