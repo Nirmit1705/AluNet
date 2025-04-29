@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { connectDB } from './config/db.js';
+import { requestLogger } from './middleware/loggingMiddleware.js';
 import fs from 'fs';
 
 // Import routes - Fix capitalization to match actual file paths
@@ -14,7 +15,7 @@ import studentRoutes from './routes/studentRoutes.js';
 import jobRoutes from './routes/jobPostingRoutes.js'; // Fixed to actual filename
 import adminRoutes from './routes/adminRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
-import mentorshipRoutes from './routes/mentorshipRoutes.js';
+import mentorshipRoutes from './Routes/mentorshipRoutes.js';
 import connectionRoutes from './Routes/connectionRoutes.js'; // Changed from './Routes/connectionRoutes.js' to './routes/connectionRoutes.js'
 import messageRoutes from './routes/messageRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
@@ -63,6 +64,8 @@ try {
 
 // Parse JSON request bodies
 app.use(express.json());
+app.use(cors());
+app.use(requestLogger); // Add request logging middleware
 
 // API routes
 app.use('/api/users', userRoutes);

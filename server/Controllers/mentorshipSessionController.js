@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import MentorshipSession from '../Models/MentorshipSession.js';
 import Mentorship from '../Models/Mentorship.js';
 import { createNotification } from './notificationController.js';
@@ -6,71 +7,182 @@ import { createNotification } from './notificationController.js';
 // @desc    Schedule a new mentorship session
 // @route   POST /api/mentorship/:mentorshipId/sessions
 // @access  Private (Student & Alumni)
-// Implement session scheduling to match frontend form
 const scheduleSession = asyncHandler(async (req, res) => {
-  const { 
-    mentorshipId, 
-    title, 
-    description, 
-    date, 
-    startTime, 
-    endTime, 
-    meetingLink 
-  } = req.body;
+  try {
+    const { 
+      title, 
+      description, 
+      date, 
+      startTime, 
+      endTime, 
+      meetingLink 
+    } = req.body;
 
-  // Find the mentorship
-  const mentorship = await Mentorship.findById(mentorshipId);
-  if (!mentorship) {
-    res.status(404);
-    throw new Error('Mentorship not found');
-  }
+    const { mentorshipId } = req.params;
 
-  if (mentorship.status !== 'accepted') {
-    res.status(400);
-    throw new Error('Cannot schedule sessions for mentorships that are not accepted');
-  }
+    console.log('Request to schedule session received:', {
+      mentorshipId,
+      title,
+      date,
+      startTime,
+      endTime
+    });
 
-  // Check if user is part of this mentorship
-  const isStudent = mentorship.student.toString() === req.user._id.toString();
-  const isAlumni = mentorship.alumni.toString() === req.user._id.toString();
+    // Validate required fields
+    if (!title || !description || !date || !startTime || !endTime) {
+      console.log('Missing required fields:', { title, description, date, startTime, endTime });
+      res.status(400);
+      throw new Error('Please provide all required fields: title, description, date, startTime, endTime');
+    }
 
-  if (!isStudent && !isAlumni) {
-    res.status(403);
-    throw new Error('Not authorized to schedule sessions for this mentorship');
-  }
+    // Validate date format
+    const sessionDate = new Date(date);
+    if (isNaN(sessionDate.getTime())) {
+      console.log('Invalid date format:', date);
+      res.status(400);
+      throw new Error('Invalid date format');
+    }
 
-  // Create session
-  const session = await MentorshipSession.create({
-    mentorship: mentorshipId,
-    student: mentorship.student,
-    alumni: mentorship.alumni,
-    title,
-    description,
-    date: new Date(date),
-    startTime,
-    endTime,
-    meetingLink: meetingLink || ''
-  });
-
-  if (session) {
-    // Send notification to the other party
-    const recipientId = isStudent ? mentorship.alumni : mentorship.student;
-    const recipientModel = isStudent ? 'Alumni' : 'Student';
-    const senderName = req.user.name;
+    // Find the mentorship
+    console.log('Looking for mentorship with ID:', mentorshipId);
+    const mentorship = await Mentorship.findById(mentorshipId);
     
-    await createNotification(
-      recipientId,
-      recipientModel,
-      'mentorship',
-      'New Mentorship Session',
-      `${senderName} has scheduled a mentorship session: ${title}`,
-      session._id
-    );
-    
-    res.status(201).json(session);
-  } else {
-    res.status(400);
-    throw new Error('Invalid session data');
+    if (!mentorship) {
+      console.log('Mentorship not found with ID:', mentorshipId);
+      res.status(404);
+      throw new Error('Mentorship not found');
+    }
+
+    console.log('Found mentorship:', mentorship._id);
+
+    if (mentorship.status !== 'accepted') {
+      console.log('Cannot schedule for non-accepted mentorship, status:', mentorship.status);
+      res.status(400);
+      throw new Error('Cannot schedule sessions for mentorships that are not accepted');
+    }
+
+    // Check if user is part of this mentorship
+    const isStudent = mentorship.student.toString() === req.user._id.toString();
+    const isAlumni = mentorship.alumni.toString() === req.user._id.toString();
+
+    console.log('Checking authorization:', { 
+      requestingUserId: req.user._id,
+      studentId: mentorship.student,
+      alumniId: mentorship.alumni,
+      isStudent,
+      isAlumni
+    });
+
+    if (!isStudent && !isAlumni) {
+      console.log('User not authorized to schedule sessions');
+      res.status(403);
+      throw new Error('Not authorized to schedule sessions for this mentorship');
+    }
+
+    // Create session
+    console.log('Creating session with data:', {
+      mentorship: mentorshipId,
+      student: mentorship.student,
+      alumni: mentorship.alumni,
+      title,
+      date: sessionDate,
+      startTime,
+      endTime
+    });
+
+    const session = await MentorshipSession.create({
+      mentorship: mentorshipId,
+      student: mentorship.student,
+      alumni: mentorship.alumni,
+      title,
+      description,
+      date: sessionDate,
+      startTime,
+      endTime,
+      meetingLink: meetingLink || '',
+      status: 'scheduled'
+    });
+
+    if (session) {
+      console.log('Session created successfully:', session._id);
+      
+      // Send notification to the other party
+      const recipientId = isStudent ? mentorship.alumni : mentorship.student;
+      const recipientModel = isStudent ? 'Alumni' : 'Student';
+      const senderName = req.user.name;
+      
+      // Format date for notification
+      const formattedDate = sessionDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      try {
+        await createNotification(
+          recipientId,
+          recipientModel,
+          'mentorship',
+          'New Mentorship Session',
+          `${senderName} has scheduled a mentorship session: "${title}" on ${formattedDate} at ${startTime}`,
+          session._id
+        );
+        console.log('Notification sent to recipient');
+      } catch (notificationError) {
+        console.error('Failed to create notification:', notificationError);
+        // Continue without failing the request
+      }
+      
+      // Update mentorship with the next session date and other statistics
+      try {
+        // Update the lastInteractionDate
+        mentorship.lastInteractionDate = new Date();
+        
+        // Count total completed and scheduled sessions
+        const sessions = await MentorshipSession.find({ 
+          mentorship: mentorshipId
+        });
+        
+        const completedCount = sessions.filter(s => s.status === 'completed').length;
+        const totalPlannedSessions = sessions.length;
+        
+        // Store the date of the next upcoming session in the mentorship document
+        // Find the upcoming session that has the earliest date
+        const upcomingSessions = sessions.filter(s => 
+          s.status === 'scheduled' && new Date(s.date) >= new Date()
+        ).sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Store next session date in the mentorship document
+        if (upcomingSessions.length > 0) {
+          mentorship.nextSessionDate = upcomingSessions[0].date;
+          console.log(`Setting nextSessionDate to ${mentorship.nextSessionDate}`);
+        }
+        
+        // Update the mentorship with the counts and last interaction date
+        await mentorship.updateSessionStats(
+          completedCount,
+          totalPlannedSessions,
+          new Date()
+        );
+        console.log('Mentorship statistics updated');
+      } catch (error) {
+        console.error('Failed to update mentorship statistics:', error.message);
+        // Continue without failing the request
+      }
+      
+      res.status(201).json(session);
+    } else {
+      console.log('Failed to create session - invalid data');
+      res.status(400);
+      throw new Error('Invalid session data');
+    }
+  } catch (error) {
+    console.error('Error in scheduleSession:', error);
+    if (!res.statusCode || res.statusCode === 200) {
+      res.status(500);
+    }
+    throw error;
   }
 });
 

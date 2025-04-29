@@ -4,7 +4,8 @@ import {
   getStudentMentorshipRequests,
   getAlumniMentorshipRequests,
   respondToMentorshipRequest,
-  getAllMentorships
+  getAllMentorships,
+  getMentees
 } from '../Controllers/mentorshipController.js';
 import {
   scheduleSession,
@@ -33,20 +34,21 @@ router.get('/student', protect, getStudentMentorshipRequests);
 router.get('/alumni', protect, getAlumniMentorshipRequests);
 router.put('/:id/respond', protect, respondToMentorshipRequest);
 
-// Protected routes for mentorship sessions
+// Important: Route order matters! Put specific routes before parameterized ones
 router.get('/sessions/my-upcoming', protect, getMyUpcomingSessions);
+router.get('/mentees', protect, getMentees);
+
+// Routes for mentorship sessions
+router.post('/:mentorshipId/sessions', protect, scheduleSession);
+router.get('/:mentorshipId/sessions', protect, getSessionsByMentorship);
 router.get('/sessions/:sessionId', protect, getSessionById);
 router.put('/sessions/:sessionId', protect, updateSession);
 router.put('/sessions/:sessionId/cancel', protect, cancelSession);
 
-// Mentorship-specific session routes
-router.post('/:mentorshipId/sessions', protect, scheduleSession);
-router.get('/:mentorshipId/sessions', protect, getSessionsByMentorship);
-
-// Feedback routes
-router.get('/feedback/received', protect, getReceivedFeedback);
-router.get('/feedback/stats', protect, getFeedbackStats);
+// Routes for mentorship feedback
 router.post('/:mentorshipId/feedback', protect, submitFeedback);
 router.get('/:mentorshipId/feedback', protect, getFeedback);
+router.get('/feedback/received', protect, getReceivedFeedback);
+router.get('/feedback/stats', protect, getFeedbackStats);
 
 export default router;

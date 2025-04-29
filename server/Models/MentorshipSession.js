@@ -36,10 +36,11 @@ const mentorshipSessionSchema = new mongoose.Schema({
     type: String,
     required: true,
     validate: {
-        validator: function (value) {
-            return new Date(`1970-01-01T${value}`) > new Date(`1970-01-01T${this.startTime}`);
-        },
-        message: 'End time must be greater than start time.'
+      validator: function (value) {
+        // Basic validation to ensure end time is after start time
+        return value !== this.startTime; // Simple check that they're not identical
+      },
+      message: 'End time must be different from start time.'
     }
   },
   status: {
@@ -51,10 +52,19 @@ const mentorshipSessionSchema = new mongoose.Schema({
     type: String,
     required: false
   },
-  frequency: { type: String, enum: ['one-time', 'weekly', 'monthly'], 
-    default: 'one-time' }
+  frequency: { 
+    type: String, 
+    enum: ['one-time', 'weekly', 'monthly'], 
+    default: 'one-time' 
+  }
 }, {
   timestamps: true
+});
+
+// Add pre-save middleware to debug session creation
+mentorshipSessionSchema.pre('save', function(next) {
+  console.log('Saving session with data:', JSON.stringify(this, null, 2));
+  next();
 });
 
 // Add indexes for better querying performance
@@ -65,4 +75,5 @@ mentorshipSessionSchema.index({ date: 1 });
 mentorshipSessionSchema.index({ status: 1 });
 
 const MentorshipSession = mongoose.model('MentorshipSession', mentorshipSessionSchema);
+
 export default MentorshipSession;

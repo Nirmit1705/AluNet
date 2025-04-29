@@ -337,18 +337,41 @@ const getConnectedMentors = asyncHandler(async (req, res) => {
     status: 'accepted'
   }).populate({
     path: 'alumni',
-    select: 'name email profilePicture position company graduationYear skills expertise availability education university degree location experience'
+    select: 'name email profilePicture position company graduationYear skills expertise availability education university degree location experience mentorshipAreas'
   });
+
+  // Log the raw data from the database for debugging
+  console.log(`Raw Alumni Data:`, connections.map(conn => ({
+    alumniId: conn.alumni._id,
+    mentorshipAreas: conn.alumni.mentorshipAreas,
+    name: conn.alumni.name
+  })));
 
   // Format the response with more detailed information
   const mentors = connections.map(connection => {
     const mentor = connection.alumni;
+    
+    // Ensure mentorshipAreas is properly handled - handle different data types
+    let mentorshipAreas = [];
+    
+    if (mentor.mentorshipAreas) {
+      if (Array.isArray(mentor.mentorshipAreas)) {
+        mentorshipAreas = [...mentor.mentorshipAreas];
+      } else if (typeof mentor.mentorshipAreas === 'string' && mentor.mentorshipAreas.trim()) {
+        mentorshipAreas = mentor.mentorshipAreas.split(',').map(area => area.trim());
+      }
+    }
+    
+    // Log the extracted mentorship areas
+    console.log(`Extracted mentorshipAreas for ${mentor.name}:`, mentorshipAreas);
+    
     return {
       id: mentor._id,
       name: mentor.name,
       role: `${mentor.position || 'Professional'} at ${mentor.company || 'Company'}`,
       email: mentor.email,
       specialties: mentor.expertise || mentor.skills || [],
+      mentorshipAreas: mentorshipAreas, // Use the properly processed mentorshipAreas
       availability: mentor.availability || "Available by appointment",
       profilePicture: mentor.profilePicture?.url || null,
       education: mentor.education || (mentor.university ? `${mentor.degree || 'Graduate'} from ${mentor.university}` : 'Education not specified'),

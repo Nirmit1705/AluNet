@@ -24,6 +24,7 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     experience: alumni.experience,
     skills: alumni.skills || [],
     mentorshipAvailable: alumni.mentorshipAvailable,
+    mentorshipAreas: alumni.mentorshipAreas || [],
     bio: alumni.bio,
     location: alumni.location, 
     profilePicture: alumni.profilePicture,
@@ -34,16 +35,60 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     status: alumni.status,
     verificationStatus: alumni.verificationStatus,
     industry: alumni.industry || "",
-    userType: 'Alumni' // Add a userType field for frontend convenience
+    userType: 'Alumni'
   };
   
-  // If token is requested, include it
   if (includeToken) {
     response.token = generateToken(alumni._id);
   }
   
   return response;
 };
+
+/**
+ * Format education data for display
+ * @param {Object} alumni - Alumni document
+ * @returns {String} Formatted education string
+ */
+function formatEducationForDisplay(alumni) {
+  // Handle different education field formats
+  if (alumni.education && Array.isArray(alumni.education) && alumni.education.length > 0) {
+    const primaryEdu = alumni.education[0];
+    
+    // Check if degree already contains "in" to avoid duplication
+    const degreeText = primaryEdu.degree || '';
+    const fieldText = primaryEdu.fieldOfStudy ? 
+      (degreeText.toLowerCase().includes(`in ${primaryEdu.fieldOfStudy.toLowerCase()}`) ? 
+        '' : ` in ${primaryEdu.fieldOfStudy}`) : '';
+    
+    // Handle institution and university separately
+    let institutionText = '';
+    if (primaryEdu.institution && primaryEdu.university) {
+      // If both fields exist and are different, show both
+      if (primaryEdu.institution !== primaryEdu.university) {
+        institutionText = ` from ${primaryEdu.institution}, ${primaryEdu.university}`;
+      } else {
+        institutionText = ` from ${primaryEdu.institution}`;
+      }
+    } else if (primaryEdu.institution) {
+      institutionText = ` from ${primaryEdu.institution}`;
+    } else if (primaryEdu.university) {
+      institutionText = ` from ${primaryEdu.university}`;
+    }
+    
+    return `${degreeText}${fieldText}${institutionText}`;
+  } else if (alumni.university || alumni.college) {
+    // Fall back to basic education fields
+    const degreeText = alumni.degree || '';
+    const specText = alumni.specialization ? `in ${alumni.specialization}` : '';
+    const uniText = alumni.university ? `from ${alumni.university}` : '';
+    
+    // Combine all parts, filtering out empty strings
+    return [degreeText, specText, uniText].filter(Boolean).join(' ');
+  } else {
+    return '';
+  }
+}
 
 /**
  * Format student data for response
@@ -54,87 +99,41 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
 const formatStudentResponse = (student, includeToken = false) => {
   const response = {
     _id: student._id,
+    id: student._id,
     name: student.name,
     email: student.email,
-    phone: student.phone,
+    phone: student.phone || "",
     registrationNumber: student.registrationNumber,
     currentYear: student.currentYear,
     branch: student.branch,
-    cgpa: student.cgpa,
+    cgpa: student.cgpa || 0,
     skills: student.skills || [],
     interests: student.interests || [],
-    bio: student.bio,
-    linkedin: student.linkedin,
-    github: student.github,
-    location: student.location,
+    bio: student.bio || "",
+    linkedin: student.linkedin || "",
+    github: student.github || "",
+    location: student.location || "",
+    college: student.college || "",
+    university: student.university || "",
     graduationYear: student.graduationYear,
-    university: student.university,
-    college: student.college,
+    profilePicture: student.profilePicture || { url: "", public_id: "" },
     previousEducation: student.previousEducation || [],
+    mentorshipInterests: student.mentorshipInterests || [],
+    assignedMentor: student.assignedMentor,
     internships: student.internships || [],
     projects: student.projects || [],
-    profilePicture: student.profilePicture,
-    careerGoals: student.careerGoals,
+    careerGoals: student.careerGoals || "",
     isActive: student.isActive,
-    status: student.status,
-    role: student.role || "student"
+    isEmailVerified: student.isEmailVerified || false,
+    status: student.status || "active",
+    userType: "Student"
   };
-
-  // If token is requested, include it
+  
   if (includeToken) {
     response.token = generateToken(student._id);
   }
-
+  
   return response;
 };
 
-/**
- * Format education information for display
- * @param {Object} alumni - Alumni document
- * @returns {String} Formatted education string
- */
-const formatEducationForDisplay = (alumni) => {
-  // If education is already a string, return it
-  if (alumni.education && typeof alumni.education === 'string') {
-    return alumni.education;
-  }
-  
-  // If education is an array, format it appropriately
-  if (alumni.education && Array.isArray(alumni.education) && alumni.education.length > 0) {
-    return alumni.education.map(edu => {
-      if (typeof edu === 'object') {
-        let parts = [];
-        if (edu.degree) parts.push(edu.degree);
-        if (edu.fieldOfStudy && !edu.degree?.includes(edu.fieldOfStudy)) {
-          parts.push(`in ${edu.fieldOfStudy}`);
-        }
-        
-        // Handle both institution and university distinctly
-        if (edu.institution && edu.university && edu.institution !== edu.university) {
-          parts.push(`at ${edu.institution}, ${edu.university}`);
-        } else if (edu.institution) {
-          parts.push(`at ${edu.institution}`);
-        } else if (edu.university) {
-          parts.push(`at ${edu.university}`);
-        }
-        
-        return parts.join(' ');
-      }
-      return edu;
-    }).join('; ');
-  }
-  
-  // Fallback: Try to build from individual fields
-  if (alumni.degree) {
-    let educationStr = alumni.degree;
-    if (alumni.university) {
-      educationStr += ` at ${alumni.university}`;
-    }
-    return educationStr;
-  }
-  
-  // Final fallback
-  return alumni.university || '';
-};
-
-export { formatAlumniResponse, formatStudentResponse, formatEducationForDisplay };
+export { formatAlumniResponse, formatStudentResponse };

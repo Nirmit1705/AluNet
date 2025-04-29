@@ -201,7 +201,8 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     education, // Education array containing both institution and university
     college,
     industry,
-    mentorshipAvailable
+    mentorshipAvailable,
+    mentorshipAreas
   } = req.body;
 
   try {
@@ -227,6 +228,7 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     if (college !== undefined) alumni.college = college;
     if (industry !== undefined) alumni.industry = industry;
     if (mentorshipAvailable !== undefined) alumni.mentorshipAvailable = mentorshipAvailable;
+    if (mentorshipAreas && Array.isArray(mentorshipAreas)) alumni.mentorshipAreas = mentorshipAreas;
     
     // Handle arrays properly - make sure they're not undefined
     if (skills && Array.isArray(skills)) alumni.skills = skills;
@@ -304,6 +306,8 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     console.log("- University:", updatedAlumni.university);
     console.log("- Skills:", JSON.stringify(updatedAlumni.skills, null, 2));
     console.log("- Interests:", JSON.stringify(updatedAlumni.interests, null, 2));
+    console.log("- Mentorship Available:", updatedAlumni.mentorshipAvailable);
+    console.log("- Mentorship Areas:", JSON.stringify(updatedAlumni.mentorshipAreas, null, 2));
     
     // Return the updated profile data
     res.json(formatAlumniResponse(updatedAlumni));

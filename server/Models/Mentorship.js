@@ -77,6 +77,13 @@ const mentorshipSchema = new mongoose.Schema({
         default: 'online'
         // Preferred mode of mentorship
     },
+    requestedSessions: {
+        type: Number,
+        default: 5,
+        min: 1,
+        max: 20
+        // Number of sessions requested by the student
+    },
     // Add start/end dates for proper lifecycle management
     startDate: {
         type: Date
@@ -117,7 +124,31 @@ const mentorshipSchema = new mongoose.Schema({
         reason: String
         // CRITICAL: Provides audit trail for compliance and dispute resolution
         // Track changes in mentorship status
-    }]
+    }],
+    
+    // Add fields to track session progress
+    sessionsCompleted: {
+        type: Number,
+        default: 0
+        // Tracks number of completed mentorship sessions
+    },
+    
+    totalPlannedSessions: {
+        type: Number,
+        default: 5
+        // Target number of sessions planned for this mentorship
+    },
+    
+    lastInteractionDate: {
+        type: Date
+        // Date of the last interaction between mentor and mentee
+    },
+    
+    nextSessionDate: {
+        type: Date
+        // Stores the date of the next upcoming session
+    },
+    
 }, {
     timestamps: true
 });
@@ -148,6 +179,20 @@ mentorshipSchema.methods.updateStatus = async function(newStatus, changedBy, mod
     
     return this.save();
     // CRITICAL: Ensures complete and accurate status tracking
+};
+
+// Method to update session statistics
+mentorshipSchema.methods.updateSessionStats = async function(completedCount, totalCount, lastDate) {
+    console.log(`Updating mentorship stats: completed=${completedCount}, total=${totalCount}`);
+    
+    this.sessionsCompleted = completedCount;
+    this.totalPlannedSessions = totalCount;
+    this.lastInteractionDate = lastDate;
+    
+    // nextSessionDate is now managed separately when sessions are scheduled
+    
+    // Save and return the updated mentorship
+    return this.save();
 };
 
 // Middleware to set initial status history
