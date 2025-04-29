@@ -16,6 +16,8 @@ import axios from 'axios';
 import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
 import Navbar from '../layout/Navbar'; // Import the Navbar component - adjust path as needed
+import { hasSessionEnded, markSessionCompleted } from '../../utils/sessionHelper';
+import useSessionTracker from '../../hooks/useSessionTracker';
 
 const MenteesListPage = () => {
   const navigate = useNavigate();
@@ -29,6 +31,9 @@ const MenteesListPage = () => {
   const [error, setError] = useState(null);
   const [mentees, setMentees] = useState([]);
   const [allMentees, setAllMentees] = useState([]);
+
+  // Add session tracker hook (checks every 5 minutes)
+  const { lastCheck } = useSessionTracker(300000);
 
   // Fetch mentees data from the backend API
   const fetchMentees = useCallback(async () => {
@@ -142,7 +147,7 @@ const MenteesListPage = () => {
           nextSessionId: cachedSchedule?.sessionId || mentee.nextSessionId, // Use cached session ID if available
           // Add these for tracking session completion
           nextSessionEndTime: cachedSchedule?.endTime || mentee.nextSessionEndTime,
-          nextSessionCompleted: false
+          nextSessionCompleted: cachedSchedule?.completed || false
         };
       });
       
@@ -349,6 +354,78 @@ const MenteesListPage = () => {
     }
   }, [navigate]);
 
+  // Function to check and update any completed sessions
+  const checkAndUpdateCompletedSessions = useCallback(async () => {
+    try {
+      console.log("Checking for sessions that need to be marked as completed...");
+      const currentMentees = [...mentees];
+      let hasUpdates = false;
+      
+      // Check each mentee for sessions that should be completed
+      for (let i = 0; i < currentMentees.length; i++) {
+        const mentee = currentMentees[i];
+        if (
+          mentee.nextSessionDate && 
+          mentee.nextSessionEndTime && 
+          !mentee.nextSessionCompleted && 
+          mentee.nextSessionId
+        ) {
+          const sessionHasEnded = hasSessionEnded(mentee.nextSessionDate, mentee.nextSessionEndTime);
+          
+          if (sessionHasEnded) {
+            console.log(`Session for ${mentee.name} has ended, marking as completed`);
+            
+            try {
+              // Update session status in the database
+              await markSessionCompleted(mentee.nextSessionId);
+              
+              // Update local state
+              currentMentees[i] = {
+                ...mentee,
+                nextSessionCompleted: true,
+                sessionsCompleted: mentee.sessionsCompleted + 1,
+                progress: Math.min(100, Math.ceil(((mentee.sessionsCompleted + 1) / mentee.totalSessions) * 100))
+              };
+              
+              // Update the local storage to track completed sessions
+              const menteeSchedules = JSON.parse(localStorage.getItem('menteeSchedules') || '{}');
+              if (menteeSchedules[mentee.id]) {
+                menteeSchedules[mentee.id].completed = true;
+                localStorage.setItem('menteeSchedules', JSON.stringify(menteeSchedules));
+              }
+              
+              hasUpdates = true;
+            } catch (error) {
+              console.error(`Failed to mark session as completed for mentee ${mentee.id}:`, error);
+            }
+          }
+        }
+      }
+      
+      if (hasUpdates) {
+        setMentees(currentMentees);
+        setAllMentees(prev => {
+          const updated = [...prev];
+          for (const mentee of currentMentees) {
+            const index = updated.findIndex(m => m.id === mentee.id);
+            if (index !== -1) {
+              updated[index] = mentee;
+            }
+          }
+          return updated;
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error checking completed sessions:", error);
+    }
+  }, [mentees]);
+  
+  // Run session check when component mounts and whenever lastCheck updates
+  useEffect(() => {
+    checkAndUpdateCompletedSessions();
+  }, [checkAndUpdateCompletedSessions, lastCheck]);
+  
   // Define handleBack function
   const handleBack = () => {
     navigate(-1);

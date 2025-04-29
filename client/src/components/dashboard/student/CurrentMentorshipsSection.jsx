@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Users, Calendar, Clock, ArrowRight } from "lucide-react";
+import useSessionTracker from '../../../hooks/useSessionTracker';
 
 const CurrentMentorshipsSection = () => {
   const navigate = useNavigate();

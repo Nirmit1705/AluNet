@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import MentorshipSession from '../Models/MentorshipSession.js';
 import Mentorship from '../Models/Mentorship.js';
 import { createNotification } from './notificationController.js';
+import { updateCompletedSessions } from '../utils/sessionHelper.js';
 
 // @desc    Schedule a new mentorship session
 // @route   POST /api/mentorship/:mentorshipId/sessions
@@ -369,11 +370,25 @@ const getMyUpcomingSessions = asyncHandler(async (req, res) => {
   res.json(sessions);
 });
 
+// @desc    Check and update completed sessions
+// @route   GET /api/mentorship/sessions/check-completed
+// @access  Private
+const checkCompletedSessions = asyncHandler(async (req, res) => {
+  try {
+    const result = await updateCompletedSessions();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500);
+    throw new Error(`Failed to check completed sessions: ${error.message}`);
+  }
+});
+
 export {
   scheduleSession,
   getSessionsByMentorship,
   getSessionById,
   updateSession,
   cancelSession,
-  getMyUpcomingSessions
+  getMyUpcomingSessions,
+  checkCompletedSessions
 };

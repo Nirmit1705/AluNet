@@ -13,7 +13,8 @@ import {
   getSessionById,
   updateSession,
   cancelSession,
-  getMyUpcomingSessions
+  getMyUpcomingSessions,
+  checkCompletedSessions
 } from '../Controllers/mentorshipSessionController.js';
 import {
   submitFeedback,
@@ -38,14 +39,15 @@ router.put('/:id/respond', protect, respondToMentorshipRequest);
 router.get('/sessions/my-upcoming', protect, getMyUpcomingSessions);
 router.get('/mentees', protect, getMentees);
 
-// Routes for mentorship sessions
+// Mentorship Session Routes
 router.post('/:mentorshipId/sessions', protect, scheduleSession);
 router.get('/:mentorshipId/sessions', protect, getSessionsByMentorship);
 router.get('/sessions/:sessionId', protect, getSessionById);
 router.put('/sessions/:sessionId', protect, updateSession);
 router.put('/sessions/:sessionId/cancel', protect, cancelSession);
+router.get('/sessions/check-completed', protect, checkCompletedSessions);
 
-// Routes for mentorship feedback
+// Mentorship Feedback Routes
 router.post('/:mentorshipId/feedback', protect, submitFeedback);
 router.get('/:mentorshipId/feedback', protect, getFeedback);
 router.get('/feedback/received', protect, getReceivedFeedback);

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Users, MessageSquare, Calendar, Search, Filter, X, Clock, BookOpen, GraduationCap, Clipboard, UserMinus, UserCheck } from "lucide-react";
 import Navbar from "../layout/Navbar";
+import { hasSessionEnded, checkCompletedSessions } from '../../utils/sessionHelper';
+import useSessionTracker from '../../hooks/useSessionTracker';
 
 // Sample data for current mentees
 const currentMenteesData = [
@@ -90,6 +92,9 @@ const CurrentMenteesPage = () => {
   const [selectedMentee, setSelectedMentee] = useState(null);
   const [confirmingEndMentorship, setConfirmingEndMentorship] = useState(null);
   
+  // Add session tracker
+  useSessionTracker();
+  
   // Navigate back to dashboard
   const goBack = () => {
     navigate(-1);
@@ -172,6 +177,15 @@ const CurrentMenteesPage = () => {
   const formatDate = (dateString) => {
     return dateString;
   };
+
+  // Check for completed sessions on component mount
+  useEffect(() => {
+    const checkForCompletedSessions = async () => {
+      await checkCompletedSessions();
+    };
+    
+    checkForCompletedSessions();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -521,4 +535,4 @@ const CurrentMenteesPage = () => {
   );
 };
 
-export default CurrentMenteesPage; 
+export default CurrentMenteesPage;
