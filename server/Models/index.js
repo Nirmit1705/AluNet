@@ -7,6 +7,7 @@ import MentorshipSession from './MentorshipSession.js';
 import MentorshipFeedback from './MentorshipFeedback.js';
 import Notification from './Notification.js';
 import Admin from './Admin.js';
+import Connection from './Connection.js';  // Add the new Connection model
 
 export {
   Student,
@@ -17,5 +18,6 @@ export {
   MentorshipSession,
   MentorshipFeedback,
   Notification,
-  Admin
+  Admin,
+  Connection  // Export the Connection model
 };

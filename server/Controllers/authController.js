@@ -1,12 +1,32 @@
 import asyncHandler from 'express-async-handler';
 import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
-import { generateEmailVerificationToken, generatePasswordResetToken } from '../Utils/tokenGenerator.js';
-import { sendPasswordResetEmail } from '../Utils/emailService.js';
-import { OAuth2Client } from 'google-auth-library';
+import { generateEmailVerificationToken } from '../Utils/tokenGenerator.js';
+import { sendVerificationEmail } from '../Utils/emailService.js';
 import { generateToken } from '../Utils/generateToken.js';
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, `${process.env.BACKEND_URL}/api/auth/google/callback`);
+// Try to import OAuth2Client but don't crash if it's not available
+let OAuth2Client = null;
+let client = null;
+
+try {
+  const googleAuthLibrary = await import('google-auth-library');
+  OAuth2Client = googleAuthLibrary.OAuth2Client;
+  
+  if (OAuth2Client && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID, 
+      process.env.GOOGLE_CLIENT_SECRET, 
+      `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`
+    );
+    console.log('Google OAuth client initialized successfully');
+  } else {
+    console.log('Google OAuth configuration incomplete, some features may be unavailable');
+  }
+} catch (error) {
+  console.log('Google Auth Library not available:', error.message);
+  console.log('Google OAuth features will be disabled');
+}
 
 /**
  * Verify email token
@@ -40,105 +60,6 @@ const verifyEmail = asyncHandler(async (req, res) => {
   await user.save();
   
   res.redirect(`${process.env.FRONTEND_URL}/login?verified=true&userType=${userType}`);
-});
-
-/**
- * Request password reset
- * @route   POST /api/auth/forgot-password/:userType
- * @access  Public
- */
-const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  const { userType } = req.params;
-  
-  if (!email) {
-    res.status(400);
-    throw new Error('Please provide an email address');
-  }
-  
-  // Determine the model to use
-  const Model = userType.toLowerCase() === 'student' ? Student : Alumni;
-  
-  // Find user by email
-  const user = await Model.findOne({ email });
-  
-  if (!user) {
-    // Don't reveal that the user doesn't exist for security
-    res.status(200).json({
-      message: 'If your email exists in our system, you will receive a password reset link'
-    });
-    return;
-  }
-  
-  // Generate reset token
-  const { token } = generatePasswordResetToken(user);
-  await user.save();
-  
-  // Send password reset email
-  const emailSent = await sendPasswordResetEmail(
-    user.email,
-    user.name,
-    token,
-    userType
-  );
-  
-  if (!emailSent) {
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
-    
-    res.status(500);
-    throw new Error('Error sending password reset email. Please try again later.');
-  }
-  
-  res.status(200).json({
-    message: 'Password reset link sent to your email'
-  });
-});
-
-/**
- * Reset password with token
- * @route   POST /api/auth/reset-password/:userType/:token
- * @access  Public
- */
-const resetPassword = asyncHandler(async (req, res) => {
-  const { password } = req.body;
-  const { userType, token } = req.params;
-  
-  if (!password) {
-    res.status(400);
-    throw new Error('Please provide a new password');
-  }
-  
-  if (password.length < 6) {
-    res.status(400);
-    throw new Error('Password must be at least 6 characters long');
-  }
-  
-  // Determine the model to use
-  const Model = userType.toLowerCase() === 'student' ? Student : Alumni;
-  
-  // Find user with this token and token not expired
-  const user = await Model.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: Date.now() }
-  });
-  
-  if (!user) {
-    res.status(400);
-    throw new Error('Invalid or expired reset token');
-  }
-  
-  // Set new password and clear reset token
-  user.password = password;
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpires = undefined;
-  
-  await user.save();
-  
-  res.status(200).json({
-    message: 'Password reset successfully. You can now log in with your new password.'
-  });
 });
 
 /**
@@ -201,9 +122,15 @@ const resendVerification = asyncHandler(async (req, res) => {
   });
 });
 
-// Make sure this function is properly defined
-// Redirect to Google OAuth2
+// Redirect to Google OAuth2 - checks if Google Auth is available
 const googleOAuthRedirect = (req, res) => {
+  if (!client) {
+    return res.status(501).json({ 
+      success: false, 
+      message: "Google OAuth is not available. Package 'google-auth-library' is not installed."
+    });
+  }
+  
   try {
     console.log("Google OAuth redirect initiated");
     const redirectUrl = client.generateAuthUrl({
@@ -219,8 +146,15 @@ const googleOAuthRedirect = (req, res) => {
   }
 };
 
-// Handle Google OAuth2 callback
+// Handle Google OAuth2 callback - checks if Google Auth is available
 const googleOAuthCallback = async (req, res) => {
+  if (!client) {
+    return res.status(501).json({ 
+      success: false, 
+      message: "Google OAuth is not available. Package 'google-auth-library' is not installed."
+    });
+  }
+  
   const { code } = req.query;
 
   try {
@@ -279,7 +213,7 @@ const googleOAuthCallback = async (req, res) => {
             exists: !!user,
             userId: user ? user._id.toString() : null
           })}
-        }, '${process.env.FRONTEND_URL}');
+        }, '${process.env.FRONTEND_URL || '*'}');
         window.close();
       </script>
     `;
@@ -292,7 +226,7 @@ const googleOAuthCallback = async (req, res) => {
         window.opener.postMessage({
           type: 'googleAuthError',
           error: ${JSON.stringify(error.message || 'Authentication failed')}
-        }, '${process.env.FRONTEND_URL}');
+        }, '${process.env.FRONTEND_URL || '*'}');
         window.close();
       </script>
     `;
@@ -300,33 +234,47 @@ const googleOAuthCallback = async (req, res) => {
   }
 };
 
-// Enhance email verification with better templates
-const sendVerificationEmail = async (email, name, token, userType) => {
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-account/${userType.toLowerCase()}/${token}`;
-  
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #4361ee;">Student-Alumni Interaction Platform</h1>
-      </div>
-      <h2>Welcome, ${name}!</h2>
-      <p>Thank you for registering as a ${userType} on our platform. Please verify your email address to continue.</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${verificationUrl}" style="background-color: #4361ee; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email Address</a>
-      </div>
-      <p>This link will expire in 24 hours.</p>
-      <p style="color: #666; font-size: 14px;">If you did not create an account, please ignore this email.</p>
-    </div>
-  `;
-
-  return sendEmail(email, 'Verify Your Email Address', html);
-};
+/**
+ * Verify auth token
+ * @route GET /api/auth/verify
+ * @access Private
+ */
+const verifyToken = asyncHandler(async (req, res) => {
+  try {
+    // If the request made it past the protect middleware, the token is valid
+    // and req.user is populated
+    
+    // Determine if the user is verified (for alumni)
+    let isVerified = true;
+    
+    // For alumni, check verification status
+    if (req.userRole === 'alumni') {
+      isVerified = req.user.isVerified || 
+                   req.user.verificationStatus === 'approved' || 
+                   req.user.status === 'active';
+    }
+    
+    return res.status(200).json({
+      isValid: true,
+      role: req.userRole,
+      isVerified,
+      userId: req.user._id,
+      name: req.user.name,
+      email: req.user.email
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(401).json({
+      isValid: false,
+      message: 'Invalid token'
+    });
+  }
+});
 
 export {
   verifyEmail,
-  forgotPassword,
-  resetPassword,
   resendVerification,
   googleOAuthRedirect,
-  googleOAuthCallback
+  googleOAuthCallback,
+  verifyToken
 };

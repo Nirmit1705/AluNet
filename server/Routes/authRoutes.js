@@ -1,13 +1,13 @@
 import express from 'express';
 import { 
   verifyEmail, 
-  forgotPassword, 
-  resetPassword, 
   resendVerification,
   googleOAuthCallback, 
-  googleOAuthRedirect 
+  googleOAuthRedirect,
+  verifyToken
 } from '../Controllers/authController.js';
 import { authLimiter, accountLimiter } from '../middleware/rateLimitMiddleware.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -15,12 +15,11 @@ const router = express.Router();
 router.get('/verify-email/:userType/:token', verifyEmail);
 router.post('/resend-verification/:userType', authLimiter, resendVerification);
 
-// Password reset routes
-router.post('/forgot-password/:userType', authLimiter, forgotPassword);
-router.post('/reset-password/:userType/:token', accountLimiter, resetPassword);
-
 // Google OAuth2 routes
-router.get('/google', googleOAuthRedirect); // Redirect to Google OAuth2
-router.get('/google/callback', googleOAuthCallback); // Handle Google OAuth2 callback
+router.get('/google', googleOAuthRedirect);
+router.get('/google/callback', googleOAuthCallback);
+
+// Add token verification endpoint
+router.get('/verify', protect, verifyToken);
 
 export default router;

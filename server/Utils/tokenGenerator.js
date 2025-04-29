@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 /**
- * Generate a random token for email verification or password reset
+ * Generate a random token for email verification
  * @returns {string} Random token
  */
 const generateToken = () => {
@@ -30,30 +30,7 @@ const generateEmailVerificationToken = (user) => {
   };
 };
 
-/**
- * Generate a password reset token with expiration
- * @param {Object} user - User document (student or alumni)
- * @returns {Object} Token and expiry date
- */
-const generatePasswordResetToken = (user) => {
-  const token = generateToken();
-  
-  // Set token expiration (1 hour from now)
-  const expires = new Date();
-  expires.setHours(expires.getHours() + 1);
-  
-  // Save to user object (don't save to DB here)
-  user.resetPasswordToken = token;
-  user.resetPasswordExpires = expires;
-  
-  return {
-    token,
-    expires
-  };
-};
-
 export {
   generateToken,
-  generateEmailVerificationToken,
-  generatePasswordResetToken
+  generateEmailVerificationToken
 };

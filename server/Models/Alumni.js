@@ -45,13 +45,13 @@ const AlumniSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add branch']
     },
-    university: {
-        type: String,
-        default: ''
-    },
     // Renamed from previousEducation to education
     education: [{
         institution: {
+            type: String,
+            trim: true
+        },
+        university: {  // Add university as a separate field within education
             type: String,
             trim: true
         },
@@ -89,6 +89,12 @@ const AlumniSchema = new mongoose.Schema({
             maxlength: [300, 'Description cannot be more than 300 characters']
         }
     }],
+    // university still kept at the root level for backward compatibility
+    // but will gradually be migrated to use only education.university
+    university: {
+        type: String,
+        default: ''
+    },
     // Email verification fields
     isEmailVerified: {
         type: Boolean,
@@ -337,7 +343,7 @@ AlumniSchema.index({ graduationYear: 1 }, { background: true });
 AlumniSchema.index({ branch: 1 }, { background: true });
 AlumniSchema.index({ company: 1 }, { background: true, sparse: true });
 
-// Add middleware to ensure verification fields are consistent
+// Add middleware to ensure education fields are properly formatted
 AlumniSchema.pre('save', function(next) {
   // If verificationStatus is explicitly set, ensure isVerified is consistent
   if (this.isModified('verificationStatus')) {
@@ -368,6 +374,30 @@ AlumniSchema.pre('save', function(next) {
       // If setting to NOT verified, update other fields
       this.status = this.verificationStatus === 'rejected' ? 'rejected' : 'pending';
     }
+  }
+  
+  // Fix profilePicture if it's set to a primitive value
+  if (this.profilePicture === '' || this.profilePicture === null || this.profilePicture === undefined) {
+    this.profilePicture = {
+      url: '',
+      public_id: ''
+    };
+  }
+  
+  // Ensure education array has both institution and university fields
+  if (this.isModified('education') && Array.isArray(this.education)) {
+    this.education = this.education.map(edu => {
+      if (typeof edu === 'object') {
+        // If only one of institution or university is provided, copy the value to the other field
+        if (!edu.institution && edu.university) {
+          edu.institution = edu.university;
+        }
+        if (!edu.university && edu.institution) {
+          edu.university = edu.institution;
+        }
+      }
+      return edu;
+    });
   }
   
   next();

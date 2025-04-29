@@ -32,7 +32,23 @@ mongoose.connect(process.env.MONGO_URI)
         
         // Ensure education field exists (from previousEducation)
         if (alumni.education === undefined && alumni.previousEducation) {
-          alumni.education = alumni.previousEducation;
+          // Convert previousEducation to the new format if needed
+          if (Array.isArray(alumni.previousEducation)) {
+            alumni.education = alumni.previousEducation.map(edu => {
+              // Ensure both institution and university fields exist
+              if (typeof edu === 'object') {
+                if (!edu.institution && edu.university) {
+                  edu.institution = edu.university;
+                }
+                if (!edu.university && edu.institution) {
+                  edu.university = edu.institution;
+                }
+              }
+              return edu;
+            });
+          } else {
+            alumni.education = alumni.previousEducation;
+          }
           updated = true;
         }
         

@@ -99,9 +99,29 @@ const studentSchema = new mongoose.Schema({
     }],
     assignedMentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
     mentorRequests: [{
-        mentor: { type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' },
-        status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
-        requestDate: { type: Date, default: Date.now }
+        mentor: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'Alumni', 
+            required: true 
+        },
+        status: { 
+            type: String, 
+            enum: ['pending', 'accepted', 'rejected'], 
+            default: 'pending' 
+        },
+        requestDate: { 
+            type: Date, 
+            default: Date.now 
+        },
+        message: { 
+            type: String 
+        },
+        responseDate: { 
+            type: Date 
+        },
+        responseMessage: { 
+            type: String 
+        }
     }],
     internships: [internshipSchema], // Embedded array of internships
     projects: [projectSchema], // Embedded array of projects

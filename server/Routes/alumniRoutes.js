@@ -7,7 +7,7 @@ import {
   authAlumni,
   getAlumniProfile,
   updateAlumniProfile,
-  getAllAlumni,
+  getAlumni, // Changed from getAllAlumni to getAlumni to match the export name
   searchAlumni,
   getAlumniByBatch,
   getAlumniByCompany,
@@ -24,7 +24,7 @@ const router = express.Router();
 // Public routes
 router.post("/register", registerAlumni);
 router.post("/login", authAlumni);
-router.get("/", getAllAlumni);
+router.get("/", getAlumni); // Changed from getAllAlumni to getAlumni
 router.get("/search", searchAlumni);
 router.get("/batch/:year", getAlumniByBatch);
 router.get("/company/:company", getAlumniByCompany);
@@ -95,7 +95,7 @@ router.get('/profile/debug', protect, asyncHandler(async (req, res) => {
 // Google Authentication routes
 router.post('/register-google', registerAlumniWithGoogle);
 
-// Add this route to update education information
+// Update the route to update education information
 router.put('/update-education', protect, asyncHandler(async (req, res) => {
   const { graduationYear, education } = req.body;
   
@@ -109,13 +109,63 @@ router.put('/update-education', protect, asyncHandler(async (req, res) => {
     throw new Error('Alumni not found');
   }
   
+  console.log("Received education data:", JSON.stringify(education));
+  
   // Update the education fields
   if (graduationYear && !isNaN(graduationYear)) {
     alumni.graduationYear = Number(graduationYear);
   }
   
-  if (education && Array.isArray(education)) {
-    alumni.education = education;
+  if (education) {
+    // Ensure education is an array
+    if (Array.isArray(education)) {
+      // Process each education entry to ensure it has both institution and university
+      const processedEducation = education.map(edu => {
+        const entry = { ...edu };
+        
+        // Make sure both fields exist, but keep them distinct
+        // Only copy from one to the other if one is missing completely
+        if (!entry.institution && entry.university) {
+          entry.institution = entry.university;
+        } else if (!entry.university && entry.institution) {
+          entry.university = entry.institution;
+        }
+        
+        // Ensure neither field is null/undefined
+        entry.institution = entry.institution || '';
+        entry.university = entry.university || '';
+        
+        return entry;
+      });
+      
+      alumni.education = processedEducation;
+      
+      // Also update the root level university field with the university from the first education entry
+      if (processedEducation.length > 0 && processedEducation[0].university) {
+        alumni.university = processedEducation[0].university;
+      }
+    } else if (typeof education === 'object') {
+      // If it's a single object, wrap it in an array
+      const entry = { ...education };
+      
+      // Make sure both fields exist, but keep them distinct
+      if (!entry.institution && entry.university) {
+        entry.institution = entry.university;
+      } else if (!entry.university && entry.institution) {
+        entry.university = entry.institution;
+      }
+      
+      // Ensure neither field is null/undefined
+      entry.institution = entry.institution || '';
+      entry.university = entry.university || '';
+      
+      alumni.education = [entry];
+      
+      // Update root university field
+      if (entry.university) {
+        alumni.university = entry.university;
+      }
+    }
   }
   
   // Save the updated alumni

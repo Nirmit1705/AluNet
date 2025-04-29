@@ -398,6 +398,56 @@ const updateStudentProfilePicture = async (req, res) => {
   }
 };
 
+// @desc    Get available alumni for mentorship
+// @route   GET /api/alumni
+// @access  Public
+const getAvailableAlumni = asyncHandler(async (req, res) => {
+  try {
+    // Get query parameters for filtering
+    const { university, expertise, availability } = req.query;
+    
+    // Build query object
+    const query = { status: 'active' };
+    
+    // Add filters if provided
+    if (university) {
+      query.university = university;
+    }
+    
+    if (expertise) {
+      query.expertise = { $in: expertise.split(',') };
+    }
+    
+    if (availability) {
+      query.availability = availability;
+    }
+    
+    // Find alumni matching the criteria
+    const alumni = await Alumni.find(query)
+      .select('-password -resetPasswordToken -resetPasswordExpires')
+      .limit(20);
+      
+    // Return formatted alumni list
+    res.json(alumni.map(alum => ({
+      _id: alum._id,
+      name: alum.name,
+      email: alum.email,
+      jobTitle: alum.currentPosition?.title || 'Professional',
+      company: alum.currentPosition?.company || '',
+      university: alum.university,
+      expertise: alum.expertise || [],
+      availability: alum.availableForMentorship ? 'Available for mentorship' : 'Limited availability',
+      profilePicture: alum.profilePicture || { url: '' },
+      graduationYear: alum.graduationYear,
+      bio: alum.bio || ''
+    })));
+  } catch (error) {
+    console.error("Error fetching alumni:", error);
+    res.status(500);
+    throw new Error('Server error while fetching alumni');
+  }
+});
+
 export {
   registerStudent,
   registerStudentWithGoogle,
@@ -409,5 +459,6 @@ export {
   searchStudents,
   getStudentsByBranch,
   getStudentsByYear,
-  updateStudentProfilePicture
+  updateStudentProfilePicture,
+  getAvailableAlumni
 };

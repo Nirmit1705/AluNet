@@ -180,9 +180,7 @@ const getAlumniProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update alumni profile
-// @route   PUT /api/alumni/profile
-// @access  Private
+// Update the updateAlumniProfile function to better handle education updates
 const updateAlumniProfile = asyncHandler(async (req, res) => {
   const alumniId = req.user._id;
   
@@ -200,8 +198,7 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     skills,
     interests,
     graduationYear,
-    education, // Changed from previousEducation to education
-    university,
+    education, // Education array containing both institution and university
     college,
     industry,
     mentorshipAvailable
@@ -227,7 +224,6 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     if (company !== undefined) alumni.company = company;
     if (position !== undefined) alumni.position = position;
     if (experience !== undefined) alumni.experience = Number(experience) || 0;
-    if (university !== undefined) alumni.university = university;
     if (college !== undefined) alumni.college = college;
     if (industry !== undefined) alumni.industry = industry;
     if (mentorshipAvailable !== undefined) alumni.mentorshipAvailable = mentorshipAvailable;
@@ -245,15 +241,55 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     }
     
     // Handle education array specially - it might come in different formats from frontend
-    if (education) {
-      if (Array.isArray(education)) {
-        // Make a deep copy to avoid reference issues
-        alumni.education = JSON.parse(JSON.stringify(education));
-        console.log("Setting education array directly:", JSON.stringify(alumni.education, null, 2));
-      } else if (typeof education === 'object') {
-        // If it's a single object, wrap it in an array
-        alumni.education = [education];
-        console.log("Setting education as single object in array:", JSON.stringify(alumni.education, null, 2));
+    if (education !== undefined) {
+      try {
+        // Convert education to array if it's not already
+        let educationArray = [];
+        
+        if (Array.isArray(education)) {
+          // Make a deep copy to avoid reference issues
+          educationArray = JSON.parse(JSON.stringify(education));
+        } else if (typeof education === 'object') {
+          // If it's a single object, wrap it in an array
+          educationArray = [education];
+        } else if (typeof education === 'string') {
+          // Try to parse string as JSON
+          try {
+            const parsed = JSON.parse(education);
+            educationArray = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (e) {
+            // If parsing fails, create a basic object
+            educationArray = [{ 
+              degree: "Not specified",
+              fieldOfStudy: "Not specified", 
+              institution: education,
+              university: education
+            }];
+          }
+        }
+        
+        // Ensure all education entries have both institution and university fields
+        educationArray.forEach(edu => {
+          if (!edu.institution && edu.university) {
+            edu.institution = edu.university;
+          }
+          if (!edu.university && edu.institution) {
+            edu.university = edu.institution;
+          }
+        });
+        
+        // Save the education array
+        alumni.education = educationArray;
+        
+        // Also update the root level university field for backward compatibility
+        if (educationArray.length > 0 && educationArray[0].university) {
+          alumni.university = educationArray[0].university;
+        }
+        
+        console.log("Final education array to save:", JSON.stringify(alumni.education));
+      } catch (eduError) {
+        console.error("Error processing education data:", eduError);
+        // Don't update education if there's an error - but continue with other fields
       }
     }
     
@@ -265,6 +301,7 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
     
     console.log("Alumni profile updated successfully. Database now has:");
     console.log("- Education:", JSON.stringify(updatedAlumni.education, null, 2));
+    console.log("- University:", updatedAlumni.university);
     console.log("- Skills:", JSON.stringify(updatedAlumni.skills, null, 2));
     console.log("- Interests:", JSON.stringify(updatedAlumni.interests, null, 2));
     
@@ -280,9 +317,74 @@ const updateAlumniProfile = asyncHandler(async (req, res) => {
 // @desc    Get all alumni
 // @route   GET /api/alumni
 // @access  Public
-const getAllAlumni = asyncHandler(async (req, res) => {
-  const alumniList = await Alumni.find({});
-  res.json(alumniList);
+const getAlumni = asyncHandler(async (req, res) => {
+  try {
+    console.log("Fetching alumni with query params:", req.query);
+    
+    // Build query with appropriate filters
+    const query = { isActive: true }; // Only get active alumni
+    
+    // Only get verified alumni by default, unless specifically requested otherwise
+    if (req.query.includeUnverified !== 'true') {
+      // Use multiple verification checks to ensure all verified alumni are included
+      query.$or = [
+        { isVerified: true },
+        { verificationStatus: 'approved' },
+        { status: 'active' }
+      ];
+    }
+    
+    // Add additional filters based on query params
+    if (req.query.skills) {
+      const skillsArray = req.query.skills.split(',');
+      query.skills = { $in: skillsArray };
+    }
+    
+    if (req.query.university) {
+      query.university = { $regex: new RegExp(req.query.university, 'i') };
+    }
+    
+    if (req.query.graduationYear) {
+      query.graduationYear = Number(req.query.graduationYear);
+    }
+    
+    console.log("Final MongoDB query:", JSON.stringify(query));
+    
+    // Get the alumni from the database with expanded query
+    const alumni = await Alumni.find(query)
+      .select('-password -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationExpires')
+      .sort({ graduationYear: -1 });
+
+    // Debug
+    console.log(`Found ${alumni.length} alumni records`);
+    if (alumni.length === 0) {
+      console.log("No alumni found. Checking total count in database...");
+      const totalCount = await Alumni.countDocuments({});
+      console.log(`Total alumni in database (ignoring filters): ${totalCount}`);
+      
+      if (totalCount > 0) {
+        console.log("Alumni exist in database but current query returned none.");
+      }
+    }
+    
+    // Transform the data to ensure education is properly formatted using responseFormatter
+    const formattedAlumni = alumni.map(alum => formatAlumniResponse(alum));
+    
+    // Log some samples for debugging
+    if (formattedAlumni.length > 0) {
+      console.log('First alumni after formatting:', {
+        id: formattedAlumni[0]._id,
+        education: formattedAlumni[0].education,
+        educationData: formattedAlumni[0].educationData
+      });
+    }
+    
+    res.json(formattedAlumni);
+  } catch (error) {
+    console.error("Error fetching alumni:", error);
+    res.status(500);
+    throw new Error('Server error while fetching alumni: ' + error.message);
+  }
 });
 
 // @desc    Delete an alumni
@@ -359,7 +461,7 @@ const getAlumniByCompany = asyncHandler(async (req, res) => {
   }
 });
 
-// Update the updateProfilePicture function
+// Update the updateAlumniProfilePicture function
 const updateAlumniProfilePicture = async (req, res) => {
   try {
     const { imageUrl, publicId } = req.body;
@@ -746,11 +848,12 @@ export {
   authAlumni,
   getAlumniProfile,
   updateAlumniProfile,
-  getAllAlumni,
+  getAlumni,
+  getAlumni as getAllAlumni, // Add this alias for backward compatibility
   getAlumniById,
   deleteAlumni,
   getAlumniByCompany,
-  updateAlumniProfilePicture, // Changed from updateProfilePicture to match the import
+  updateAlumniProfilePicture,
   getVerificationStatus as checkVerificationStatus,
   resendVerification,
   searchAlumni,

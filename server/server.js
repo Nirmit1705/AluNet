@@ -7,16 +7,19 @@ import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { connectDB } from './config/db.js';
 import fs from 'fs';
 
-// Import routes
-import studentRoutes from './Routes/studentRoutes.js';
+// Import routes - Fix capitalization to match actual file paths
+import userRoutes from './routes/userRoutes.js';
 import alumniRoutes from './routes/alumniRoutes.js';
-import adminRoutes from './Routes/adminRoutes.js';
-import mentorshipRoutes from './Routes/mentorshipRoutes.js';
-import authRoutes from './Routes/authRoutes.js';
-import jobPostingRoutes from './Routes/jobPostingRoutes.js';
-import messageRoutes from './Routes/messageRoutes.js';
-import notificationRoutes from './Routes/notificationRoutes.js';
+import studentRoutes from './routes/studentRoutes.js';
+import jobRoutes from './routes/jobPostingRoutes.js'; // Fixed to actual filename
+import adminRoutes from './routes/adminRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
+import mentorshipRoutes from './routes/mentorshipRoutes.js';
+import connectionRoutes from './Routes/connectionRoutes.js'; // Changed from './Routes/connectionRoutes.js' to './routes/connectionRoutes.js'
+import messageRoutes from './routes/messageRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import authRoutes from './Routes/authRoutes.js';
 
 // Setup for ES modules __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -61,18 +64,19 @@ try {
 // Parse JSON request bodies
 app.use(express.json());
 
-// Mount routes
-app.use('/api/students', studentRoutes);
+// API routes
+app.use('/api/users', userRoutes);
 app.use('/api/alumni', alumniRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/events', eventRoutes);
 app.use('/api/mentorship', mentorshipRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobPostingRoutes);
+app.use('/api/connections', connectionRoutes); 
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
-
-// API Routes
 app.use('/api/upload', uploadRoutes);
+app.use('/api/auth', authRoutes); // THIS LINE IS CRITICAL - it was missing from your server.js
 
 // Test routes
 app.get("/", (req, res) => {

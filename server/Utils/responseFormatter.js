@@ -8,12 +8,13 @@ import { generateToken } from "./generateToken.js";
  */
 const formatAlumniResponse = (alumni, includeToken = false) => {
   const response = {
-    _id: alumni._id,
+    _id: alumni._id, // Ensure _id is always included
+    id: alumni._id, // Add an additional id field for more compatibility
     name: alumni.name,
     email: alumni.email,
     phone: alumni.phone,
     graduationYear: alumni.graduationYear,
-    university: alumni.university,
+    university: alumni.university, // Keep for backward compatibility
     college: alumni.college,
     degree: alumni.degree,
     specialization: alumni.specialization,
@@ -27,13 +28,16 @@ const formatAlumniResponse = (alumni, includeToken = false) => {
     location: alumni.location, 
     profilePicture: alumni.profilePicture,
     interests: alumni.interests || [],
-    education: alumni.education || [],
+    education: formatEducationForDisplay(alumni),
+    educationData: alumni.education || [],
     isVerified: alumni.isVerified,
     status: alumni.status,
     verificationStatus: alumni.verificationStatus,
-    industry: alumni.industry || ""
+    industry: alumni.industry || "",
+    userType: 'Alumni' // Add a userType field for frontend convenience
   };
   
+  // If token is requested, include it
   if (includeToken) {
     response.token = generateToken(alumni._id);
   }
@@ -56,29 +60,81 @@ const formatStudentResponse = (student, includeToken = false) => {
     registrationNumber: student.registrationNumber,
     currentYear: student.currentYear,
     branch: student.branch,
-    university: student.university,
-    college: student.college,
-    graduationYear: student.graduationYear,
+    cgpa: student.cgpa,
     skills: student.skills || [],
     interests: student.interests || [],
     bio: student.bio,
     linkedin: student.linkedin,
     github: student.github,
     location: student.location,
-    profilePicture: student.profilePicture,
+    graduationYear: student.graduationYear,
+    university: student.university,
+    college: student.college,
     previousEducation: student.previousEducation || [],
-    status: student.status,
-    isEmailVerified: student.isEmailVerified,
-    projects: student.projects || [],
     internships: student.internships || [],
-    careerGoals: student.careerGoals
+    projects: student.projects || [],
+    profilePicture: student.profilePicture,
+    careerGoals: student.careerGoals,
+    isActive: student.isActive,
+    status: student.status,
+    role: student.role || "student"
   };
-  
+
+  // If token is requested, include it
   if (includeToken) {
     response.token = generateToken(student._id);
   }
-  
+
   return response;
 };
 
-export { formatAlumniResponse, formatStudentResponse };
+/**
+ * Format education information for display
+ * @param {Object} alumni - Alumni document
+ * @returns {String} Formatted education string
+ */
+const formatEducationForDisplay = (alumni) => {
+  // If education is already a string, return it
+  if (alumni.education && typeof alumni.education === 'string') {
+    return alumni.education;
+  }
+  
+  // If education is an array, format it appropriately
+  if (alumni.education && Array.isArray(alumni.education) && alumni.education.length > 0) {
+    return alumni.education.map(edu => {
+      if (typeof edu === 'object') {
+        let parts = [];
+        if (edu.degree) parts.push(edu.degree);
+        if (edu.fieldOfStudy && !edu.degree?.includes(edu.fieldOfStudy)) {
+          parts.push(`in ${edu.fieldOfStudy}`);
+        }
+        
+        // Handle both institution and university distinctly
+        if (edu.institution && edu.university && edu.institution !== edu.university) {
+          parts.push(`at ${edu.institution}, ${edu.university}`);
+        } else if (edu.institution) {
+          parts.push(`at ${edu.institution}`);
+        } else if (edu.university) {
+          parts.push(`at ${edu.university}`);
+        }
+        
+        return parts.join(' ');
+      }
+      return edu;
+    }).join('; ');
+  }
+  
+  // Fallback: Try to build from individual fields
+  if (alumni.degree) {
+    let educationStr = alumni.degree;
+    if (alumni.university) {
+      educationStr += ` at ${alumni.university}`;
+    }
+    return educationStr;
+  }
+  
+  // Final fallback
+  return alumni.university || '';
+};
+
+export { formatAlumniResponse, formatStudentResponse, formatEducationForDisplay };

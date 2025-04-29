@@ -59,30 +59,7 @@ const sendVerificationEmail = async (email, name, token, userType) => {
   return sendEmail(email, 'Verify Your Email Address', html);
 };
 
-/**
- * Send password reset email
- * @param {string} email - User email
- * @param {string} name - User name
- * @param {string} token - Reset token
- * @param {string} userType - Student or Alumni
- */
-const sendPasswordResetEmail = async (email, name, token, userType) => {
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${userType.toLowerCase()}/${token}`;
-  
-  const html = `
-    <h1>Password Reset Request</h1>
-    <p>Hello ${name},</p>
-    <p>You requested a password reset. Click the link below to set a new password:</p>
-    <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 4px;">Reset Password</a>
-    <p>This link will expire in 1 hour.</p>
-    <p>If you did not request a password reset, please ignore this email.</p>
-  `;
-
-  return sendEmail(email, 'Password Reset Request', html);
-};
-
 export {
   sendEmail,
-  sendVerificationEmail,
-  sendPasswordResetEmail
-}; 
+  sendVerificationEmail
+};
