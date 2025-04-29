@@ -32,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import axios from "axios";
-import useSessionTracker from '../hooks/useSessionTracker';
 
 const MentorshipsPage = () => {
   const navigate = useNavigate();
@@ -60,6 +59,16 @@ const MentorshipsPage = () => {
         if (!token) {
           navigate('/login');
           return;
+        }
+        
+        // First check if any sessions have expired
+        try {
+          await axios.get(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+          );
+        } catch (err) {
+          console.warn("Failed to check expired sessions", err);
+          // Continue anyway since this is just a helper
         }
         
         // Make API request to get student's mentorships
@@ -129,6 +138,15 @@ const MentorshipsPage = () => {
     };
     
     fetchMentorships();
+    
+    // Set up an interval to check for expired sessions every minute
+    const intervalId = setInterval(() => {
+      axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+      ).catch(err => console.warn("Background session check failed", err));
+    }, 60000); // 1 minute interval
+    
+    return () => clearInterval(intervalId);
   }, [navigate]);
 
   // Apply filters and sorting

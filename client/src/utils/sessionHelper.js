@@ -77,6 +77,6 @@ export const markSessionCompleted = async (sessionId) => {
     return response.data;
   } catch (error) {
     console.error(`Error marking session ${sessionId} as completed:`, error);
-    throw error;
+    throw error; // Re-throw the error so the caller can handle it
   }
 };

@@ -4,6 +4,7 @@ import Mentorship from '../Models/Mentorship.js';
 import Student from '../Models/Student.js';
 import Alumni from '../Models/Alumni.js';
 import { createNotification } from './notificationController.js';
+import { updateExpiredSessions } from '../utils/sessionStatusChecker.js';
 
 // @desc    Create a new mentorship request
 // @route   POST /api/mentorship
@@ -123,6 +124,9 @@ const getStudentMentorshipRequests = asyncHandler(async (req, res) => {
     throw new Error('Access denied');
   }
 
+  // First update any expired sessions
+  await updateExpiredSessions();
+
   const mentorships = await Mentorship.find({ student: req.user._id })
     .populate('alumni', 'name email currentPosition company linkedin profilePicture')
     .sort('-createdAt');
@@ -139,6 +143,9 @@ const getAlumniMentorshipRequests = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Access denied');
   }
+
+  // First update any expired sessions
+  await updateExpiredSessions();
 
   const mentorships = await Mentorship.find({ alumni: req.user._id })
     .populate('student', 'name email currentYear branch skills interests profilePicture')
@@ -244,6 +251,9 @@ const getMentees = asyncHandler(async (req, res) => {
   }
 
   try {
+    // First update any expired sessions
+    await updateExpiredSessions();
+    
     // Find all mentorships where this alumni is the mentor and status is accepted
     const mentorships = await Mentorship.find({ 
       alumni: req.user._id,

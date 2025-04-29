@@ -17,7 +17,6 @@ import MenteeDetailsModal from './MenteeDetailsModal';
 import ScheduleSessionModal from './ScheduleSessionModal';
 import Navbar from '../layout/Navbar'; // Import the Navbar component - adjust path as needed
 import { hasSessionEnded, markSessionCompleted } from '../../utils/sessionHelper';
-import useSessionTracker from '../../hooks/useSessionTracker';
 
 const MenteesListPage = () => {
   const navigate = useNavigate();
@@ -31,9 +30,6 @@ const MenteesListPage = () => {
   const [error, setError] = useState(null);
   const [mentees, setMentees] = useState([]);
   const [allMentees, setAllMentees] = useState([]);
-
-  // Add session tracker hook (checks every 5 minutes)
-  const { lastCheck } = useSessionTracker(300000);
 
   // Fetch mentees data from the backend API
   const fetchMentees = useCallback(async () => {
@@ -421,10 +417,17 @@ const MenteesListPage = () => {
     }
   }, [mentees]);
   
-  // Run session check when component mounts and whenever lastCheck updates
+  // Run session check when component mounts
   useEffect(() => {
     checkAndUpdateCompletedSessions();
-  }, [checkAndUpdateCompletedSessions, lastCheck]);
+    
+    // Set up an interval to check for completed sessions
+    const checkInterval = setInterval(() => {
+      checkAndUpdateCompletedSessions();
+    }, 60000); // Check every minute
+
+    return () => clearInterval(checkInterval);
+  }, [checkAndUpdateCompletedSessions]);
   
   // Define handleBack function
   const handleBack = () => {
@@ -881,6 +884,7 @@ const MenteesListPage = () => {
                 </div>
               </div>
             ))}
+
           </div>
         ) : (
           <div className="text-center py-8">

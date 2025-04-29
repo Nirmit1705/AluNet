@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import MentorshipSession from '../Models/MentorshipSession.js';
 import Mentorship from '../Models/Mentorship.js';
 import { createNotification } from './notificationController.js';
-import { updateCompletedSessions } from '../utils/sessionHelper.js';
+import { updateExpiredSessions, updateMentorshipProgress } from '../utils/sessionStatusChecker.js';
 
 // @desc    Schedule a new mentorship session
 // @route   POST /api/mentorship/:mentorshipId/sessions
@@ -210,7 +210,10 @@ const getSessionsByMentorship = asyncHandler(async (req, res) => {
     throw new Error('Not authorized to view sessions for this mentorship');
   }
 
-  // Get sessions
+  // First, update any expired sessions
+  await updateExpiredSessions();
+  
+  // Then get the updated sessions
   const sessions = await MentorshipSession.find({ mentorship: mentorshipId })
     .sort({ date: 1, startTime: 1 });
 
@@ -221,6 +224,9 @@ const getSessionsByMentorship = asyncHandler(async (req, res) => {
 // @route   GET /api/mentorship/sessions/:sessionId
 // @access  Private (Student & Alumni)
 const getSessionById = asyncHandler(async (req, res) => {
+  // First check and update expired sessions
+  await updateExpiredSessions();
+  
   const session = await MentorshipSession.findById(req.params.sessionId);
 
   if (!session) {
@@ -350,6 +356,9 @@ const cancelSession = asyncHandler(async (req, res) => {
 // @route   GET /api/mentorship/sessions/my-upcoming
 // @access  Private
 const getMyUpcomingSessions = asyncHandler(async (req, res) => {
+  // First check and update expired sessions
+  await updateExpiredSessions();
+  
   const userId = req.user._id;
   const userModel = req.user.constructor.modelName;
 
@@ -370,17 +379,13 @@ const getMyUpcomingSessions = asyncHandler(async (req, res) => {
   res.json(sessions);
 });
 
-// @desc    Check and update completed sessions
-// @route   GET /api/mentorship/sessions/check-completed
-// @access  Private
-const checkCompletedSessions = asyncHandler(async (req, res) => {
-  try {
-    const result = await updateCompletedSessions();
-    res.json({ success: true, ...result });
-  } catch (error) {
-    res.status(500);
-    throw new Error(`Failed to check completed sessions: ${error.message}`);
-  }
+// Add a new endpoint to manually check and update session statuses
+// @desc    Check and update expired sessions
+// @route   GET /api/mentorship/sessions/check-expired
+// @access  Public
+const checkExpiredSessions = asyncHandler(async (req, res) => {
+  const result = await updateExpiredSessions();
+  res.json({ success: true, ...result });
 });
 
 export {
@@ -390,5 +395,5 @@ export {
   updateSession,
   cancelSession,
   getMyUpcomingSessions,
-  checkCompletedSessions
+  checkExpiredSessions  // Add the new endpoint
 };

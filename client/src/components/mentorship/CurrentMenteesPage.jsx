@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { ChevronLeft, Users, MessageSquare, Calendar, Search, Filter, X, Clock, BookOpen, GraduationCap, Clipboard, UserMinus, UserCheck } from "lucide-react";
 import Navbar from "../layout/Navbar";
-import { hasSessionEnded, checkCompletedSessions } from '../../utils/sessionHelper';
-import useSessionTracker from '../../hooks/useSessionTracker';
 
 // Sample data for current mentees
 const currentMenteesData = [
@@ -91,9 +90,108 @@ const CurrentMenteesPage = () => {
   });
   const [selectedMentee, setSelectedMentee] = useState(null);
   const [confirmingEndMentorship, setConfirmingEndMentorship] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Add session tracker
-  useSessionTracker();
+  // Add useEffect to load real data instead of static data
+  useEffect(() => {
+    const fetchMentees = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        // First check if any sessions have expired
+        try {
+          await axios.get(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+          );
+        } catch (err) {
+          console.warn("Failed to check expired sessions", err);
+          // Continue anyway since this is just a helper
+        }
+        
+        // Fetch mentees data from API
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/mentees`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.length > 0) {
+          // Transform backend data to match our component structure
+          const transformedMentees = response.data.map(mentee => ({
+            id: mentee._id,
+            name: mentee.name,
+            avatarUrl: mentee.profilePicture?.url || null,
+            program: mentee.branch || 'Program not specified',
+            year: mentee.currentYear ? `${mentee.currentYear} Year` : 'Year not specified',
+            role: "Student",
+            lastInteraction: mentee.lastInteraction || "2 days ago",
+            nextSession: mentee.nextSession || "Not scheduled",
+            mentorshipDuration: calculateDuration(mentee.startDate),
+            goals: mentee.mentorshipGoals ? 
+              mentee.mentorshipGoals.split(/[.,;]/).filter(g => g.trim().length > 0).map(g => g.trim()) : 
+              ["No goals specified"],
+            skills: mentee.skills || [],
+            interests: mentee.interests || []
+          }));
+          
+          setMentees(transformedMentees);
+        } else {
+          // If no mentees, keep the sample data
+          console.log("No mentees found, using sample data");
+        }
+      } catch (err) {
+        console.error("Error fetching mentees:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load mentees");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchMentees();
+    
+    // Set up an interval to check for expired sessions every minute
+    const intervalId = setInterval(() => {
+      axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+      ).catch(err => console.warn("Background session check failed", err));
+    }, 60000); // 1 minute interval
+    
+    return () => clearInterval(intervalId);
+  }, [navigate]);
+  
+  // Helper function to calculate mentorship duration
+  const calculateDuration = (startDate) => {
+    if (!startDate) return "Unknown duration";
+    
+    const start = new Date(startDate);
+    const now = new Date();
+    const diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + 
+      now.getMonth() - start.getMonth();
+    
+    if (diffMonths < 1) {
+      const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+      return `${diffDays} days`;
+    } else if (diffMonths === 1) {
+      return "1 month";
+    } else if (diffMonths < 12) {
+      return `${diffMonths} months`;
+    } else {
+      const years = Math.floor(diffMonths / 12);
+      const remainingMonths = diffMonths % 12;
+      return remainingMonths 
+        ? `${years} year${years > 1 ? 's' : ''} and ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}` 
+        : `${years} year${years > 1 ? 's' : ''}`;
+    }
+  };
   
   // Navigate back to dashboard
   const goBack = () => {
@@ -177,15 +275,6 @@ const CurrentMenteesPage = () => {
   const formatDate = (dateString) => {
     return dateString;
   };
-
-  // Check for completed sessions on component mount
-  useEffect(() => {
-    const checkForCompletedSessions = async () => {
-      await checkCompletedSessions();
-    };
-    
-    checkForCompletedSessions();
-  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -390,6 +479,7 @@ const CurrentMenteesPage = () => {
                 </div>
               </div>
             ))}
+
           </div>
         )}
       </div>

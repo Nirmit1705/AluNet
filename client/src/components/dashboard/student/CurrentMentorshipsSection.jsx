@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Users, Calendar, Clock, ArrowRight } from "lucide-react";
-import useSessionTracker from '../../../hooks/useSessionTracker';
 
 const CurrentMentorshipsSection = () => {
   const navigate = useNavigate();
@@ -22,7 +21,17 @@ const CurrentMentorshipsSection = () => {
           return;
         }
         
-        // Fetch student's mentorships
+        // Check expired sessions first
+        try {
+          await axios.get(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+          );
+        } catch (err) {
+          console.warn("Failed to check expired sessions", err);
+          // Continue anyway
+        }
+        
+        // Fetch mentorships
         const response = await axios.get(
           `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/student`,
           {
@@ -67,8 +76,14 @@ const CurrentMentorshipsSection = () => {
     
     fetchMentorships();
     
-    // Refresh data every 5 minutes
-    const intervalId = setInterval(fetchMentorships, 5 * 60 * 1000);
+    // Refresh data every 5 minutes and check for expired sessions
+    const intervalId = setInterval(() => {
+      fetchMentorships();
+      // Also trigger a check for expired sessions
+      axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/check-expired`
+      ).catch(err => console.warn("Background session check failed", err));
+    }, 5 * 60 * 1000);
     
     return () => clearInterval(intervalId);
   }, [navigate]);
