@@ -115,9 +115,12 @@ JobApplicationSchema.methods.updateStatus = async function(newStatus, notes) {
 
 // Add method for alumni to add referral
 JobApplicationSchema.methods.addReferral = async function(alumniId) {
-    this.referredBy = alumniId;
-    this.referredAt = new Date();
-    return this.save();
+    if (!this.referredBy) {
+        this.referredBy = alumniId;
+        this.referredAt = new Date();
+        return this.save();
+    }
+    throw new Error('Application already has a referral');
 };
 
 const JobApplication = mongoose.model('JobApplication', JobApplicationSchema);

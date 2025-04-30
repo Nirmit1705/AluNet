@@ -13,7 +13,7 @@ import { initWebSocketServer } from './webSocketServer.js';
 import userRoutes from './routes/userRoutes.js';
 import alumniRoutes from './Routes/alumniRoutes.js';
 import studentRoutes from './routes/studentRoutes.js';
-import jobRoutes from './routes/jobPostingRoutes.js'; // Fixed to actual filename
+import jobPostingRoutes from './Routes/jobPostingRoutes.js'; // Fixed to actual filename
 import adminRoutes from './routes/adminRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import mentorshipRoutes from './Routes/mentorshipRoutes.js';
@@ -72,7 +72,7 @@ app.use(requestLogger); // Add request logging middleware
 app.use('/api/users', userRoutes);
 app.use('/api/alumni', alumniRoutes);
 app.use('/api/students', studentRoutes);
-app.use('/api/jobs', jobRoutes);
+app.use('/api/jobs', jobPostingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/mentorship', mentorshipRoutes);

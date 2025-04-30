@@ -1,7 +1,5 @@
 import asyncHandler from 'express-async-handler';
 import JobPosting from '../Models/JobPosting.js';
-import Student from '../Models/Student.js';
-import { createNotification } from './notificationController.js';
 
 // @desc    Create a new job posting
 // @route   POST /api/jobs
@@ -18,7 +16,10 @@ const createJobPosting = asyncHandler(async (req, res) => {
     deadline,
     industry,
     experienceLevel,
-    remoteWork
+    remoteWork,
+    salary,
+    skillsRequired,
+    status
   } = req.body;
 
   // Check if user is an alumni
@@ -27,7 +28,7 @@ const createJobPosting = asyncHandler(async (req, res) => {
     throw new Error('Only alumni can post jobs');
   }
 
-  // Create job posting
+  // Create job posting with simplified schema
   const jobPosting = await JobPosting.create({
     title,
     companyName,
@@ -37,40 +38,13 @@ const createJobPosting = asyncHandler(async (req, res) => {
     requirements: Array.isArray(requirements) ? requirements : requirements.split('\n').filter(req => req.trim() !== ''),
     applicationLink,
     applicationDeadline: deadline,
-    industry,
-    experienceLevel,
-    remoteWork: remoteWork || false,
-    postedBy: req.user._id,
+    salary,
+    skillsRequired: skillsRequired || [],
+    status: status || 'active',
+    postedBy: req.user._id
   });
 
   if (jobPosting) {
-    // Find relevant students to notify
-    const jobKeywords = [
-      ...title.toLowerCase().split(' '),
-      ...requirements.toString().toLowerCase().split(' ')
-    ].filter(word => word.length > 3);
-    
-    const relevantStudents = await Student.find({
-      $or: [
-        { skills: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } },
-        { interests: { $in: jobKeywords.map(keyword => new RegExp(keyword, 'i')) } }
-      ]
-    }).limit(50);
-    
-    // Create notifications
-    const notificationPromises = relevantStudents.map(student => 
-      createNotification(
-        student._id,
-        'Student',
-        'job',
-        'New Job Posting',
-        `A new job "${title}" at ${companyName} has been posted that matches your skills`,
-        jobPosting._id
-      )
-    );
-    
-    await Promise.all(notificationPromises);
-    
     res.status(201).json(jobPosting);
   } else {
     res.status(400);
@@ -83,8 +57,8 @@ const createJobPosting = asyncHandler(async (req, res) => {
 // @access  Public
 const getJobPostings = asyncHandler(async (req, res) => {
   const jobPostings = await JobPosting.find({})
-    .populate('postedBy', 'name email')
-    .sort({ postedAt: -1 }); // Most recent first
+    .populate('postedBy', 'name email profilePicture position company')
+    .sort({ postedAt: -1 });
   
   res.json(jobPostings);
 });
@@ -94,8 +68,8 @@ const getJobPostings = asyncHandler(async (req, res) => {
 // @access  Public
 const getJobPostingById = asyncHandler(async (req, res) => {
   const jobPosting = await JobPosting.findById(req.params.id)
-    .populate('postedBy', 'name email');
-
+    .populate('postedBy', 'name email profilePicture position company');
+  
   if (jobPosting) {
     res.json(jobPosting);
   } else {
@@ -106,53 +80,76 @@ const getJobPostingById = asyncHandler(async (req, res) => {
 
 // @desc    Update job posting
 // @route   PUT /api/jobs/:id
-// @access  Private (Posted Alumni only)
+// @access  Private (Alumni only, must be creator)
 const updateJobPosting = asyncHandler(async (req, res) => {
   const jobPosting = await JobPosting.findById(req.params.id);
-
+  
   if (!jobPosting) {
     res.status(404);
     throw new Error('Job posting not found');
   }
-
-  // Check if the alumni is the one who posted the job
+  
+  // Check if user is the creator of the job posting
   if (jobPosting.postedBy.toString() !== req.user._id.toString()) {
-    res.status(401);
+    res.status(403);
     throw new Error('Not authorized to update this job posting');
   }
-
-  // Update fields
-  const { title, companyName, location, description, requirements, applicationLink } = req.body;
+  
+  const { title, companyName, location, description, requirements, applicationLink, deadline, type, industry, experienceLevel, remoteWork, salary, skillsRequired, status } = req.body;
   
   jobPosting.title = title || jobPosting.title;
   jobPosting.companyName = companyName || jobPosting.companyName;
   jobPosting.location = location || jobPosting.location;
   jobPosting.description = description || jobPosting.description;
-  jobPosting.requirements = requirements || jobPosting.requirements;
+  
+  // Handle requirements array or string
+  if (requirements) {
+    jobPosting.requirements = Array.isArray(requirements) 
+      ? requirements 
+      : requirements.split('\n').filter(req => req.trim() !== '');
+  }
+  
   jobPosting.applicationLink = applicationLink || jobPosting.applicationLink;
-
+  
+  // Optional field updates
+  if (deadline) jobPosting.applicationDeadline = deadline;
+  if (type) jobPosting.jobType = type;
+  if (salary) jobPosting.salary = salary;
+  
+  // Update skillsRequired if provided
+  if (skillsRequired) {
+    jobPosting.skillsRequired = Array.isArray(skillsRequired) ? skillsRequired : [];
+  }
+  
+  // Update status if provided
+  if (status) {
+    jobPosting.status = status;
+  }
+  
   const updatedJobPosting = await jobPosting.save();
+  
   res.json(updatedJobPosting);
 });
 
 // @desc    Delete job posting
 // @route   DELETE /api/jobs/:id
-// @access  Private (Posted Alumni only)
+// @access  Private (Alumni only, must be creator)
 const deleteJobPosting = asyncHandler(async (req, res) => {
   const jobPosting = await JobPosting.findById(req.params.id);
-
+  
   if (!jobPosting) {
     res.status(404);
     throw new Error('Job posting not found');
   }
-
-  // Check if the alumni is the one who posted the job
+  
+  // Check if user is the creator of the job posting
   if (jobPosting.postedBy.toString() !== req.user._id.toString()) {
-    res.status(401);
+    res.status(403);
     throw new Error('Not authorized to delete this job posting');
   }
-
-  await jobPosting.deleteOne();
+  
+  await JobPosting.deleteOne({ _id: req.params.id });
+  
   res.json({ message: 'Job posting removed' });
 });
 
@@ -172,7 +169,7 @@ const searchJobPostings = asyncHandler(async (req, res) => {
     { score: { $meta: "textScore" } }
   )
     .sort({ score: { $meta: "textScore" } })
-    .populate('postedBy', 'name email');
+    .populate('postedBy', 'name email profilePicture position company');
 
   res.json(jobPostings);
 });
@@ -182,10 +179,25 @@ const searchJobPostings = asyncHandler(async (req, res) => {
 // @access  Public
 const getJobPostingsByAlumni = asyncHandler(async (req, res) => {
   const jobPostings = await JobPosting.find({ postedBy: req.params.alumniId })
-    .populate('postedBy', 'name email')
+    .populate('postedBy', 'name email profilePicture position company')
     .sort({ postedAt: -1 });
   
   res.json(jobPostings);
+});
+
+// @desc    Get my job postings
+// @route   GET /api/jobs/my-jobs
+// @access  Private (Alumni only)
+const getMyJobPostings = asyncHandler(async (req, res) => {
+  try {
+    const jobPostings = await JobPosting.find({ postedBy: req.user._id })
+      .sort({ postedAt: -1 });
+    
+    res.json(jobPostings);
+  } catch (error) {
+    console.error("Error fetching my job postings:", error);
+    res.status(500).json({ message: "Failed to fetch your job postings" });
+  }
 });
 
 export {
@@ -195,5 +207,6 @@ export {
   updateJobPosting,
   deleteJobPosting,
   searchJobPostings,
-  getJobPostingsByAlumni
+  getJobPostingsByAlumni,
+  getMyJobPostings
 };
