@@ -15,7 +15,6 @@ import MentoredStudentsPage from "./pages/MentoredStudentsPage.jsx";
 import ConnectionsPage from "./pages/ConnectionsPage.jsx";
 import Profile from "./pages/Profile.jsx";
 import Messages from "./pages/Messages.jsx";
-import Jobs from "./pages/Jobs.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import StudentConnectionsPage from "./components/connections/StudentConnectionsPage";
 import MentorshipRequestsPage from "./components/mentorship/MentorshipRequestsPage";
@@ -26,10 +25,13 @@ import AlumniDirectory from "./pages/AlumniDirectory";
 import MockLogin from "./components/auth/MockLogin.jsx";
 import MentorshipsPage from "./pages/Mentorships.jsx";
 import MenteesListPage from './components/dashboard/MenteesListPage';
-import AlumniJobBoard from './components/jobs/AlumniJobBoard';
 import VerificationPending from './pages/VerificationPending';
 import ResendVerification from './pages/ResendVerification';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Job board imports
+import StudentJobBoard from "./pages/StudentJobBoard.jsx";
+import AlumniJobBoard from "./pages/AlumniJobBoard.jsx";
 
 // Admin route imports
 import AdminUserManagement from "./pages/admin/AdminUserManagement";
@@ -75,6 +77,19 @@ function App() {
                 </ProtectedRoute>
               } />
               
+              {/* Job Board routes */}
+              <Route path="/student-job-board" element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentJobBoard />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/alumni-job-board" element={
+                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
+                  <AlumniJobBoard />
+                </ProtectedRoute>
+              } />
+              
               {/* Alumni routes - require verification */}
               <Route path="/alumni-dashboard" element={
                 <ProtectedRoute requiredRole="alumni" requireVerified={true}>
@@ -85,12 +100,6 @@ function App() {
               <Route path="/mentored-students" element={
                 <ProtectedRoute requiredRole="alumni" requireVerified={true}>
                   <MentoredStudentsPage />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/alumni-job-board" element={
-                <ProtectedRoute requiredRole="alumni" requireVerified={true}>
-                  <AlumniJobBoard />
                 </ProtectedRoute>
               } />
               
@@ -141,12 +150,6 @@ function App() {
               <Route path="/messages/:userId" element={
                 <ProtectedRoute>
                   <Messages />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/jobs" element={
-                <ProtectedRoute>
-                  <Jobs />
                 </ProtectedRoute>
               } />
               

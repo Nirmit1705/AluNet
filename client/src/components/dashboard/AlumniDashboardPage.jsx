@@ -56,6 +56,7 @@ const AlumniDashboardPage = () => {
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [endorsedStudents, setEndorsedStudents] = useState([]);
   const [jobPostModal, setJobPostModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   // Add new state for dashboard stats
   const [dashboardStats, setDashboardStats] = useState({
     connections: {
@@ -331,8 +332,22 @@ const AlumniDashboardPage = () => {
     navigate(`/messages/${menteeId}`);
   };
   
-  const toggleJobPostModal = () => {
+  const toggleJobPostModal = (isEdit = false) => {
     setJobPostModal(!jobPostModal);
+    setEditMode(isEdit);
+    
+    if (!jobPostModal && !isEdit) {
+      // Reset form when opening in create mode
+      setNewJobPost({
+        title: '',
+        company: '',
+        location: '',
+        type: 'Full Time',
+        description: '',
+        requirements: '',
+        applicationLink: ''
+      });
+    }
   };
   
   const handleJobFormChange = (e) => {
@@ -365,8 +380,19 @@ const AlumniDashboardPage = () => {
   };
   
   const editJobPost = (jobId) => {
-    // Implementation for editing a job post
-    console.log("Editing job post:", jobId);
+    // Find the job to edit
+    const jobToEdit = myPostedJobs.find(job => job.id === jobId);
+    if (jobToEdit) {
+      // Set job data to form
+      setNewJobPost({
+        ...jobToEdit,
+        requirements: Array.isArray(jobToEdit.requirements) 
+          ? jobToEdit.requirements.join('\n') 
+          : jobToEdit.requirements
+      });
+      // Open modal in edit mode
+      toggleJobPostModal(true);
+    }
   };
   
   const deleteJobPost = (jobId) => {
@@ -849,113 +875,136 @@ const AlumniDashboardPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl p-6 animate-fade-in">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold">Post a New Job</h3>
-              <button 
+              <h3 className="text-xl font-bold">
+                {editMode ? "Edit Job Posting" : "Post a New Job"}
+              </h3>
+              <button
                 onClick={toggleJobPostModal}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+
             <form className="space-y-4">
               <div>
-                <label htmlFor="jobTitle" className="block text-sm font-medium mb-1">
-                  Job Title
+                <label htmlFor="title" className="block text-sm font-medium mb-1">
+                  Job Title *
                 </label>
                 <input
                   type="text"
-                  id="jobTitle"
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                  placeholder="e.g. Frontend Developer"
+                  id="title"
                   value={newJobPost.title}
                   onChange={handleJobFormChange}
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="e.g. Software Engineer"
+                  required
                 />
               </div>
+
               <div>
                 <label htmlFor="company" className="block text-sm font-medium mb-1">
-                  Company
+                  Company Name *
                 </label>
                 <input
                   type="text"
                   id="company"
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                  placeholder="e.g. Tech Solutions Inc."
                   value={newJobPost.company}
                   onChange={handleJobFormChange}
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="e.g. Google"
+                  required
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="location" className="block text-sm font-medium mb-1">
-                    Location
+                    Location *
                   </label>
                   <input
                     type="text"
                     id="location"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. San Francisco, CA"
                     value={newJobPost.location}
                     onChange={handleJobFormChange}
+                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                    placeholder="e.g. San Francisco, CA or Remote"
+                    required
                   />
                 </div>
+
                 <div>
-                  <label htmlFor="jobType" className="block text-sm font-medium mb-1">
-                    Job Type
+                  <label htmlFor="type" className="block text-sm font-medium mb-1">
+                    Job Type *
                   </label>
                   <select
-                    id="jobType"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                    id="type"
                     value={newJobPost.type}
                     onChange={handleJobFormChange}
+                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                    required
                   >
                     <option value="Full Time">Full Time</option>
                     <option value="Part Time">Part Time</option>
                     <option value="Contract">Contract</option>
                     <option value="Internship">Internship</option>
+                    <option value="Remote">Remote</option>
                   </select>
                 </div>
               </div>
+
               <div>
                 <label htmlFor="description" className="block text-sm font-medium mb-1">
-                  Description
+                  Job Description *
                 </label>
                 <textarea
                   id="description"
-                  rows={4}
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                  placeholder="Describe the job role, responsibilities, etc."
                   value={newJobPost.description}
                   onChange={handleJobFormChange}
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  rows="4"
+                  placeholder="Describe the job role, responsibilities, etc."
+                  required
                 ></textarea>
               </div>
+
               <div>
                 <label htmlFor="requirements" className="block text-sm font-medium mb-1">
-                  Requirements (one per line)
+                  Requirements (Optional)
                 </label>
                 <textarea
                   id="requirements"
-                  rows={3}
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                  placeholder="e.g. 3+ years of experience with React"
                   value={newJobPost.requirements}
                   onChange={handleJobFormChange}
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  rows="3"
+                  placeholder="Enter each requirement on a new line"
                 ></textarea>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter each requirement on a new line
+                </p>
               </div>
+
               <div>
                 <label htmlFor="applicationLink" className="block text-sm font-medium mb-1">
-                  Application Link
+                  Application Link *
                 </label>
                 <input
                   type="url"
                   id="applicationLink"
-                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                  placeholder="e.g. https://example.com/job-application"
                   value={newJobPost.applicationLink}
                   onChange={handleJobFormChange}
+                  className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                  placeholder="https://example.com/apply"
+                  required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  External link where students can apply
+                </p>
               </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                <button 
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
                   type="button"
                   onClick={toggleJobPostModal}
                   className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -964,10 +1013,10 @@ const AlumniDashboardPage = () => {
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
                   onClick={submitJobPosting}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
                 >
-                  Post Job
+                  {editMode ? "Update Job" : "Post Job"}
                 </button>
               </div>
             </form>

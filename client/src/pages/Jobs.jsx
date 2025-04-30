@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/layout/Navbar";
-import JobBoard from "../components/jobs/JobBoard";
+import axios from "axios";
 
 const Jobs = () => {
   const [loading, setLoading] = useState(true);
@@ -16,7 +15,47 @@ const Jobs = () => {
         return;
       }
       
-      setLoading(false);
+      // Detect user role and redirect to appropriate job board
+      const detectAndRedirect = async () => {
+        try {
+          // Get user role from localStorage first (faster)
+          const userRole = localStorage.getItem("userRole");
+          
+          if (userRole) {
+            redirectBasedOnRole(userRole.toLowerCase());
+          } else {
+            // If role not in localStorage, try to fetch from API
+            const response = await axios.get(
+              `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/users/me`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            if (response.data && response.data.role) {
+              const role = response.data.role.toLowerCase();
+              // Save role to localStorage for future use
+              localStorage.setItem("userRole", role);
+              redirectBasedOnRole(role);
+            } else {
+              // Default to student view if role can't be determined
+              navigate("/student-job-board");
+            }
+          }
+        } catch (error) {
+          console.error("Error getting user role:", error);
+          // Default to student view on error
+          navigate("/student-job-board");
+        }
+      };
+      
+      const redirectBasedOnRole = (role) => {
+        if (role === "alumni") {
+          navigate("/alumni-job-board");
+        } else {
+          navigate("/student-job-board");
+        }
+      };
+      
+      detectAndRedirect();
     } catch (error) {
       console.error("Error checking authentication:", error);
       setLoading(false);
@@ -35,17 +74,8 @@ const Jobs = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="pt-20 pb-12">
-        <div className="container-custom">
-          <h1 className="text-3xl font-bold mb-6">Job Board</h1>
-          <JobBoard />
-        </div>
-      </div>
-    </div>
-  );
+  // This shouldn't render as we're redirecting
+  return null;
 };
 
-export default Jobs; 
+export default Jobs;

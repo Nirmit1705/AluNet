@@ -134,8 +134,16 @@ const Navbar = () => {
     }
   };
 
-  // Check if link is active
+  // Update the isActive function to include custom routes based on role
   const isActive = (path) => {
+    if (path === '/jobs') {
+      if (userRole === 'alumni' && location.pathname === '/alumni-job-board') {
+        return true;
+      } else if (userRole === 'student' && location.pathname === '/student-job-board') {
+        return true;
+      }
+    }
+    
     if (path === '/dashboard' || path === '/student-dashboard' || path === '/alumni-dashboard') {
       // Check if we're on any dashboard page
       return location.pathname === '/dashboard' || 
@@ -143,6 +151,17 @@ const Navbar = () => {
              location.pathname === '/alumni-dashboard';
     }
     return location.pathname === path;
+  };
+
+  // Add a function to handle job route navigation based on role
+  const goToJobsPage = () => {
+    if (userRole === 'alumni') {
+      navigate('/alumni-job-board');
+    } else if (userRole === 'student') {
+      navigate('/student-job-board');
+    } else {
+      navigate('/jobs');
+    }
   };
 
   // On dashboard, we show logged in navigation options only if the user is actually logged in
@@ -181,8 +200,8 @@ const Navbar = () => {
             className="text-xl font-semibold flex items-center space-x-2 text-primary"
           >
             <span className="text-xl md:text-2xl font-bold text-primary">
-      <span className="text-2xl md:text-3xl">AluNet</span>
-    </span>
+              <span className="text-2xl md:text-3xl">AluNet</span>
+            </span>
           </button>
 
           {/* Desktop Navigation */}
@@ -212,12 +231,12 @@ const Navbar = () => {
                 >
                   Messages
                 </Link>
-                <Link 
-                  to="/jobs" 
+                <button 
+                  onClick={goToJobsPage}
                   className={`nav-link ${isActive("/jobs") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Jobs
-                </Link>
+                </button>
 
                 {/* User role selector */}
                 <div className="relative user-menu-container">
@@ -401,13 +420,15 @@ const Navbar = () => {
                 >
                   Messages
                 </Link>
-                <Link 
-                  to="/jobs" 
-                  onClick={() => setIsOpen(false)}
-                  className={`block py-2 ${isActive("/jobs") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
+                <button 
+                  onClick={() => {
+                    goToJobsPage();
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-2 ${isActive("/jobs") ? "text-primary" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   Jobs
-                </Link>
+                </button>
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-800 mt-2">
                   <div className="py-2">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Signed in as:</p>

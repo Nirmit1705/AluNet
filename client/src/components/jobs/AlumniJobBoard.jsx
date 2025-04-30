@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Briefcase,
   MapPin,
@@ -13,12 +13,239 @@ import {
 } from "lucide-react";
 import Navbar from "../layout/Navbar"; // Import Navbar - adjust the path as needed
 
+// Export the job posting form as a separate component so it can be reused
+export const JobPostingForm = ({
+  isOpen,
+  onClose,
+  formData,
+  onChange,
+  onSubmit,
+  isEdit = false,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl p-6 animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold">
+            {isEdit ? "Edit Job Posting" : "Post a New Job"}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form className="space-y-4">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium mb-1">
+              Job Title *
+            </label>
+            <input
+              type="text"
+              id="title"
+              value={formData.title}
+              onChange={onChange}
+              className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              placeholder="e.g. Software Engineer"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="company" className="block text-sm font-medium mb-1">
+              Company Name *
+            </label>
+            <input
+              type="text"
+              id="company"
+              value={formData.company}
+              onChange={onChange}
+              className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              placeholder="e.g. Google"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium mb-1">
+                Location *
+              </label>
+              <input
+                type="text"
+                id="location"
+                value={formData.location}
+                onChange={onChange}
+                className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="e.g. San Francisco, CA or Remote"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium mb-1">
+                Job Type *
+              </label>
+              <select
+                id="type"
+                value={formData.type}
+                onChange={onChange}
+                className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                required
+              >
+                <option value="Full Time">Full Time</option>
+                <option value="Part Time">Part Time</option>
+                <option value="Contract">Contract</option>
+                <option value="Internship">Internship</option>
+                <option value="Remote">Remote</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="salary.min" className="block text-sm font-medium mb-1">
+                Minimum Salary
+              </label>
+              <input
+                type="number"
+                id="salary.min"
+                value={formData.salary.min}
+                onChange={onChange}
+                className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="e.g. 50000"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="salary.max" className="block text-sm font-medium mb-1">
+                Maximum Salary
+              </label>
+              <input
+                type="number"
+                id="salary.max"
+                value={formData.salary.max}
+                onChange={onChange}
+                className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+                placeholder="e.g. 80000"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="salary.currency" className="block text-sm font-medium mb-1">
+                Currency
+              </label>
+              <select
+                id="salary.currency"
+                value={formData.salary.currency}
+                onChange={onChange}
+                className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="INR">INR</option>
+                <option value="CAD">CAD</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center pt-8">
+              <input
+                type="checkbox"
+                id="salary.isVisible"
+                checked={formData.salary.isVisible}
+                onChange={onChange}
+                className="mr-2 h-4 w-4"
+              />
+              <label htmlFor="salary.isVisible" className="text-sm font-medium">
+                Show salary in job posting
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium mb-1">
+              Job Description *
+            </label>
+            <textarea
+              id="description"
+              value={formData.description}
+              onChange={onChange}
+              className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              rows="4"
+              placeholder="Describe the job role, responsibilities, etc."
+              required
+            ></textarea>
+          </div>
+
+          <div>
+            <label htmlFor="requirements" className="block text-sm font-medium mb-1">
+              Requirements (Optional)
+            </label>
+            <textarea
+              id="requirements"
+              value={formData.requirements}
+              onChange={onChange}
+              className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              rows="3"
+              placeholder="Enter each requirement on a new line"
+            ></textarea>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter each requirement on a new line
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="applicationLink" className="block text-sm font-medium mb-1">
+              Application Link *
+            </label>
+            <input
+              type="url"
+              id="applicationLink"
+              value={formData.applicationLink}
+              onChange={onChange}
+              className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
+              placeholder="https://example.com/apply"
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              External link where students can apply
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              {isEdit ? "Update Job" : "Post Job"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const AlumniJobBoard = () => {
   const [jobPostModal, setJobPostModal] = useState(false);
   const [expandedJob, setExpandedJob] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  
-  // Sample job data posted by the current alumni
+
   const [myPostedJobs, setMyPostedJobs] = useState([
     {
       id: 1,
@@ -26,15 +253,16 @@ const AlumniJobBoard = () => {
       company: "Tech Solutions Inc.",
       location: "Remote",
       type: "Full Time",
-      salary: "$90,000 - $120,000",
+      salary: {
+        min: 90000,
+        max: 120000,
+        currency: "USD",
+        isVisible: true,
+      },
       posted: "2 days ago",
       description: "Looking for a talented frontend developer with React experience...",
-      requirements: [
-        "3+ years React experience", 
-        "JavaScript/TypeScript", 
-        "CSS/SCSS"
-      ],
-      applicationLink: "https://example.com/frontend-developer"
+      requirements: ["3+ years React experience", "JavaScript/TypeScript", "CSS/SCSS"],
+      applicationLink: "https://example.com/frontend-developer",
     },
     {
       id: 2,
@@ -42,16 +270,17 @@ const AlumniJobBoard = () => {
       company: "Creative Designs Co.",
       location: "Chicago, IL",
       type: "Contract",
-      salary: "$70,000 - $90,000",
+      salary: {
+        min: 70000,
+        max: 90000,
+        currency: "USD",
+        isVisible: true,
+      },
       posted: "1 week ago",
       description: "Seeking a UX designer to help create intuitive user experiences...",
-      requirements: [
-        "Portfolio of design work", 
-        "Figma expertise", 
-        "User research"
-      ],
-      applicationLink: "https://example.com/ux-designer"
-    }
+      requirements: ["Portfolio of design work", "Figma expertise", "User research"],
+      applicationLink: "https://example.com/ux-designer",
+    },
   ]);
 
   const [newJobPost, setNewJobPost] = useState({
@@ -59,78 +288,128 @@ const AlumniJobBoard = () => {
     company: "",
     location: "",
     type: "Full Time",
-    salary: "",
+    salary: {
+      min: "",
+      max: "",
+      currency: "USD",
+      isVisible: true,
+    },
     description: "",
     requirements: "",
-    applicationLink: ""
+    applicationLink: "",
   });
 
   const toggleJobPostModal = (isEdit = false) => {
     setJobPostModal(!jobPostModal);
     setEditMode(isEdit);
-    
+
     if (!jobPostModal && !isEdit) {
-      // Reset form when opening in create mode
       setNewJobPost({
         title: "",
         company: "",
         location: "",
         type: "Full Time",
-        salary: "",
+        salary: {
+          min: "",
+          max: "",
+          currency: "USD",
+          isVisible: true,
+        },
         description: "",
         requirements: "",
-        applicationLink: ""
+        applicationLink: "",
       });
     }
   };
 
   const handleJobFormChange = (e) => {
     const { id, value } = e.target;
-    setNewJobPost((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
+
+    // Special handling for salary fields
+    if (id.startsWith("salary.")) {
+      const salaryField = id.split(".")[1]; // Get the specific salary field
+
+      setNewJobPost((prev) => ({
+        ...prev,
+        salary: {
+          ...prev.salary,
+          [salaryField]: salaryField === "isVisible" ? e.target.checked : value,
+        },
+      }));
+    } else {
+      setNewJobPost((prev) => ({
+        ...prev,
+        [id]: value,
+      }));
+    }
+  };
+
+  // Get value for consistent UI display when form is submitted
+  const getJobTypeDisplayValue = (type) => {
+    // This ensures consistent display of job type in UI
+    const typeMap = {
+      'full-time': 'Full Time',
+      'part-time': 'Part Time',
+      'contract': 'Contract',
+      'internship': 'Internship',
+      'remote': 'Remote',
+      'Full Time': 'Full Time',
+      'Part Time': 'Part Time',
+      'Contract': 'Contract',
+      'Internship': 'Internship',
+      'Remote': 'Remote'
+    };
+    
+    return typeMap[type] || type;
   };
 
   const submitJobPosting = () => {
     if (
-      !newJobPost.title || 
-      !newJobPost.company || 
-      !newJobPost.location || 
-      !newJobPost.description || 
+      !newJobPost.title ||
+      !newJobPost.company ||
+      !newJobPost.location ||
+      !newJobPost.description ||
       !newJobPost.applicationLink
     ) {
       alert("Please fill in all required fields.");
       return;
     }
 
-    // Format requirements from textarea to array
     const requirementsArray = newJobPost.requirements
       .split("\n")
-      .filter(req => req.trim() !== "");
+      .filter((req) => req.trim() !== "");
+
+    // Properly format salary data
+    const formattedSalary = {
+      ...newJobPost.salary,
+      min: newJobPost.salary.min ? Number(newJobPost.salary.min) : undefined,
+      max: newJobPost.salary.max ? Number(newJobPost.salary.max) : undefined,
+    };
 
     if (editMode) {
-      // Update existing job
-      setMyPostedJobs(prev => 
-        prev.map(job => 
-          job.id === newJobPost.id 
+      setMyPostedJobs((prev) =>
+        prev.map((job) =>
+          job.id === newJobPost.id
             ? {
                 ...newJobPost,
-                requirements: requirementsArray
-              } 
+                requirements: requirementsArray,
+                salary: formattedSalary,
+                type: getJobTypeDisplayValue(newJobPost.type) // Ensure consistent display
+              }
             : job
         )
       );
     } else {
-      // Create new job
       const newJob = {
         id: Date.now(),
         ...newJobPost,
         requirements: requirementsArray,
-        posted: "Just now"
+        salary: formattedSalary,
+        type: getJobTypeDisplayValue(newJobPost.type), // Ensure consistent display
+        posted: "Just now",
       };
-      
-      setMyPostedJobs(prev => [newJob, ...prev]);
+
+      setMyPostedJobs((prev) => [newJob, ...prev]);
     }
 
     setJobPostModal(false);
@@ -138,16 +417,16 @@ const AlumniJobBoard = () => {
 
   const deleteJobPost = (jobId) => {
     if (window.confirm("Are you sure you want to delete this job posting?")) {
-      setMyPostedJobs(prev => prev.filter(job => job.id !== jobId));
+      setMyPostedJobs((prev) => prev.filter((job) => job.id !== jobId));
     }
   };
 
   const editJobPost = (jobId) => {
-    const jobToEdit = myPostedJobs.find(job => job.id === jobId);
+    const jobToEdit = myPostedJobs.find((job) => job.id === jobId);
     if (jobToEdit) {
       setNewJobPost({
         ...jobToEdit,
-        requirements: jobToEdit.requirements.join("\n")
+        requirements: jobToEdit.requirements.join("\n"),
       });
       toggleJobPostModal(true);
     }
@@ -159,7 +438,7 @@ const AlumniJobBoard = () => {
 
   return (
     <>
-      <Navbar /> {/* Add the Navbar at the top of the component */}
+      <Navbar />
       <div className="container-custom py-8 pt-24">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">My Job Postings</h2>
@@ -172,7 +451,6 @@ const AlumniJobBoard = () => {
           </button>
         </div>
 
-        {/* Job listings */}
         <div className="space-y-4">
           {myPostedJobs.length > 0 ? (
             myPostedJobs.map((job) => (
@@ -195,7 +473,7 @@ const AlumniJobBoard = () => {
                         </span>
                         <span className="inline-flex items-center text-xs bg-blue-100 dark:bg-blue-900/20 px-2.5 py-0.5 rounded-full text-blue-800 dark:text-blue-300">
                           <Briefcase className="h-3 w-3 mr-1" />
-                          {job.type}
+                          {job.type} {/* This should now show the correct type */}
                         </span>
                         <span className="inline-flex items-center text-xs bg-green-100 dark:bg-green-900/20 px-2.5 py-0.5 rounded-full text-green-800 dark:text-green-300">
                           <Calendar className="h-3 w-3 mr-1" />
@@ -251,7 +529,11 @@ const AlumniJobBoard = () => {
 
                     <div className="mb-4">
                       <h4 className="font-medium mb-2">Salary Range</h4>
-                      <p className="text-primary font-medium">{job.salary}</p>
+                      {job.salary.isVisible && (
+                        <p className="text-primary font-medium">
+                          {job.salary.currency} {job.salary.min} - {job.salary.max}
+                        </p>
+                      )}
                     </div>
 
                     <div className="mb-4">
@@ -284,11 +566,10 @@ const AlumniJobBoard = () => {
           ) : (
             <div className="text-center py-12 glass-card rounded-xl">
               <Briefcase className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-xl font-medium mb-2">
-                No job postings yet
-              </h3>
+              <h3 className="text-xl font-medium mb-2">No job postings yet</h3>
               <p className="text-muted-foreground mb-6">
-                You haven't posted any job opportunities yet. Create your first job posting to help students in your network.
+                You haven't posted any job opportunities yet. Create your first
+                job posting to help students in your network.
               </p>
               <button
                 onClick={() => toggleJobPostModal(false)}
@@ -300,149 +581,14 @@ const AlumniJobBoard = () => {
           )}
         </div>
 
-        {/* Job Post Modal */}
-        {jobPostModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">
-                  {editMode ? "Edit Job Posting" : "Post a New Job"}
-                </h3>
-                <button
-                  onClick={() => setJobPostModal(false)}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <form className="space-y-4">
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium mb-1">
-                    Job Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="title"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. Frontend Developer"
-                    value={newJobPost.title}
-                    onChange={handleJobFormChange}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="company" className="block text-sm font-medium mb-1">
-                    Company <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="company"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. Tech Solutions Inc."
-                    value={newJobPost.company}
-                    onChange={handleJobFormChange}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="location" className="block text-sm font-medium mb-1">
-                    Location <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="location"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. Remote or San Francisco, CA"
-                    value={newJobPost.location}
-                    onChange={handleJobFormChange}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="type" className="block text-sm font-medium mb-1">
-                    Job Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="type"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    value={newJobPost.type}
-                    onChange={handleJobFormChange}
-                  >
-                    <option value="Full Time">Full Time</option>
-                    <option value="Part Time">Part Time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Internship">Internship</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="salary" className="block text-sm font-medium mb-1">
-                    Salary Range
-                  </label>
-                  <input
-                    type="text"
-                    id="salary"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. $80,000 - $100,000"
-                    value={newJobPost.salary}
-                    onChange={handleJobFormChange}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium mb-1">
-                    Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="description"
-                    rows={4}
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="Describe the job role, responsibilities, etc."
-                    value={newJobPost.description}
-                    onChange={handleJobFormChange}
-                  ></textarea>
-                </div>
-                <div>
-                  <label htmlFor="requirements" className="block text-sm font-medium mb-1">
-                    Requirements (one per line) <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="requirements"
-                    rows={3}
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. 3+ years of experience with React"
-                    value={newJobPost.requirements}
-                    onChange={handleJobFormChange}
-                  ></textarea>
-                </div>
-                <div>
-                  <label htmlFor="applicationLink" className="block text-sm font-medium mb-1">
-                    Application Link <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="url"
-                    id="applicationLink"
-                    className="w-full px-4 py-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                    placeholder="e.g. https://example.com/job-application"
-                    value={newJobPost.applicationLink}
-                    onChange={handleJobFormChange}
-                  />
-                </div>
-                <div className="flex justify-end space-x-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setJobPostModal(false)}
-                    className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                    onClick={submitJobPosting}
-                  >
-                    {editMode ? "Update Job" : "Post Job"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <JobPostingForm
+          isOpen={jobPostModal}
+          onClose={() => setJobPostModal(false)}
+          formData={newJobPost}
+          onChange={handleJobFormChange}
+          onSubmit={submitJobPosting}
+          isEdit={editMode}
+        />
       </div>
     </>
   );

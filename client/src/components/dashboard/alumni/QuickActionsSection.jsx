@@ -43,4 +43,4 @@ const QuickActionsSection = ({ toggleJobPostModal, goToStudents, goToMentorship 
   );
 };
 
-export default QuickActionsSection; 
+export default QuickActionsSection;
