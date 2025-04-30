@@ -1,4 +1,4 @@
-import asyncHandler from '../utils/asyncHandler.js';
+import asyncHandler from '../Utils/asyncHandler.js';
 import Connection from '../Models/Connection.js';
 import { createNotification } from './notificationController.js';
 import Student from '../Models/Student.js';

@@ -56,6 +56,26 @@ const AlumniDashboardPage = () => {
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [endorsedStudents, setEndorsedStudents] = useState([]);
   const [jobPostModal, setJobPostModal] = useState(false);
+  // Add new state for dashboard stats
+  const [dashboardStats, setDashboardStats] = useState({
+    connections: {
+      total: 0,
+      increase: 0
+    },
+    jobPostings: {
+      total: 0,
+      active: 0,
+      applicants: 0
+    },
+    messages: {
+      total: 0,
+      unread: 0
+    },
+    mentored: {
+      total: 0,
+      recent: 0
+    }
+  });
   const [newJobPost, setNewJobPost] = useState({
     title: '',
     company: '',
@@ -203,8 +223,57 @@ const AlumniDashboardPage = () => {
     }
   };
 
+  // Add this function to fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No auth token found');
+        return;
+      }
+      
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/alumni/dashboard-stats`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (response.data) {
+        console.log('Fetched dashboard stats:', response.data);
+        
+        // Transform API data to match our state structure
+        setDashboardStats({
+          connections: {
+            total: response.data.connections?.total || 0,
+            increase: response.data.connections?.increase || 0
+          },
+          jobPostings: {
+            total: response.data.jobPostings?.total || 0,
+            active: response.data.jobPostings?.active || 0,
+            applicants: response.data.jobPostings?.applicants || 0
+          },
+          messages: {
+            total: response.data.messages?.total || 0,
+            unread: response.data.messages?.unread || 0
+          },
+          mentored: {
+            total: response.data.mentored?.total || 0,
+            recent: response.data.mentored?.recent || 0
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      // Keep default values if fetch fails
+    }
+  };
+
   // Call this function when component mounts
   useEffect(() => {
+    fetchDashboardStats();
     fetchCurrentMentees();
   }, []);
 
@@ -231,6 +300,11 @@ const AlumniDashboardPage = () => {
       icon: Award,
     },
   ];
+
+  // Function to handle connections page navigation
+  const goToConnections = () => {
+    navigate('/connections');
+  };
 
   // Add missing navigation functions
   const goToStudents = () => {
@@ -401,7 +475,7 @@ const AlumniDashboardPage = () => {
     );
   };
 
-  // Update the Mentee card section to properly display session counts
+  // Update the Stats overview section to use dynamic data
   return (
     <div className="pb-12 relative min-h-screen flex flex-col">
       <div className="container-custom pt-20 flex-grow">
@@ -412,9 +486,9 @@ const AlumniDashboardPage = () => {
               <h3 className="font-medium text-lg">Student Connections</h3>
               <Users className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">28</p>
+            <p className="text-3xl font-bold">{dashboardStats.connections.total}</p>
             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-              +5 from last month
+              +{dashboardStats.connections.increase} from last month
             </p>
           </div>
 
@@ -423,31 +497,31 @@ const AlumniDashboardPage = () => {
               <h3 className="font-medium text-lg">Job Postings</h3>
               <Briefcase className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">2</p>
+            <p className="text-3xl font-bold">{dashboardStats.jobPostings.total}</p>
             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-              13 total applicants
+              {dashboardStats.jobPostings.applicants} total applicants
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200 cursor-pointer">
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-200 cursor-pointer" onClick={() => navigate("/messages")}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Messages</h3>
               <MessageSquare className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">8</p>
+            <p className="text-3xl font-bold">{dashboardStats.messages.total}</p>
             <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
-              3 unread messages
+              {dashboardStats.messages.unread} unread messages
             </p>
           </div>
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={() => navigate("/mentored-students-history")}>
+          <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={goToConnections}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Students Mentored</h3>
               <Award className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-3xl font-bold">7</p>
+            <p className="text-3xl font-bold">{dashboardStats.mentored.total}</p>
             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-              +2 this semester
+              +{dashboardStats.mentored.recent} this semester
             </p>
           </div>
         </div>

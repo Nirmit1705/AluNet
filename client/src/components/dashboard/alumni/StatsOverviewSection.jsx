@@ -1,7 +1,7 @@
 import React from "react";
 import { Users, Briefcase, MessageSquare, UserPlus } from "lucide-react";
 
-const StatsOverviewSection = ({ goToStudents, goToJobs, goToConnections }) => {
+const StatsOverviewSection = ({ stats, goToStudents, goToJobs, goToConnections }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
       <div 
@@ -13,8 +13,8 @@ const StatsOverviewSection = ({ goToStudents, goToJobs, goToConnections }) => {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Students Mentored</p>
-          <p className="text-2xl font-semibold">24</p>
-          <p className="text-xs text-green-600">+3 new this month</p>
+          <p className="text-2xl font-semibold">{stats?.mentored?.total || 0}</p>
+          <p className="text-xs text-green-600">+{stats?.mentored?.recent || 0} new this month</p>
         </div>
       </div>
 
@@ -27,8 +27,8 @@ const StatsOverviewSection = ({ goToStudents, goToJobs, goToConnections }) => {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Job Posts</p>
-          <p className="text-2xl font-semibold">8</p>
-          <p className="text-xs text-muted-foreground">3 active listings</p>
+          <p className="text-2xl font-semibold">{stats?.jobPostings?.total || 0}</p>
+          <p className="text-xs text-muted-foreground">{stats?.jobPostings?.active || 0} active listings</p>
         </div>
       </div>
 
@@ -38,8 +38,8 @@ const StatsOverviewSection = ({ goToStudents, goToJobs, goToConnections }) => {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Messages</p>
-          <p className="text-2xl font-semibold">56</p>
-          <p className="text-xs text-muted-foreground">12 unread messages</p>
+          <p className="text-2xl font-semibold">{stats?.messages?.total || 0}</p>
+          <p className="text-xs text-muted-foreground">{stats?.messages?.unread || 0} unread messages</p>
         </div>
       </div>
 
@@ -52,12 +52,12 @@ const StatsOverviewSection = ({ goToStudents, goToJobs, goToConnections }) => {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Connections</p>
-          <p className="text-2xl font-semibold">32</p>
-          <p className="text-xs text-green-600">+5 from last month</p>
+          <p className="text-2xl font-semibold">{stats?.connections?.total || 0}</p>
+          <p className="text-xs text-green-600">+{stats?.connections?.increase || 0} from last month</p>
         </div>
       </div>
     </div>
   );
 };
 
-export default StatsOverviewSection; 
+export default StatsOverviewSection;

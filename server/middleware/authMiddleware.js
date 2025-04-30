@@ -128,20 +128,31 @@ const adminProtect = asyncHandler(async (req, res, next) => {
  */
 const adminOnly = adminProtect;
 
-// Alumni only routes
-const verifiedAlumniOnly = asyncHandler(async (req, res, next) => {
-  if (!req.user.graduationYear || req.user.registrationNumber) {
-    res.status(403);
-    throw new Error('This route is only accessible to alumni');
+// @desc   Middleware to ensure user is an alumni
+// @usage  Add this middleware after protect middleware to secure alumni-only routes
+const alumniOnly = asyncHandler(async (req, res, next) => {
+  try {
+    // Check if req.user exists (protect middleware should have set this)
+    if (!req.user) {
+      res.status(401);
+      throw new Error('Not authorized');
+    }
+
+    // Check if user is an alumni - we can determine this by the presence of graduationYear and absence of registrationNumber
+    // Alumni have graduationYear but no registrationNumber, while students have both
+    if (req.user.graduationYear && !req.user.registrationNumber) {
+      // User is an alumni, proceed
+      next();
+    } else {
+      // User is not an alumni
+      res.status(403);
+      throw new Error('Access denied. Alumni access only');
+    }
+  } catch (error) {
+    console.error('alumniOnly middleware error:', error.message);
+    res.status(error.statusCode || 403);
+    throw new Error(error.message || 'Access denied. Alumni access only');
   }
-  
-  // Check if alumni is verified
-  if (!req.user.isVerified) {
-    res.status(403);
-    throw new Error('Your account must be verified to access this feature');
-  }
-  
-  next();
 });
 
 // Optional protection middleware - will authenticate if token present but won't reject if not
@@ -191,4 +202,4 @@ const optionalProtect = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { protect, adminProtect, adminOnly, verifiedAlumniOnly, optionalProtect };
+export { protect, adminProtect, alumniOnly, optionalProtect };

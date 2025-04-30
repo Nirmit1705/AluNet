@@ -8,7 +8,7 @@ import {
   getConnectedMentors,
   getConnectedStudents
 } from '../Controllers/connectionController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect } from '../Middleware/authMiddleware.js';
 
 const router = express.Router();
 

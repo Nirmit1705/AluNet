@@ -221,7 +221,7 @@ const AlumniDirectory = () => {
     return options;
   };
 
-  // Fetch alumni data when component mounts
+  // Fetch alumni data when component mounts - improved version
   useEffect(() => {
     const fetchAlumni = async () => {
       try {
@@ -234,7 +234,6 @@ const AlumniDirectory = () => {
           try {
             localConnections = JSON.parse(savedConnections);
             console.log('🔄 Loaded connections from localStorage:', localConnections);
-            // Set the connections immediately to avoid race conditions
             setConnections(localConnections);
           } catch (e) {
             console.error('Error parsing saved connections:', e);
@@ -242,173 +241,56 @@ const AlumniDirectory = () => {
           }
         }
         
-        // Fetch all alumni data from API or use sample data
+        // Fetch all alumni data from API with more reliable approach
         let fetchedAlumni = [];
         try {
-          const response = await axios.get('/api/alumni', {
-            params: {
-              includeEducation: true,
-              includeAll: true
-            }
-          });
+          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          const token = localStorage.getItem('token');
+          
+          // Try the main alumni endpoint first
+          let response;
+          try {
+            response = await axios.get(`${apiUrl}/api/alumni`, {
+              params: {
+                includeEducation: true,
+                includeAll: true
+              },
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+          } catch (mainApiError) {
+            // If that fails, try the users/alumni endpoint
+            console.log("Main alumni endpoint failed, trying fallback...");
+            response = await axios.get(`${apiUrl}/api/users/alumni`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+          }
           
           if (response.status === 200 && response.data) {
-            // Process the data to ensure education field is properly formatted
-            fetchedAlumni = response.data.map(alum => {
-              // Keep original education data
-              let educationField = '';
-              
-              // Case 1: If education is already a string
-              if (alum.education && typeof alum.education === 'string') {
-                educationField = alum.education;
-              } 
-              // Case 2: If education is an array
-              else if (alum.education && Array.isArray(alum.education) && alum.education.length > 0) {
-                educationField = alum.education.map(edu => {
-                  if (typeof edu === 'object') {
-                    let parts = [];
-                    if (edu.degree) parts.push(edu.degree);
-                    if (edu.fieldOfStudy && !edu.degree?.includes(edu.fieldOfStudy)) {
-                      parts.push(`in ${edu.fieldOfStudy}`);
-                    }
-                    
-                    // Handle both institution and university distinctly
-                    if (edu.institution && edu.university && edu.institution !== edu.university) {
-                      parts.push(`${edu.institution}, ${edu.university}`);
-                    } else if (edu.institution) {
-                      parts.push(edu.institution);
-                    } else if (edu.university) {
-                      parts.push(edu.university);
-                    }
-                    
-                    // Handle years
-                    if (edu.startYear && edu.endYear) {
-                      parts.push(`(${edu.startYear}-${edu.endYear})`);
-                    } else if (edu.endYear) {
-                      parts.push(`(${edu.endYear})`);
-                    }
-                    
-                    return parts.join(' ');
-                  }
-                  return edu;
-                }).join('; ');
-              }
-              // Case 3: Fall back to degree + university
-              else if (alum.degree && alum.university) {
-                educationField = `${alum.degree}, ${alum.university}`;
-              }
-              // Case 4: Final fallback
-              else {
-                educationField = alum.university || 'Education information not available';
-              }
-              
-              return {
-                ...alum,
-                education: educationField,
-                // Keep the original education array if it exists for detailed view
-                previousEducation: Array.isArray(alum.education) ? alum.education : 
-                                   Array.isArray(alum.previousEducation) ? alum.previousEducation : null
-              };
-            });
-            
+            console.log("Successfully fetched alumni data:", response.data);
+            fetchedAlumni = processAlumniData(response.data);
             setAllAlumni(fetchedAlumni);
           } else {
             throw new Error('API returned unexpected response');
           }
         } catch (apiError) {
-          console.log('API fetch failed, using sample data:', apiError);
-          fetchedAlumni = alumniData;
-          setAllAlumni(alumniData);
+          console.error('API fetch failed, using sample data:', apiError);
+          // Don't use static sample data, instead set an empty array or minimal data
+          fetchedAlumni = [];
+          setAllAlumni(fetchedAlumni);
         }
         
-        // Fetch connections from the API and merge with local storage
-        try {
-          const connectionsResponse = await axios.get('/api/connections', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
-          
-          if (connectionsResponse.status === 200) {
-            // Extract IDs from API response
-            const apiConnections = connectionsResponse.data.map(conn => {
-              // Extract the alumni ID from each connection
-              let alumniId = null;
-              
-              // Handle different formats - some connections might store as alumniId, others as userId
-              if (conn.alumniId) {
-                alumniId = conn.alumniId;
-              } else if (conn.alumni && conn.alumni._id) {
-                alumniId = conn.alumni._id;
-              } else if (conn.userId) {
-                alumniId = conn.userId;
-              } else if (conn._id) {
-                // Try the connection's own ID if nothing else works
-                alumniId = conn._id;
-              }
-              
-              console.log('Found connection with ID:', alumniId);
-              return alumniId;
-            }).filter(id => id !== null);
-            
-            // Merge with the local connections and remove duplicates
-            const mergedConnections = [...new Set([...localConnections, ...apiConnections])];
-            
-            console.log('🔄 Merged connections from API and localStorage:', mergedConnections);
-            
-            // Update state and localStorage
-            setConnections(mergedConnections);
-            localStorage.setItem('connectedAlumni', JSON.stringify(mergedConnections));
-            
-            // CRITICAL: Now we filter the alumni list to exclude connected alumni
-            // This needs to happen AFTER we have the complete list of connections
-            const filteredAlumni = fetchedAlumni.filter(alum => {
-              const possibleIds = [
-                alum._id, 
-                alum.id, 
-                alum.userId, 
-                alum.alumniId
-              ].filter(Boolean).map(String);
-              
-              // Check if any ID matches any connection
-              const isConnectedAlum = mergedConnections.some(connId => {
-                const connIdStr = String(connId);
-                return possibleIds.some(alumId => 
-                  alumId === connIdStr || 
-                  connIdStr.includes(alumId) || 
-                  alumId.includes(connIdStr)
-                );
-              });
-              
-              return !isConnectedAlum; // Keep only unconnected alumni
-            });
-            
-            console.log(`🔍 Filtered alumni: Showing ${filteredAlumni.length} out of ${fetchedAlumni.length} total`);
-            
-            // Set the filtered alumni list directly - not just setting allAlumni
-            setAlumni(filteredAlumni);
-            // If all alumni are filtered out, show no results
-            setNoResults(filteredAlumni.length === 0);
-          }
-        } catch (connectionsError) {
-          console.log('Connections fetch failed:', connectionsError);
-          // Fall back to just filtering with localStorage connections
-          const filteredAlumni = fetchedAlumni.filter(alum => {
-            const possibleIds = [alum._id, alum.id, alum.userId, alum.alumniId].filter(Boolean).map(String);
-            return !localConnections.some(connId => {
-              const connIdStr = String(connId);
-              return possibleIds.some(alumId => 
-                alumId === connIdStr || connIdStr.includes(alumId) || alumId.includes(connIdStr)
-              );
-            });
-          });
-          
-          setAlumni(filteredAlumni);
-          setNoResults(filteredAlumni.length === 0);
-        }
+        // Filter out connected alumni
+        const filteredAlumni = filterAlumniByConnections(fetchedAlumni, localConnections);
+        setAlumni(filteredAlumni);
+        setNoResults(filteredAlumni.length === 0);
         
         setIsLoading(false);
       } catch (error) {
         console.error('Error setting up alumni directory:', error);
         setIsLoading(false);
+        // Use empty arrays instead of sample data
+        setAllAlumni([]);
+        setAlumni([]);
       }
     };
 
@@ -417,10 +299,116 @@ const AlumniDirectory = () => {
     // Load favorites from localStorage
     const savedFavorites = localStorage.getItem('favoriteAlumni');
     if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error('Error parsing saved favorites:', e);
+      }
     }
   }, []);
   
+  // Process alumni data to ensure consistent format
+  const processAlumniData = (data) => {
+    return data.map(alum => {
+      // Keep original education data
+      let educationField = '';
+      
+      // Case 1: If education is already a string
+      if (alum.education && typeof alum.education === 'string') {
+        educationField = alum.education;
+      } 
+      // Case 2: If education is an array
+      else if (alum.education && Array.isArray(alum.education) && alum.education.length > 0) {
+        educationField = alum.education.map(edu => {
+          if (typeof edu === 'object') {
+            let parts = [];
+            if (edu.degree) parts.push(edu.degree);
+            if (edu.fieldOfStudy && !edu.degree?.includes(edu.fieldOfStudy)) {
+              parts.push(`in ${edu.fieldOfStudy}`);
+            }
+            
+            // Handle education institution information
+            if (edu.institution && edu.university && edu.institution !== edu.university) {
+              parts.push(`${edu.institution}, ${edu.university}`);
+            } else if (edu.institution) {
+              parts.push(edu.institution);
+            } else if (edu.university) {
+              parts.push(edu.university);
+            }
+            
+            // Handle years
+            if (edu.startYear && edu.endYear) {
+              parts.push(`(${edu.startYear}-${edu.endYear})`);
+            } else if (edu.endYear) {
+              parts.push(`(${edu.endYear})`);
+            }
+            
+            return parts.join(' ');
+          }
+          return edu;
+        }).join('; ');
+      }
+      // Case 3: Fall back to degree + university
+      else if (alum.degree && alum.university) {
+        educationField = `${alum.degree}, ${alum.university}`;
+      }
+      // Case 4: Final fallback
+      else {
+        educationField = alum.university || 'Education information not available';
+      }
+      
+      // Ensure we have a valid alumniId
+      const alumniId = alum._id || alum.id || alum.alumniId || `alum-${Date.now()}`;
+      
+      return {
+        ...alum,
+        id: alumniId, // Ensure the transformed object always has an id field
+        _id: alumniId, // Keep the _id field for API compatibility
+        education: educationField,
+        // Keep the original education array if it exists for detailed view
+        previousEducation: Array.isArray(alum.education) ? alum.education : 
+                           Array.isArray(alum.previousEducation) ? alum.previousEducation : null,
+        // Ensure all alumni have these key properties
+        name: alum.name || 'Unknown Alumni',
+        role: alum.position || alum.jobTitle || alum.role || 'Alumni',
+        company: alum.company || '',
+        skills: alum.skills || [],
+        // If graduationYear is missing, make a reasonable estimate
+        graduationYear: alum.graduationYear || 
+                       (alum.education && typeof alum.education === 'string' && 
+                        alum.education.match(/\d{4}/) ? 
+                        parseInt(alum.education.match(/\d{4}/)[0]) : 
+                        new Date().getFullYear() - 5)
+      };
+    });
+  };
+  
+  // Filter alumni by connections
+  const filterAlumniByConnections = (alumniList, connectionsList) => {
+    if (!alumniList || !Array.isArray(alumniList)) return [];
+    
+    return alumniList.filter(alum => {
+      const possibleIds = [
+        alum._id, 
+        alum.id, 
+        alum.userId, 
+        alum.alumniId
+      ].filter(Boolean).map(String);
+      
+      // Check if this alumni is connected
+      const isConnectedAlum = connectionsList.some(connId => {
+        const connIdStr = String(connId);
+        return possibleIds.some(alumId => 
+          alumId === connIdStr || 
+          connIdStr.includes(alumId) || 
+          alumId.includes(connIdStr)
+        );
+      });
+      
+      return !isConnectedAlum; // Keep only unconnected alumni
+    });
+  };
+
   // Handle search
   const handleSearch = (e) => {
     const query = e.target.value.toLowerCase();
@@ -921,7 +909,7 @@ const AlumniDirectory = () => {
             ? "Loading alumni..." 
             : noResults 
               ? "No alumni found matching your criteria" 
-              : `Showing ${filteredAlumni.length} of ${alumni.length} alumni (excluding connections)`
+              : `Showing ${filteredAlumni.length} of ${allAlumni.length} alumni${connections.length > 0 ? ` (excluding ${connections.length} connections)` : ''}`
           }
         </p>
         

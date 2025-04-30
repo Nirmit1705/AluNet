@@ -1,7 +1,4 @@
 import express from 'express';
-import { protect } from '../middleware/authMiddleware.js';
-import asyncHandler from '../utils/asyncHandler.js';
-import Alumni from '../Models/Alumni.js'; // Add this import
 import { 
   registerAlumni,
   authAlumni,
@@ -16,8 +13,12 @@ import {
   resendVerification,
   submitVerificationDocument,
   registerAlumniWithGoogle,
-  updateAlumniProfilePicture 
+  updateAlumniProfilePicture,
+  getDashboardStats 
 } from '../Controllers/alumniController.js';
+import { protect, alumniOnly } from '../Middleware/authMiddleware.js';
+import asyncHandler from '../Utils/asyncHandler.js'; // Add this import for asyncHandler
+import Alumni from '../Models/Alumni.js'; // Add this import for the debug route
 
 const router = express.Router();
 
@@ -180,6 +181,9 @@ router.put('/update-education', protect, asyncHandler(async (req, res) => {
     }
   });
 }));
+
+// Dashboard stats route
+router.get('/dashboard-stats', protect, alumniOnly, getDashboardStats);
 
 // IMPORTANT: This must come AFTER all specific routes that might match patterns like /profile
 router.get("/:id", getAlumniById);

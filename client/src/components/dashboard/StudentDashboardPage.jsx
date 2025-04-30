@@ -7,6 +7,7 @@ import { useUniversity } from "../../context/UniversityContext";
 import Footer from "../layout/Footer"; 
 import axios from "axios";
 import CurrentMentorshipsSection from './student/CurrentMentorshipsSection';
+import StatsOverviewSection from './student/StatsOverviewSection';
 
 // Example reference job recommendation (keeping one as reference)
 const jobRecommendationExample = {
@@ -51,69 +52,210 @@ const StudentDashboardPage = () => {
     feedback: "",
   });
   
+  // New state for alumni count
+  const [alumniCount, setAlumniCount] = useState(0);
+  
   // New states for dynamic data
   const [recommendedMentors, setRecommendedMentors] = useState([]);
   const [jobRecommendations, setJobRecommendations] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
+  const [stats, setStats] = useState({
+    connectedMentors: 0,
+    newMentors: 0,
+    jobOpportunities: 0,
+    newJobs: 0,
+    upcomingSessions: 0,
+    nextSession: "",
+    completedAssessments: 0,
+    assessmentProgress: 0
+  });
 
   useEffect(() => {
     const hasSkippedPrompt = localStorage.getItem('skipUniversityPrompt') === 'true';
     setShowUniversityPrompt(!userUniversity && !hasSkippedPrompt);
   }, [userUniversity]);
   
-  // Fetch alumni data for mentors
+  // Fetch alumni data - improved and more robust version
   const fetchAlumniData = async () => {
     try {
-      setIsLoading(true);
-      // Replace with your actual API endpoint
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/alumni`);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+      
+      // First try to get connected mentors specifically
+      try {
+        const connectionsResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/mentors`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        
+        console.log("Connected mentors data:", connectionsResponse.data);
+        
+        if (connectionsResponse.data && Array.isArray(connectionsResponse.data)) {
+          // Update stats with actual connection count
+          setStats(prevStats => ({
+            ...prevStats,
+            connectedMentors: connectionsResponse.data.length
+          }));
+        }
+      } catch (connError) {
+        console.error("Error fetching connections:", connError);
+      }
+      
+      // Then get recommended mentors for display
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/alumni`,
+        {
+          params: {
+            limit: 6,
+            mentorshipAvailable: true
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
       
       if (response.data && Array.isArray(response.data)) {
-        // Transform alumni data to the mentor format
+        // Better data transformation with proper error handling
         const transformedMentors = response.data.map(alumni => ({
-          id: alumni._id,
-          name: alumni.name,
-          role: `${alumni.jobTitle || 'Professional'} at ${alumni.company || 'Company'}`,
-          specialties: alumni.expertise || [],
-          availability: alumni.availability || "Available for mentorship",
-          profilePicture: alumni.profilePicture?.url || null,
-          email: alumni.email
+          id: alumni._id || alumni.id || `mentor-${Date.now()}`,
+          name: alumni.name || 'Unknown Mentor',
+          role: alumni.position || alumni.jobTitle || alumni.role || 'Professional',
+          company: alumni.company || 'Unknown Company',
+          specialties: alumni.skills || alumni.specialties || [],
+          mentorshipAreas: alumni.areasOfExpertise || alumni.mentorshipAreas || [],
+          availability: alumni.availability || 'Available for mentoring',
+          bio: alumni.bio || alumni.about || '',
+          profileImage: getProfilePictureUrl(alumni),
+          connections: alumni.connections || alumni.connectionCount || 0,
+          email: alumni.email,
+          linkedIn: alumni.linkedIn || alumni.linkedin || '#',
+          rating: alumni.rating || 4.5,
         }));
         
-        setRecommendedMentors(transformedMentors);
+        console.log("Fetched mentors data:", transformedMentors);
+        
+        if (transformedMentors.length > 0) {
+          setRecommendedMentors(transformedMentors);
+          
+          // Update stats with actual data
+          setStats(prevStats => ({
+            ...prevStats,
+            newMentors: transformedMentors.filter(mentor => {
+              return mentor.joinedDate && new Date(mentor.joinedDate) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            }).length || Math.min(2, transformedMentors.length)
+          }));
+        } else {
+          console.warn("Empty mentors data array returned");
+          setRecommendedMentors([recommendedMentorExample]);
+        }
       } else {
-        // Keep the example as fallback
-        setRecommendedMentors([recommendedMentorExample]);
         console.warn("Unexpected alumni data format", response.data);
+        setRecommendedMentors([recommendedMentorExample]);
       }
     } catch (error) {
       console.error("Error fetching alumni data:", error);
-      setLoadingError("Failed to fetch alumni data. Using sample data instead.");
-      // Fall back to the example data in case of error
       setRecommendedMentors([recommendedMentorExample]);
-    } finally {
-      setIsLoading(false);
     }
   };
   
-  // Fetch job data
+  // Helper function to get profile picture URL from various data structures
+  const getProfilePictureUrl = (alumni) => {
+    if (!alumni) return null;
+    
+    // Check if profilePicture exists as an object with url property
+    if (alumni.profilePicture && alumni.profilePicture.url) {
+      return alumni.profilePicture.url;
+    }
+    
+    // Check if profilePicture exists as a string
+    if (alumni.profilePicture && typeof alumni.profilePicture === 'string') {
+      return alumni.profilePicture;
+    }
+    
+    // Check if avatar exists
+    if (alumni.avatar) {
+      return alumni.avatar;
+    }
+    
+    // No profile picture available
+    return null;
+  };
+  
+  // Fetch job data - improved version
   const fetchJobData = async () => {
     try {
-      // Replace with your actual API endpoint
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/jobs`);
+      const token = localStorage.getItem("token");
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      
+      // First try the jobs endpoint
+      let response;
+      try {
+        response = await axios.get(
+          `${apiUrl}/api/jobs`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      } catch (jobsError) {
+        // If jobs endpoint fails, try job-postings as fallback
+        console.log("Trying fallback job-postings endpoint");
+        response = await axios.get(
+          `${apiUrl}/api/job-postings`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      }
       
       if (response.data && Array.isArray(response.data)) {
-        setJobRecommendations(response.data);
+        console.log("Fetched jobs data:", response.data);
+        
+        const transformedJobs = response.data.map(job => ({
+          id: job._id || job.id || `job-${Date.now()}`,
+          title: job.title || job.jobTitle || 'Job Opportunity',
+          company: job.company || 'Unknown Company',
+          location: job.location || "Remote",
+          type: job.type || job.jobType || "Full Time",
+          description: job.description || job.jobDescription || '',
+          skills: job.skills || job.requiredSkills || [],
+          postedDate: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Recently posted',
+          companyUrl: job.companyUrl || job.companyWebsite || null,
+          applicationUrl: job.applicationUrl || job.applicationLink || null,
+          logoUrl: job.logoUrl || job.companyLogo || null,
+          salary: job.salary || job.compensationRange || 'Competitive'
+        }));
+        
+        if (transformedJobs.length > 0) {
+          setJobRecommendations(transformedJobs);
+          
+          // Update stats with actual data
+          setStats(prevStats => ({
+            ...prevStats,
+            jobOpportunities: transformedJobs.length,
+            newJobs: transformedJobs.filter(j => {
+              if (!j.createdAt && !j.postedDate) return false;
+              const postedDate = j.createdAt ? new Date(j.createdAt) : new Date(j.postedDate);
+              const oneWeekAgo = new Date();
+              oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+              return postedDate > oneWeekAgo;
+            }).length || Math.min(2, transformedJobs.length)
+          }));
+        } else {
+          console.warn("Empty jobs data array returned");
+          setJobRecommendations([jobRecommendationExample]);
+        }
       } else {
-        // Keep the example as fallback
-        setJobRecommendations([jobRecommendationExample]);
         console.warn("Unexpected job data format", response.data);
+        setJobRecommendations([jobRecommendationExample]);
       }
     } catch (error) {
       console.error("Error fetching job data:", error);
-      // Fall back to the example data in case of error
       setJobRecommendations([jobRecommendationExample]);
     }
   };
@@ -121,15 +263,46 @@ const StudentDashboardPage = () => {
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      // Replace with your actual API endpoint
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/students/notifications`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/notifications`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
-      });
+      );
       
       if (response.data && Array.isArray(response.data)) {
-        setNotifications(response.data);
+        const transformedNotifications = response.data.map(notification => {
+          // Determine icon based on notification type
+          let icon;
+          switch (notification.type) {
+            case 'connection':
+              icon = Users;
+              break;
+            case 'job':
+              icon = Briefcase;
+              break;
+            case 'message':
+              icon = MessageSquare;
+              break;
+            case 'session':
+              icon = Calendar;
+              break;
+            default:
+              icon = Bell;
+          }
+          
+          return {
+            id: notification._id,
+            title: notification.title || 'New Notification',
+            description: notification.message || notification.content || 'You have a new notification',
+            time: formatTimeAgo(new Date(notification.createdAt || Date.now())),
+            icon,
+            read: notification.read || false
+          };
+        });
+        
+        setNotifications(transformedNotifications);
       } else {
         // Set empty array as fallback
         setNotifications([]);
@@ -140,32 +313,223 @@ const StudentDashboardPage = () => {
     }
   };
   
+  // Fetch upcoming sessions
+  const fetchUpcomingSessions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/my-upcoming`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Transform data for display
+        const transformedSessions = response.data.map(session => ({
+          id: session._id,
+          title: session.title || "Mentorship Session",
+          description: session.description || "Discussion with mentor",
+          date: new Date(session.date),
+          time: session.time || "TBD",
+          endTime: session.endTime,
+          duration: session.duration || 30,
+          type: session.type || "One-on-One",
+          mentor: {
+            id: session.mentorId,
+            name: session.mentorName || "Your Mentor",
+            role: session.mentorRole || "Professional"
+          },
+          location: session.location || "Virtual",
+          meetingLink: session.meetingLink || null,
+          status: session.status || "upcoming",
+          notes: session.notes || ""
+        }));
+        
+        // Count upcoming sessions
+        const upcomingCount = transformedSessions.length;
+        
+        // Find the next session date if available
+        let nextSession = "";
+        if (upcomingCount > 0) {
+          // Sort sessions by date
+          transformedSessions.sort((a, b) => a.date - b.date);
+          const nextSessionData = transformedSessions[0]; // Get closest upcoming session
+          nextSession = `${nextSessionData.date.toLocaleDateString()} at ${nextSessionData.time}`;
+        }
+        
+        // Update stats with session information
+        setStats(prevStats => ({
+          ...prevStats,
+          upcomingSessions: upcomingCount,
+          nextSession
+        }));
+      } else {
+        console.warn("Unexpected session data format", response.data);
+        setStats(prevStats => ({
+          ...prevStats,
+          upcomingSessions: 0,
+          nextSession: "No upcoming sessions"
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching upcoming sessions:", error);
+      // Keep existing stats if there's an error
+      setStats(prevStats => ({
+        ...prevStats,
+        upcomingSessions: 0,
+        nextSession: "No upcoming sessions"
+      }));
+    }
+  };
+  
+  // Fetch completed assessments
+  const fetchAssessments = async () => {
+    try {
+      // Check if the assessments endpoint exists
+      const token = localStorage.getItem("token");
+      
+      // Since we don't have a real endpoint yet, let's use mock data
+      console.log("Using mock assessment data until endpoint is created");
+      
+      // Get or set mock assessment data from localStorage to persist between sessions
+      const mockAssessmentData = JSON.parse(localStorage.getItem('mockAssessmentData')) || {
+        completedAssessments: 1,
+        assessmentProgress: 60,
+        assessments: [
+          {
+            id: 1,
+            title: "Technical Skills Assessment",
+            description: "Evaluate your programming skills across multiple languages and frameworks.",
+            estimatedTime: "45 mins",
+            completed: true,
+            progress: 100
+          },
+          {
+            id: 2,
+            title: "Soft Skills Evaluation",
+            description: "Assess your communication, teamwork, and problem-solving abilities.",
+            estimatedTime: "30 mins",
+            completed: false,
+            progress: 60
+          },
+          {
+            id: 3,
+            title: "Industry Knowledge Test",
+            description: "Test your knowledge of current industry trends and best practices.",
+            estimatedTime: "25 mins",
+            completed: false,
+            progress: 0
+          }
+        ]
+      };
+      
+      // Store mock data in localStorage if it doesn't exist yet
+      if (!localStorage.getItem('mockAssessmentData')) {
+        localStorage.setItem('mockAssessmentData', JSON.stringify(mockAssessmentData));
+      }
+      
+      // Update stats with mock data
+      setStats(prevStats => ({
+        ...prevStats,
+        completedAssessments: mockAssessmentData.completedAssessments,
+        assessmentProgress: mockAssessmentData.assessmentProgress
+      }));
+      
+      // Important: Set loading state to false here instead of in the useEffect
+      setIsLoading(false);
+      
+    } catch (error) {
+      console.error("Error fetching assessments:", error);
+      // Provide fallback mock data in case of error
+      setStats(prevStats => ({
+        ...prevStats,
+        completedAssessments: 1,
+        assessmentProgress: 60
+      }));
+      
+      // Make sure loading state is set to false even when there's an error
+      setIsLoading(false);
+    }
+  };
+  
+  // Helper function to format time ago
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return date.toLocaleDateString();
+  };
+  
+  // Fetch alumni count
+  const fetchAlumniCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      
+      // Try to get the total count from the alumni endpoint
+      const response = await axios.get(`${apiUrl}/api/alumni`, {
+        params: { 
+          count: true,  // Just get the count if the API supports it
+          limit: 1      // Otherwise, minimize data transfer
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      
+      // If the API returns a total count property
+      if (response.data && response.data.totalCount) {
+        setAlumniCount(response.data.totalCount);
+      } 
+      // Otherwise count the array length
+      else if (Array.isArray(response.data)) {
+        setAlumniCount(response.data.length);
+      }
+    } catch (error) {
+      console.error("Error fetching alumni count:", error);
+      // Keep current count if there's an error
+    }
+  };
+  
   // Load data on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Set loading state first
+        setIsLoading(true);
+        
+        // Execute all data fetching in parallel
         await Promise.all([
           fetchAlumniData(),
           fetchJobData(),
-          fetchNotifications()
+          fetchNotifications(),
+          fetchUpcomingSessions(),
+          fetchAssessments(),
+          fetchAlumniCount() // Add the new function to fetch alumni count
         ]);
+        
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        setDashboardError("Failed to load some dashboard data");
+        console.error("Error loading dashboard data:", error);
+        setDashboardError("Failed to load dashboard data. Please try again.");
+        setIsLoading(false);
       }
     };
     
     fetchData();
-  }, []);
-
-  // Error handling effect
-  useEffect(() => {
-    try {
-      console.log("StudentDashboardPage mounted successfully");
-    } catch (error) {
-      setDashboardError(error.message);
-      console.error("Error in StudentDashboardPage:", error);
-    }
+    
+    // Simple debugging timeout to ensure loading gets set to false eventually
+    const loadingTimer = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        console.warn("Loading state forcibly reset by safety timeout");
+      }
+    }, 5000); // 5 second safety timeout
+    
+    return () => clearTimeout(loadingTimer);
   }, []);
 
   // If there's an error, show a simple error message
@@ -241,8 +605,6 @@ const StudentDashboardPage = () => {
     navigate("/jobs");
   };
   
-  // ... existing functions ...
-
   // Loading indicator
   if (isLoading) {
     return (
@@ -395,43 +757,15 @@ const StudentDashboardPage = () => {
         </div>
         
         {/* Stats overview - 3 cards with equal spacing */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToMentors}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Mentors Connected</h3>
-              <Users className="h-6 w-6 text-primary" />
-            </div>
-            <p className="text-3xl font-bold">12</p>
-            <p className="text-sm text-green-600 dark:text-green-400 flex items-center mt-1">
-              +3 from last month
-            </p>
-          </div>
+        <StatsOverviewSection 
+          stats={stats}
+          goToMentors={() => navigate('/mentors')}
+          viewJobOpportunities={() => navigate('/job-board')}
+          goToSkillsAssessment={() => navigate('/skills-assessment')}
+        />
 
-          <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={viewJobOpportunities}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Job Opportunities</h3>
-              <Briefcase className="h-6 w-6 text-primary" />
-            </div>
-            <p className="text-3xl font-bold">24</p>
-            <p className="text-sm text-green-600 dark:text-green-400 flex items-center mt-1">
-              8 new postings
-            </p>
-          </div>
-
-          <div className="glass-card rounded-xl p-6 animate-fade-in cursor-pointer" onClick={goToAlumniDirectory}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Alumni Directory</h3>
-              <GraduationCap className="h-6 w-6 text-primary" />
-            </div>
-            <p className="text-3xl font-bold">87</p>
-            <p className="text-sm text-muted-foreground flex items-center mt-1">
-              Find and connect with alumni
-            </p>
-          </div>
-        </div>
-
-        {/* Main dashboard content - new grid layout */}
-        <div className="space-y-8">
+        {/* Main dashboard content - Fix: Add proper spacing */}
+        <div className="space-y-8 mb-8">
           {/* Two equal columns for Mentorships and Professionals sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Current Mentorships Section */}
@@ -468,69 +802,89 @@ const StudentDashboardPage = () => {
               
               {/* Mentors List */}
               <div className="space-y-4">
-                {recommendedMentors.map((mentor) => (
-                  <div key={mentor.id} className="flex items-start p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
-                      <GraduationCap className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <h4 className="font-medium">{mentor.name}</h4>
-                        <button 
-                          className="text-gray-400 hover:text-primary transition-colors"
-                          onClick={() => saveMentor(mentor.id)}
-                        >
-                          <Heart className={`h-4 w-4 ${savedMentors.includes(mentor.id) ? "fill-primary text-primary" : ""}`} />
-                        </button>
+                {recommendedMentors.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <GraduationCap className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
+                    <p>No mentors found. Check back later!</p>
+                  </div>
+                ) : (
+                  recommendedMentors.slice(0, 3).map((mentor) => (
+                    <div key={mentor.id} className="flex items-start p-4 border border-border/30 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4">
+                        {mentor.profileImage ? (
+                          <img 
+                            src={mentor.profileImage}
+                            alt={mentor.name}
+                            className="h-12 w-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <GraduationCap className="h-6 w-6" />
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{mentor.role}</p>
-                      
-                      {/* First display mentorship areas if available */}
-                      {Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0 && (
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <h4 className="font-medium">{mentor.name}</h4>
+                          <button 
+                            className="text-gray-400 hover:text-primary transition-colors"
+                            onClick={() => saveMentor(mentor.id)}
+                          >
+                            <Heart className={`h-4 w-4 ${savedMentors.includes(mentor.id) ? "fill-primary text-primary" : ""}`} />
+                          </button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{mentor.role}{mentor.company ? ` at ${mentor.company}` : ''}</p>
+                        
+                        {/* Display mentorship areas if available */}
+                        {Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {mentor.mentorshipAreas.slice(0, 2).map((area, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                                {area}
+                              </span>
+                            ))}
+                            {mentor.mentorshipAreas.length > 2 && (
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                                +{mentor.mentorshipAreas.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Display specialties */}
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {mentor.mentorshipAreas.slice(0, 3).map((area, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
-                              {area}
+                          {mentor.specialties.slice(0, 2).map((specialty, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                              {specialty}
                             </span>
                           ))}
-                          {mentor.mentorshipAreas.length > 3 && (
-                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
-                              +{mentor.mentorshipAreas.length - 3} more
+                          {mentor.specialties.length > 2 && (
+                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs rounded-full">
+                              +{mentor.specialties.length - 2}
                             </span>
                           )}
                         </div>
-                      )}
-                      
-                      {/* Then display specialties if available */}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {mentor.specialties.map((specialty, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                            {specialty}
-                          </span>
-                        ))}
+                        
+                        <div className="flex items-center mt-3">
+                          <Clock className="h-3 w-3 text-green-600 mr-1" />
+                          <span className="text-xs text-green-600">{mentor.availability}</span>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center mt-3">
-                        <Clock className="h-3 w-3 text-green-600 mr-1" />
-                        <span className="text-xs text-green-600">{mentor.availability}</span>
-                      </div>
+                      <button 
+                        className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
+                        onClick={() => connectWithMentor(mentor.id)}
+                      >
+                        Connect
+                      </button>
                     </div>
-                    <button 
-                      className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
-                      onClick={() => connectWithMentor(mentor.id)}
-                    >
-                      Connect
-                    </button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
               
               <div className="flex justify-end mt-4">
                 <button 
                   className="text-sm text-primary font-medium flex items-center"
-                  onClick={goToAlumniDirectory}
+                  onClick={goToMentors}
                 >
-                  Alumni Directory
+                  View all professionals
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </button>
               </div>
@@ -538,130 +892,90 @@ const StudentDashboardPage = () => {
           </div>
         </div>
 
-        {/* Mentorship Detail Modal */}
-        {showMentorshipModal && selectedMentorship && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
-              <div className="flex justify-between items-start p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center">
-                  <Avatar className="h-12 w-12 mr-4 border border-primary/20">
-                    <AvatarImage src={selectedMentorship.mentorAvatar} alt={selectedMentorship.mentorName} />
-                    <AvatarFallback>{selectedMentorship.mentorName.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="text-lg font-medium">{selectedMentorship.mentorName}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedMentorship.mentorTitle}</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowMentorshipModal(false)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Mentorship Started</h4>
-                    <p className="font-medium">{new Date(selectedMentorship.startDate).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Next Session</h4>
-                    <p className="font-medium">{new Date(selectedMentorship.nextSession).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Completed Sessions</h4>
-                    <p className="font-medium">{selectedMentorship.completedSessions} of {selectedMentorship.totalSessions}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Status</h4>
-                    <p className="font-medium capitalize">{selectedMentorship.status}</p>
-                  </div>
-                </div>
-                
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Focus Areas</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedMentorship.focusAreas.map((area, index) => (
-                      <span 
-                        key={index} 
-                        className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
-                      >
-                        {area}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Progress</h4>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full" 
-                      style={{ width: `${selectedMentorship.progress}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-right text-sm text-gray-500 dark:text-gray-400">
-                    {selectedMentorship.progress}% Complete
-                  </div>
-                </div>
-                
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h4>
-                  <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg text-sm">
-                    {selectedMentorship.notes}
-                  </p>
-                </div>
-                
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Contact Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <a 
-                      href={`mailto:${selectedMentorship.contact.email}`}
-                      className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+        {/* Job Recommendations Section - Fixed spacing by adding it outside previous grid */}
+        <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-medium text-lg">Job Recommendations</h3>
+            <Briefcase className="h-5 w-5 text-primary" />
+          </div>
+          
+          {jobRecommendations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Briefcase className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
+              <p>No job recommendations available yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {jobRecommendations.slice(0, 3).map((job) => (
+                <div key={job.id} className="border border-border/30 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <div className="flex justify-between mb-2">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-primary truncate">{job.title}</h4>
+                      <p className="text-sm text-muted-foreground truncate">{job.company}</p>
+                    </div>
+                    <button 
+                      onClick={() => setSavedJobs(prev => 
+                        prev.includes(job.id) ? prev.filter(id => id !== job.id) : [...prev, job.id]
+                      )}
+                      className="text-gray-400 hover:text-primary ml-2"
                     >
-                      <Mail className="h-4 w-4" />
-                      {selectedMentorship.contact.email}
-                    </a>
+                      <Heart className={`h-4 w-4 ${savedJobs.includes(job.id) ? "fill-primary text-primary" : ""}`} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1 my-2">
+                    <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                      {job.type}
+                    </span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                      {job.location}
+                    </span>
+                  </div>
+                  
+                  {job.skills && job.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1 my-2">
+                      {job.skills.slice(0, 2).map((skill, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded-full">
+                          {skill}
+                        </span>
+                      ))}
+                      {job.skills.length > 2 && (
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">
+                          +{job.skills.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center mt-3">
+                    <span className="text-xs text-muted-foreground">Posted: {job.postedDate}</span>
                     <a 
-                      href={`https://${selectedMentorship.contact.linkedin}`}
+                      href={job.applicationUrl || "#"} 
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+                      className="text-xs text-primary hover:underline flex items-center"
                     >
-                      <Linkedin className="h-4 w-4" />
-                      LinkedIn Profile
+                      View Details
+                      <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
                   </div>
                 </div>
-              </div>
-              
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setShowMentorshipModal(false)}
-                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMentorshipModal(false);
-                    navigate(`/messages/${selectedMentorship.id}`);
-                  }}
-                  className="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Message Mentor
-                </button>
-              </div>
+              ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+          
+          <button 
+            className="w-full mt-6 text-sm text-primary font-medium flex items-center justify-center"
+            onClick={viewJobOpportunities}
+          >
+            View all job opportunities
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </button>
+        </div>
       
-      {/* Footer with proper spacing */}
-      <Footer />
+        {/* Footer with proper spacing */}
+        <Footer />
+      </div>
     </div>
   );
 };

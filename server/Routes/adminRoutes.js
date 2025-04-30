@@ -9,7 +9,7 @@ import {
   getVerificationById,
   updateVerificationRequest // This was incorrectly imported as updateVerificationStatus
 } from '../Controllers/adminController.js';
-import { adminProtect } from '../middleware/authMiddleware.js';
+import { adminProtect } from '../Middleware/authMiddleware.js';
 
 const router = express.Router();
 

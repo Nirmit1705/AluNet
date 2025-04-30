@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Calendar, Users, Video, Clock, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Video, Users, Edit, X } from "lucide-react";
 
-const UpcomingSessionsSection = () => {
+const UpcomingSessionsSection = ({ 
+  onEditSession, 
+  onCancelSession 
+}) => {
   const navigate = useNavigate();
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -15,14 +18,14 @@ const UpcomingSessionsSection = () => {
         setIsLoading(true);
         setError(null);
         
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         if (!token) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
         
         const response = await axios.get(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/my-upcoming`,
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/sessions/mentor-upcoming`,
           {
             headers: {
               Authorization: `Bearer ${token}`
@@ -35,16 +38,17 @@ const UpcomingSessionsSection = () => {
           const transformedSessions = response.data.map(session => ({
             id: session._id,
             title: session.title || "Mentorship Session",
-            mentor: session.mentorName || "Your Mentor",
-            description: session.description || "Discussion with mentor",
+            menteeName: session.menteeName || "Student",
+            menteeId: session.menteeId,
+            description: session.description || "Discussion with mentee",
             date: new Date(session.date),
             time: session.time || "TBD",
-            endTime: session.endTime,
             duration: session.duration || 30,
             type: session.groupSession ? "Group Workshop" : "One-on-One",
             location: session.location || "Virtual",
             meetingLink: session.meetingLink || null,
-            status: session.status || "upcoming"
+            status: session.status || "upcoming",
+            topic: session.topic || ""
           }));
 
           // Sort by date (closest first)
@@ -85,7 +89,7 @@ const UpcomingSessionsSection = () => {
 
   // Navigate to full schedule
   const viewSchedule = () => {
-    navigate("/sessions");
+    navigate("/schedule");
   };
 
   // Loading state
@@ -132,17 +136,15 @@ const UpcomingSessionsSection = () => {
           <h3 className="font-medium text-lg">Upcoming Sessions</h3>
           <Calendar className="h-5 w-5 text-primary" />
         </div>
-        <div className="text-center py-8">
-          <Calendar className="h-16 w-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-          <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">No Upcoming Sessions</h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            You don't have any sessions scheduled yet.
+        <div className="text-center py-8 px-4">
+          <p className="text-muted-foreground mb-4">
+            You don't have any upcoming mentorship sessions scheduled.
           </p>
           <button 
-            onClick={() => navigate("/find-mentors")}
+            onClick={() => navigate("/mentees")}
             className="px-4 py-2 bg-primary text-white rounded-lg text-sm"
           >
-            Find a Mentor
+            Schedule a Session
           </button>
         </div>
       </div>
@@ -161,6 +163,25 @@ const UpcomingSessionsSection = () => {
           <div key={session.id} className="border border-border/30 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
             <div className="flex justify-between items-start mb-2">
               <h4 className="font-medium">{session.title}</h4>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => onEditSession(session)}
+                  className="p-1 text-gray-500 hover:text-primary transition-colors"
+                  title="Edit session"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onCancelSession(session.id)}
+                  className="p-1 text-gray-500 hover:text-red-500 transition-colors"
+                  title="Cancel session"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center text-sm mb-2">
               <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
                 {getTimeUntil(session.date)}
               </span>
@@ -172,7 +193,7 @@ const UpcomingSessionsSection = () => {
               ) : (
                 <Video className="h-3.5 w-3.5 mr-1.5" />
               )}
-              <span>{session.type} with {session.mentor}</span>
+              <span>{session.type} with {session.menteeName}</span>
             </div>
             
             <div className="flex items-center text-xs text-muted-foreground">
@@ -182,27 +203,28 @@ const UpcomingSessionsSection = () => {
               <span>{session.time} ({session.duration} min)</span>
             </div>
             
-            {session.meetingLink && (
-              <a 
-                href={session.meetingLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 text-xs text-primary flex items-center hover:underline"
-              >
-                <Video className="h-3.5 w-3.5 mr-1.5" />
-                Join Meeting
-              </a>
+            {session.topic && (
+              <div className="mt-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-xs text-gray-600 dark:text-gray-300">
+                Topic: {session.topic}
+              </div>
             )}
           </div>
         ))}
       </div>
       
-      <button 
-        className="w-full mt-4 text-sm text-primary font-medium flex items-center justify-center"
+      {upcomingSessions.length > 3 && (
+        <div className="mt-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            +{upcomingSessions.length - 3} more upcoming sessions
+          </p>
+        </div>
+      )}
+      
+      <button
         onClick={viewSchedule}
+        className="w-full mt-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors flex items-center justify-center gap-1"
       >
-        View full schedule
-        <ChevronRight className="h-4 w-4 ml-1" />
+        View Full Schedule
       </button>
     </div>
   );

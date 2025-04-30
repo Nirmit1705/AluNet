@@ -11,7 +11,7 @@ import { initWebSocketServer } from './webSocketServer.js';
 
 // Import routes - Fix capitalization to match actual file paths
 import userRoutes from './routes/userRoutes.js';
-import alumniRoutes from './routes/alumniRoutes.js';
+import alumniRoutes from './Routes/alumniRoutes.js';
 import studentRoutes from './routes/studentRoutes.js';
 import jobRoutes from './routes/jobPostingRoutes.js'; // Fixed to actual filename
 import adminRoutes from './routes/adminRoutes.js';

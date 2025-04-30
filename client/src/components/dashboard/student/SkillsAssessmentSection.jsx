@@ -1,43 +1,100 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Award, Clock, CheckCircle } from "lucide-react";
 
-// Sample data for skills assessment
-const skillAssessments = [
-  {
-    id: 1,
-    title: "Technical Skills Assessment",
-    description: "Evaluate your programming skills across multiple languages and frameworks.",
-    estimatedTime: "45 mins",
-    completed: true,
-    progress: 100
-  },
-  {
-    id: 2,
-    title: "Soft Skills Evaluation",
-    description: "Assess your communication, teamwork, and problem-solving abilities.",
-    estimatedTime: "30 mins",
-    completed: false,
-    progress: 60
-  },
-  {
-    id: 3,
-    title: "Industry Knowledge Test",
-    description: "Test your knowledge of current industry trends and best practices.",
-    estimatedTime: "25 mins",
-    completed: false,
-    progress: 0
-  }
-];
-
 const SkillsAssessmentSection = () => {
   const navigate = useNavigate();
+  const [skillAssessments, setSkillAssessments] = useState([]);
+
+  useEffect(() => {
+    // Get mock assessment data from localStorage (shared with StudentDashboardPage)
+    const mockAssessmentData = JSON.parse(localStorage.getItem('mockAssessmentData')) || {
+      completedAssessments: 1,
+      assessmentProgress: 60,
+      assessments: [
+        {
+          id: 1,
+          title: "Technical Skills Assessment",
+          description: "Evaluate your programming skills across multiple languages and frameworks.",
+          estimatedTime: "45 mins",
+          completed: true,
+          progress: 100
+        },
+        {
+          id: 2,
+          title: "Soft Skills Evaluation",
+          description: "Assess your communication, teamwork, and problem-solving abilities.",
+          estimatedTime: "30 mins",
+          completed: false,
+          progress: 60
+        },
+        {
+          id: 3,
+          title: "Industry Knowledge Test",
+          description: "Test your knowledge of current industry trends and best practices.",
+          estimatedTime: "25 mins",
+          completed: false,
+          progress: 0
+        }
+      ]
+    };
+    
+    // If for some reason data doesn't exist in localStorage yet, create it
+    if (!localStorage.getItem('mockAssessmentData')) {
+      localStorage.setItem('mockAssessmentData', JSON.stringify(mockAssessmentData));
+    }
+    
+    setSkillAssessments(mockAssessmentData.assessments);
+  }, []);
 
   // Take skill assessment
   const takeSkillAssessment = (assessmentId) => {
-    navigate(`/skills/assessment/${assessmentId}`);
-    // In a real app, this would navigate to the specific assessment
-    alert(`Starting assessment #${assessmentId}`);
+    try {
+      // Update progress for the selected assessment in localStorage
+      const mockAssessmentData = JSON.parse(localStorage.getItem('mockAssessmentData'));
+      if (mockAssessmentData && mockAssessmentData.assessments) {
+        const updatedAssessments = mockAssessmentData.assessments.map(assessment => {
+          if (assessment.id === assessmentId) {
+            // If not completed, increase progress
+            if (!assessment.completed) {
+              const newProgress = Math.min(100, assessment.progress + 20);
+              const nowCompleted = newProgress >= 100;
+              
+              // If completing an assessment, increment completedAssessments count
+              if (nowCompleted && !assessment.completed) {
+                mockAssessmentData.completedAssessments += 1;
+              }
+              
+              return {
+                ...assessment,
+                progress: newProgress,
+                completed: nowCompleted
+              };
+            }
+          }
+          return assessment;
+        });
+        
+        // Calculate overall progress
+        const totalProgress = updatedAssessments.reduce((sum, assessment) => sum + assessment.progress, 0);
+        mockAssessmentData.assessmentProgress = Math.round(totalProgress / updatedAssessments.length);
+        
+        // Update assessments array
+        mockAssessmentData.assessments = updatedAssessments;
+        
+        // Save updated data
+        localStorage.setItem('mockAssessmentData', JSON.stringify(mockAssessmentData));
+        
+        // Update state
+        setSkillAssessments(updatedAssessments);
+      }
+      
+      // In a real app, this would navigate to the specific assessment
+      navigate(`/skills/assessment/${assessmentId}`);
+    } catch (error) {
+      console.error("Error updating assessment:", error);
+      alert(`Starting assessment #${assessmentId}`);
+    }
   };
 
   // Navigate to skills assessment page
@@ -109,4 +166,4 @@ const SkillsAssessmentSection = () => {
   );
 };
 
-export default SkillsAssessmentSection; 
+export default SkillsAssessmentSection;
