@@ -8,9 +8,16 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// All notification routes are protected
-router.get('/', protect, getNotifications);
-router.put('/:id', protect, markNotificationAsRead);
-router.put('/read-all', protect, markAllNotificationsAsRead);
+// All notification routes require authentication
+router.use(protect);
+
+// Get notifications
+router.get('/', getNotifications);
+
+// Mark a notification as read
+router.put('/:id', markNotificationAsRead);
+
+// Mark all notifications as read
+router.put('/read-all', markAllNotificationsAsRead);
 
 export default router;

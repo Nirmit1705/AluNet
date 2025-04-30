@@ -7,6 +7,7 @@ import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { connectDB } from './config/db.js';
 import { requestLogger } from './middleware/loggingMiddleware.js';
 import fs from 'fs';
+import { initWebSocketServer } from './webSocketServer.js';
 
 // Import routes - Fix capitalization to match actual file paths
 import userRoutes from './routes/userRoutes.js';
@@ -100,9 +101,13 @@ app.get("/api/test", (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+// Create HTTP server with WebSocket support
+const server = initWebSocketServer(app);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    console.log(`WebSocket server is active on ws://localhost:${PORT}/ws`);
 });
 
 export default app;

@@ -1,10 +1,11 @@
-import Notification from '../Models/Notification.js';
 import asyncHandler from 'express-async-handler';
+import Notification from '../Models/Notification.js';
 
-// @desc    Create a notification
-// @route   Internal function, not an API endpoint
-// @access  Private
-const createNotification = async (recipientId, recipientModel, type, title, message, referenceId) => {
+/**
+ * @desc    Create a notification
+ * @access  Private (internal)
+ */
+const createNotification = async (recipientId, recipientModel, type, title, message, relatedId) => {
   try {
     const notification = await Notification.create({
       recipient: recipientId,
@@ -12,34 +13,46 @@ const createNotification = async (recipientId, recipientModel, type, title, mess
       type,
       title,
       message,
-      referenceId,
-      read: false
+      relatedId,
+      isRead: false
     });
     
     return notification;
   } catch (error) {
-    console.error('Failed to create notification:', error);
+    console.error('Error creating notification:', error);
     return null;
   }
 };
 
-// @desc    Get all notifications for a user
-// @route   GET /api/notifications
-// @access  Private
+/**
+ * @desc    Get notifications for current user
+ * @route   GET /api/notifications
+ * @access  Private
+ */
 const getNotifications = asyncHandler(async (req, res) => {
-  const notifications = await Notification.find({ 
-    recipient: req.user._id,
-    recipientModel: req.user.registrationNumber ? 'Student' : 'Alumni'
-  }).sort('-createdAt');
+  const userId = req.user._id;
+  const userModel = req.user.registrationNumber ? 'Student' : 'Alumni';
+  
+  const notifications = await Notification.find({
+    recipient: userId,
+    recipientModel: userModel
+  })
+  .sort({ createdAt: -1 })
+  .limit(50);
   
   res.json(notifications);
 });
 
-// @desc    Mark a notification as read
-// @route   PUT /api/notifications/:id
-// @access  Private
+/**
+ * @desc    Mark a notification as read
+ * @route   PUT /api/notifications/:id
+ * @access  Private
+ */
 const markNotificationAsRead = asyncHandler(async (req, res) => {
-  const notification = await Notification.findById(req.params.id);
+  const notificationId = req.params.id;
+  const userId = req.user._id;
+  
+  const notification = await Notification.findById(notificationId);
   
   if (!notification) {
     res.status(404);
@@ -47,31 +60,45 @@ const markNotificationAsRead = asyncHandler(async (req, res) => {
   }
   
   // Check if this notification belongs to the user
-  if (!notification.recipient.equals(req.user._id)) {
+  if (notification.recipient.toString() !== userId.toString()) {
     res.status(403);
     throw new Error('Not authorized to update this notification');
   }
   
-  notification.read = true;
+  notification.isRead = true;
+  notification.readAt = new Date();
   await notification.save();
   
   res.json(notification);
 });
 
-// @desc    Mark all notifications as read
-// @route   PUT /api/notifications/read-all
-// @access  Private
+/**
+ * @desc    Mark all notifications as read
+ * @route   PUT /api/notifications/read-all
+ * @access  Private
+ */
 const markAllNotificationsAsRead = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const userModel = req.user.registrationNumber ? 'Student' : 'Alumni';
+  
   await Notification.updateMany(
     { 
-      recipient: req.user._id,
-      recipientModel: req.user.registrationNumber ? 'Student' : 'Alumni',
-      read: false
+      recipient: userId, 
+      recipientModel: userModel,
+      isRead: false
     },
-    { read: true }
+    { 
+      isRead: true,
+      readAt: new Date()
+    }
   );
   
-  res.json({ message: 'All notifications marked as read' });
+  res.json({ success: true, message: 'All notifications marked as read' });
 });
 
-export { createNotification, getNotifications, markNotificationAsRead, markAllNotificationsAsRead };
+export {
+  createNotification,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
+};
