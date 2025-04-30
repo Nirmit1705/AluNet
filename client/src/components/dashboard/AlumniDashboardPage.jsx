@@ -232,7 +232,174 @@ const AlumniDashboardPage = () => {
     },
   ];
 
-  // ...existing code...
+  // Add missing navigation functions
+  const goToStudents = () => {
+    navigate("/student-connections");
+  };
+  
+  const goToJobs = () => {
+    navigate("/job-board");
+  };
+  
+  const goToMentorship = () => {
+    navigate("/mentorship-requests");
+  };
+  
+  const viewAllMentees = () => {
+    navigate("/mentees");
+  };
+  
+  const goToJobBoard = () => {
+    navigate("/job-board");
+  };
+  
+  const messageMentee = (menteeId) => {
+    navigate(`/messages/${menteeId}`);
+  };
+  
+  const toggleJobPostModal = () => {
+    setJobPostModal(!jobPostModal);
+  };
+  
+  const handleJobFormChange = (e) => {
+    const { id, value } = e.target;
+    setNewJobPost(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  const submitJobPosting = () => {
+    // Implementation for job posting submission
+    console.log("Submitting job posting:", newJobPost);
+    // Close modal after submission
+    setJobPostModal(false);
+  };
+  
+  const markAllNotificationsAsRead = () => {
+    // Implementation for marking all notifications as read
+    console.log("Marking all notifications as read");
+  };
+  
+  const toggleNotifications = () => {
+    setShowNotificationsPanel(!showNotificationsPanel);
+  };
+  
+  const markNotificationAsRead = (notificationId) => {
+    // Implementation for marking a single notification as read
+    console.log("Marking notification as read:", notificationId);
+  };
+  
+  const editJobPost = (jobId) => {
+    // Implementation for editing a job post
+    console.log("Editing job post:", jobId);
+  };
+  
+  const deleteJobPost = (jobId) => {
+    // Implementation for deleting a job post
+    console.log("Deleting job post:", jobId);
+    setMyPostedJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+  };
+  
+  const viewMenteeDetails = (mentee) => {
+    setSelectedMentee(mentee);
+  };
+  
+  // Additional function references that might be needed
+  const [scheduledSessions, setScheduledSessions] = useState([]);
+  const [showDirectScheduleModal, setShowDirectScheduleModal] = useState(false);
+  const [selectedMenteeForScheduling, setSelectedMenteeForScheduling] = useState(null);
+  const [showEditSessionModal, setShowEditSessionModal] = useState(false);
+  const [sessionToEdit, setSessionToEdit] = useState(null);
+  const [showConnectionRequestsModal, setShowConnectionRequestsModal] = useState(false);
+  const [showApplicantsModal, setShowApplicantsModal] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState(null);
+  const [currentJobApplicants, setCurrentJobApplicants] = useState([]);
+  const [showApplicantDetailModal, setShowApplicantDetailModal] = useState(false);
+  const [selectedApplicant, setSelectedApplicant] = useState(null);
+  const [pendingConnectionRequests, setPendingConnectionRequests] = useState([]);
+  
+  const openScheduleModal = (mentee, e) => {
+    if (e) e.stopPropagation();
+    setSelectedMenteeForScheduling(mentee);
+    setShowDirectScheduleModal(true);
+  };
+  
+  const handleCloseScheduleModal = () => {
+    setShowDirectScheduleModal(false);
+    setSelectedMenteeForScheduling(null);
+  };
+  
+  const handleSessionScheduled = (mentee, sessionDetails) => {
+    console.log("Scheduling session:", mentee, sessionDetails);
+    // Implementation for scheduling a session
+  };
+  
+  const openEditSessionModal = (session) => {
+    setSessionToEdit(session);
+    setShowEditSessionModal(true);
+  };
+  
+  const handleSessionUpdate = (session) => {
+    console.log("Updating session:", session);
+    // Implementation for updating a session
+    setShowEditSessionModal(false);
+    setSessionToEdit(null);
+  };
+  
+  const cancelSession = (sessionId) => {
+    console.log("Canceling session:", sessionId);
+    // Implementation for canceling a session
+  };
+  
+  const closeApplicantsModal = () => {
+    setShowApplicantsModal(false);
+    setCurrentJobId(null);
+    setCurrentJobApplicants([]);
+  };
+  
+  const viewApplicantDetails = (applicant) => {
+    setSelectedApplicant(applicant);
+    setShowApplicantDetailModal(true);
+  };
+  
+  const closeApplicantDetailModal = () => {
+    setShowApplicantDetailModal(false);
+    setSelectedApplicant(null);
+  };
+  
+  const handleReferralDecision = (applicantId, decision) => {
+    console.log(`${decision} referral for applicant:`, applicantId);
+    // Implementation for referral decision
+  };
+  
+  const ConnectionRequestsModal = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-xl p-6 animate-fade-in">
+          <h2 className="text-xl font-bold mb-4">Connection Requests</h2>
+          <div className="max-h-[60vh] overflow-y-auto">
+            {pendingConnectionRequests.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No pending connection requests</p>
+            ) : (
+              <div className="space-y-4">
+                {/* Connection requests would be rendered here */}
+                <p>Connection requests would appear here</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button 
+              onClick={() => setShowConnectionRequestsModal(false)}
+              className="px-4 py-2 bg-primary text-white rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Update the Mentee card section to properly display session counts
   return (

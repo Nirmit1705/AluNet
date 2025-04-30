@@ -387,11 +387,57 @@ const getConnectedMentors = asyncHandler(async (req, res) => {
   res.json(mentors);
 });
 
+/**
+ * @desc   Get connected students for an alumni
+ * @route  GET /api/connections/students
+ * @access Private (Alumni only)
+ */
+const getConnectedStudents = asyncHandler(async (req, res) => {
+  // Check if user is an alumni
+  if (req.user.constructor.modelName !== 'Alumni') {
+    res.status(403);
+    throw new Error('Access denied. Only alumni can access this endpoint.');
+  }
+
+  // Find all connections where the alumni is connected and status is 'accepted'
+  const connections = await Connection.find({
+    alumni: req.user._id,
+    status: 'accepted'
+  }).populate({
+    path: 'student',
+    select: 'name email profilePicture registrationNumber branch currentYear university college skills interests'
+  });
+
+  // Format the response with detailed student information
+  const students = connections.map(connection => {
+    const student = connection.student;
+    
+    return {
+      id: student._id,
+      name: student.name,
+      email: student.email,
+      profilePicture: student.profilePicture?.url || null,
+      registrationNumber: student.registrationNumber,
+      branch: student.branch || 'Not specified',
+      currentYear: student.currentYear || 'Not specified',
+      university: student.university || 'Not specified',
+      college: student.college || 'Not specified',
+      skills: student.skills || [],
+      interests: student.interests || [],
+      connectionDate: connection.updatedAt,
+      connectionId: connection._id
+    };
+  });
+
+  res.json(students);
+});
+
 export {
   requestConnection,
   getPendingRequests,
   getConnections,
   respondToRequest,
   getSentRequests,
-  getConnectedMentors
+  getConnectedMentors,
+  getConnectedStudents
 };

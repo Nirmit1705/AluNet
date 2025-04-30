@@ -12,12 +12,12 @@ import {
   Check,
   Bell,
   UserPlus,
-  User // Add the User icon import
+  User
 } from "lucide-react";
 import axios from "axios";
 import { useToast } from "../components/ui/use-toast";
 import { toast as sonnerToast } from "sonner";
-import Navbar from "../components/layout/Navbar"; // Import the Navbar component
+import Navbar from "../components/layout/Navbar";
 
 // WebSocket URL constants - use the same base URL as your regular API
 const API_BASE_URL = window.location.origin.replace(/^http/, 'ws');
@@ -120,23 +120,43 @@ const Messages = () => {
   const handleIncomingMessage = (message) => {
     // If message is for current conversation, add it to messages
     if (selectedContact && message.sender.toString() === selectedContact.userId) {
-      setMessages(prev => [...prev, message]);
+      // Check if this is a message from the current user
+      const isFromCurrentUser = 
+        // Either the sender is the current user ID as string
+        (typeof message.sender === 'string' && message.sender === currentUserId) ||
+        // Or the sender is an object with an _id that matches current user ID
+        (typeof message.sender === 'object' && message.sender._id === currentUserId) ||
+        // Or the senderModel matches the current user's role
+        (message.senderModel === (isStudent ? 'Student' : 'Alumni') && 
+         message.sender.toString() === currentUserId);
+      
+      // Add the sentByMe flag explicitly
+      const messageWithSentByMe = {
+        ...message,
+        sentByMe: isFromCurrentUser
+      };
+      
+      setMessages(prev => [...prev, messageWithSentByMe]);
       scrollToBottom();
       
-      // Send read receipt
-      if (websocket && websocket.readyState === WebSocket.OPEN) {
+      // Send read receipt if it's not from current user
+      if (!isFromCurrentUser && websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.send(JSON.stringify({
           type: 'read_receipt',
           messageId: message._id
         }));
       }
     }
-    
+      
     // Update contacts with new message
     setContacts(prevContacts => {
+      // Get the correct ID for checking - if sender is current user, use recipient ID
+      const senderId = message.sender.toString();
+      const isFromCurrentUser = senderId === currentUserId;
+      
       // Find if we already have this contact
       const existingContactIndex = prevContacts.findIndex(
-        c => c.userId === message.sender.toString()
+        c => c.userId === (isFromCurrentUser ? message.recipient?.toString() : senderId)
       );
       
       if (existingContactIndex !== -1) {
@@ -148,12 +168,12 @@ const Messages = () => {
           id: message._id,
           content: message.content,
           timestamp: message.createdAt,
-          sentByMe: false,
+          sentByMe: isFromCurrentUser,
           isRead: false
         };
         
-        // Increment unread count if not in current conversation
-        if (!selectedContact || selectedContact.userId !== message.sender.toString()) {
+        // Increment unread count if not in current conversation and not sent by current user
+        if (!isFromCurrentUser && (!selectedContact || selectedContact.userId !== senderId)) {
           contact.unreadCount = (contact.unreadCount || 0) + 1;
         }
         
@@ -161,7 +181,10 @@ const Messages = () => {
         return updatedContacts;
       } else {
         // We'll need to fetch contact details since it's a new conversation
-        fetchContactDetails(message.sender);
+        // Only fetch if not from current user
+        if (!isFromCurrentUser) {
+          fetchContactDetails(senderId);
+        }
         return prevContacts;
       }
     });
@@ -175,12 +198,11 @@ const Messages = () => {
       )
     );
   };
-  
+
   // Fetch available connections (people you can message)
   const fetchConnections = async () => {
     try {
       setIsLoadingConnections(true);
-      
       // Determine which API to call based on user role
       const endpoint = isStudent ? '/api/connections/mentors' : '/api/connections/students';
       
@@ -201,21 +223,18 @@ const Messages = () => {
         variant: "destructive"
       });
       setIsLoadingConnections(false);
-    }
-  };
-  
+    } 
+  };  
+
   // Fetch contact details for a new conversation
   const fetchContactDetails = async (userId) => {
     try {
       const endpoint = isStudent ? `/api/alumni/${userId}` : `/api/students/${userId}`;
-      
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (response.status === 200) {
         const user = response.data;
-        
         // Handle different possible profile picture structures
         let profilePicture = null;
         if (user.profilePicture) {
@@ -223,27 +242,25 @@ const Messages = () => {
         }
         
         // Ensure the userId is properly set and in string format
-        setContacts(prev => [
-          {
-            userId: user._id.toString(), // Ensure it's a string
-            name: user.name,
-            profilePicture: profilePicture,
-            lastMessage: {
-              content: "New conversation",
-              timestamp: new Date(),
-              sentByMe: false,
-              isRead: false
-            },
-            unreadCount: 1
+        setContacts(prev => [{
+          userId: user._id.toString(), // Ensure it's a string
+          name: user.name,
+          profilePicture: profilePicture,
+          lastMessage: {
+            id: null,
+            content: "New conversation",
+            timestamp: new Date(),
+            sentByMe: false,
+            isRead: false
           },
-          ...prev
-        ]);
+          unreadCount: 1
+        }, ...prev]);
       }
     } catch (error) {
       console.error('Error fetching contact details:', error);
     }
   };
-  
+
   // Effect to scroll to bottom when messages update
   useEffect(() => {
     scrollToBottom();
@@ -256,7 +273,6 @@ const Messages = () => {
       const response = await axios.get('/api/messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (response.status === 200) {
         setContacts(response.data);
         
@@ -268,7 +284,6 @@ const Messages = () => {
           }
         }
       }
-      
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -289,17 +304,13 @@ const Messages = () => {
         console.error('Skipping conversation fetch: No userId provided');
         return;
       }
-      
       console.log(`Fetching conversation for userId: ${userId}`);
-      
       const response = await axios.get(`/api/messages/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (response.status === 200) {
         console.log('Conversation data received:', response.data);
         setMessages(response.data);
-        
         // Update the unread count in contacts
         setContacts(prevContacts =>
           prevContacts.map(contact =>
@@ -308,7 +319,6 @@ const Messages = () => {
               : contact
           )
         );
-        
         // Send read receipts for unread messages via WebSocket
         if (websocket && websocket.readyState === WebSocket.OPEN) {
           response.data.forEach(message => {
@@ -324,116 +334,67 @@ const Messages = () => {
     } catch (error) {
       console.error('Error fetching conversation:', error);
       console.error('Error details:', error.response?.data);
-      
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to load messages",
-        variant: "destructive"
-      });
     }
   };
   
   // Handle contact selection
   const handleSelectContact = (contact) => {
     setSelectedContact(contact);
-    
     // Add debugging logs to track the issue
     console.log('Selected contact:', contact);
     console.log('Contact userId:', contact.userId);
-    
-    // Make sure userId is a valid string before fetching
     if (contact && contact.userId) {
       // Ensure we're using a string
       const contactId = contact.userId.toString();
       fetchConversation(contactId);
-      
       // Update URL without reloading the page
       navigate(`/messages/${contactId}`, { replace: true });
     } else {
       console.error('Invalid contact or contact userId', contact);
     }
-    
-    setShowSidebar(false);
   };
-  
+
   // Start a new conversation with a connection
   const startNewConversation = (connection) => {
     // Add debugging to trace what's happening
     console.log('Starting new conversation with connection:', connection);
-    
-    // Validate connection object and ensure it has an ID
-    if (!connection || (!connection._id && !connection.id)) {
-      console.error('Invalid connection object:', connection);
-      toast({
-        title: "Error",
-        description: "Cannot start conversation with invalid contact",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Get the connection ID, handling different property names
-    const connectionId = (connection._id || connection.id || '').toString();
-    
-    // Check if there's already a conversation with this user
-    const existingContact = contacts.find(c => c.userId === connectionId);
-    
-    if (existingContact) {
-      console.log('Found existing contact:', existingContact);
-      handleSelectContact(existingContact);
-    } else {
-      // Create a new conversation contact with proper handling of profile picture
-      let profilePicture = null;
-      if (connection.profilePicture) {
-        profilePicture = typeof connection.profilePicture === 'object' ? 
-          connection.profilePicture.url : connection.profilePicture;
+    if (connection && (connection._id || connection.id)) {
+      // Get the connection ID, handling different property names
+      const connectionId = (connection._id || connection.id || '').toString();
+      // Check if there's already a conversation with this user
+      const existingContact = contacts.find(c => c.userId === connectionId);
+      if (existingContact) {
+        console.log('Found existing contact:', existingContact);
+        handleSelectContact(existingContact);
+      } else {
+        // We'll need to fetch contact details since it's a new conversation
+        fetchContactDetails(connectionId);
       }
-      
-      // Ensure the userId is properly set and in string format
-      const newContact = {
-        userId: connectionId,
-        name: connection.name || 'Unknown Contact',
-        profilePicture: profilePicture,
-        lastMessage: null,
-        unreadCount: 0
-      };
-      
-      console.log('Creating new contact with userId:', newContact.userId);
-      setContacts(prev => [newContact, ...prev]);
-      
-      // Important: We need to wait for the state update to complete before selecting
-      // Use setTimeout to ensure the contact is in the state before selecting
-      setTimeout(() => {
-        handleSelectContact(newContact);
-      }, 0);
+    } else {
+      console.error('Invalid connection object:', connection);
     }
   };
-  
+
   // Filter contacts based on search input
   const filteredContacts = contacts.filter(contact => 
     contact.name.toLowerCase().includes(searchInput.toLowerCase())
-  );
-  
+  );  
   // Filter available connections based on search input
   const filteredConnections = availableConnections.filter(connection =>
     connection.name.toLowerCase().includes(searchInput.toLowerCase())
   );
-  
+
   // Send a message
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    
     if (!messageInput.trim() || !selectedContact) return;
-    
     try {
       setSendingMessage(true);
-      
       // Debug logs for troubleshooting the sender ID issue
       console.log('Sending message as user:', {
         currentUserId: currentUserId,
         typeOfId: typeof currentUserId
       });
-      
       // Ensure the recipientId is a string
       const recipientId = selectedContact.userId.toString();
       
@@ -442,7 +403,9 @@ const Messages = () => {
         _id: `temp-${Date.now()}`,
         content: messageInput,
         sender: currentUserId,
+        senderModel: isStudent ? 'Student' : 'Alumni', // Add sender model
         isOptimistic: true,
+        sentByMe: true, // Explicitly mark as sent by current user
         createdAt: new Date().toISOString(),
         isRead: false
       };
@@ -451,26 +414,23 @@ const Messages = () => {
       setMessages(prev => [...prev, optimisticMessage]);
       setMessageInput("");
       scrollToBottom();
-      
       // Send message to server
-      const response = await axios.post(
-        '/api/messages',
-        {
+      const response = await axios.post('/api/messages', {
           recipientId,
           content: messageInput
-        },
-        {
+        }, {
           headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      });
       
       if (response.status === 201) {
-        // Replace optimistic message with real one - make sure to preserve isMe status
+        // Replace optimistic message with real one
         setMessages(prev => 
           prev.map(msg => 
             msg.isOptimistic ? { 
               ...response.data, 
-              sender: currentUserId // Force the sender to be currentUserId to ensure it displays as "me"
+              sender: currentUserId,
+              senderModel: isStudent ? 'Student' : 'Alumni', // Add sender model
+              sentByMe: true // Explicitly mark as sent by current user
             } : msg
           )
         );
@@ -479,8 +439,7 @@ const Messages = () => {
         setContacts(prevContacts =>
           prevContacts.map(contact =>
             contact.userId === selectedContact.userId
-              ? {
-                  ...contact,
+              ? { ...contact,
                   lastMessage: {
                     id: response.data._id,
                     content: response.data.content,
@@ -500,24 +459,22 @@ const Messages = () => {
             message: response.data
           }));
         }
+        
+        setSendingMessage(false);
       }
-      
-      setSendingMessage(false);
     } catch (error) {
       console.error('Error sending message:', error);
       console.error('Error response:', error.response?.data);
       
       // Remove optimistic message and show error
       setMessages(prev => prev.filter(msg => !msg.isOptimistic));
-      
       toast({
         title: "Error",
         description: error.response?.data?.message || "Failed to send message",
         variant: "destructive"
       });
-      
       setSendingMessage(false);
-    }
+    }    
   };
   
   // Handle message selection for deletion
@@ -525,7 +482,7 @@ const Messages = () => {
     if (selectedMessages.includes(messageId)) {
       setSelectedMessages(prev => prev.filter(id => id !== messageId));
     } else {
-      setSelectedMessages(prev => [...prev, messageId]);
+      setSelectedMessages(prev => [...prev, messageId]);  
     }
   };
   
@@ -548,26 +505,22 @@ const Messages = () => {
       // Reset selection mode and selected messages
       setIsSelectionMode(false);
       setSelectedMessages([]);
-      
       sonnerToast.success("Messages deleted successfully");
     } catch (error) {
       console.error('Error deleting messages:', error);
-      
       // Revert to original messages if deletion fails
       fetchConversation(selectedContact.userId);
-      
       toast({
         title: "Error",
         description: "Failed to delete messages",
         variant: "destructive"
       });
-    }
+    } 
   };
-  
+
   // Format timestamp
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
-    
     const date = new Date(timestamp);
     const now = new Date();
     const yesterday = new Date(now);
@@ -590,11 +543,7 @@ const Messages = () => {
   // Get user initials
   const getInitials = (name) => {
     if (!name) return '';
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase();
+    return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
 
   return (
@@ -622,153 +571,152 @@ const Messages = () => {
                 />
               </div>
             </div>
-            
-            {isLoading ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-              </div>
-            ) : (
-              <div className="overflow-y-auto flex-1">
-                {/* Available connections */}
-                {availableConnections.length > 0 && (
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                    <h3 className="text-xs uppercase text-gray-500 font-semibold mb-2">Your Connections</h3>
-                    <div className="space-y-2">
-                      {isLoadingConnections ? (
-                        <div className="flex justify-center py-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                        </div>
-                      ) : (
-                        filteredConnections.slice(0, 5).map((connection, index) => (
-                          <div
-                            key={connection._id || index} // Add index as fallback key
-                            onClick={() => {
-                              try {
-                                startNewConversation(connection);
-                              } catch (error) {
-                                console.error('Error starting conversation:', error);
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to start conversation",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                            className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg cursor-pointer"
-                          >
-                            <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 overflow-hidden">
-                              {connection.profilePicture ? (
-                                <img
-                                  src={typeof connection.profilePicture === 'object' ? connection.profilePicture.url : connection.profilePicture}
-                                  alt={connection.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <User className="h-5 w-5" />
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-sm">{connection.name}</h4>
-                              <p className="text-xs text-gray-500">{connection.role || "Connection"}</p>
-                            </div>
-                            <UserPlus className="h-4 w-4 text-gray-400 ml-auto" />
+            <div className="flex-1 flex flex-col">
+              {isLoading ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                </div>
+              ) : (
+                <div className="overflow-y-auto flex-1">
+                  {/* Available connections */}
+                  {availableConnections.length > 0 && (
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                      <h3 className="text-xs uppercase text-gray-500 font-semibold mb-2">Your Connections</h3>
+                      <div className="space-y-2">
+                        {isLoadingConnections ? (
+                          <div className="flex justify-center py-2">
+                            <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
                           </div>
-                        ))
-                      )}
-                      
-                      {availableConnections.length > 5 && (
-                        <button 
-                          className="text-xs text-primary hover:underline flex items-center justify-center w-full mt-1"
-                          onClick={() => navigate(isStudent ? '/alumni-directory' : '/student-connections')}
-                        >
-                          View all connections
-                          <ChevronRight className="h-3 w-3 ml-1" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Active conversations */}
-                <div>
-                  {filteredContacts.length > 0 ? (
-                    <>
-                      <div className="px-4 py-2">
-                        <h3 className="text-xs uppercase text-gray-500 font-semibold">Conversations</h3>
-                      </div>
-                      {filteredContacts.map((contact) => (
-                        <div
-                          key={contact.userId}
-                          onClick={() => handleSelectContact(contact)}
-                          className={`p-4 flex items-start space-x-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${
-                            selectedContact?.userId === contact.userId ? "bg-gray-50 dark:bg-gray-800/50" : ""
-                          }`}
-                        >
-                          <div className="relative">
-                            <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center overflow-hidden">
-                              {contact.profilePicture ? (
-                                <img
-                                  src={contact.profilePicture}
-                                  alt={contact.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span className="font-bold">{getInitials(contact.name)}</span>
-                              )}
+                        ) : (
+                          filteredConnections.slice(0, 5).map((connection, index) => (
+                            <div
+                              key={connection._id || index} // Add index as fallback key
+                              onClick={() => {
+                                try {
+                                  startNewConversation(connection);
+                                } catch (error) {
+                                  console.error('Error starting conversation:', error);
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to start conversation",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg cursor-pointer"
+                            >
+                              <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 overflow-hidden">
+                                {connection.profilePicture ? (
+                                  <img
+                                    src={typeof connection.profilePicture === 'object' ? connection.profilePicture.url : connection.profilePicture}
+                                    alt={connection.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <User className="h-5 w-5" />
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-sm">{connection.name}</h4>
+                                <p className="text-xs text-gray-500">{connection.role || "Connection"}</p>
+                              </div>
+                              <UserPlus className="h-4 w-4 text-gray-400 ml-auto" />
                             </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-medium truncate">{contact.name}</h4>
-                              <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                                {formatTime(contact.lastMessage?.timestamp)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center mt-1">
-                              <p className="text-sm truncate text-gray-600 dark:text-gray-400">
-                                {contact.lastMessage?.sentByMe ? "You: " : ""}
-                                {contact.lastMessage?.content}
-                              </p>
-                              {contact.unreadCount > 0 && (
-                                <span className="bg-primary text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
-                                  {contact.unreadCount}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="p-8 text-center text-gray-500">
-                      {searchInput ? (
-                        <p>No contacts match your search</p>
-                      ) : availableConnections.length > 0 ? (
-                        <div>
-                          <p className="mb-4">No conversations yet.</p>
-                          <p className="text-sm text-gray-400">Start a conversation with one of your connections above!</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="mb-4">No connections found</p>
-                          <button
+                          ))        
+                        )}
+                        {availableConnections.length > 5 && (
+                          <button 
+                            className="text-xs text-primary hover:underline flex items-center justify-center w-full mt-1"
                             onClick={() => navigate(isStudent ? '/alumni-directory' : '/student-connections')}
-                            className="px-4 py-2 bg-primary text-white rounded-lg text-sm"
                           >
-                            Find people to connect with
+                            View all connections
+                            <ChevronRight className="h-3 w-3 ml-1" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
+                  
+                  {/* Active conversations */}
+                  <div>
+                    {filteredContacts.length > 0 ? (
+                      <>
+                        <div className="px-4 py-2">
+                          <h3 className="text-xs uppercase text-gray-500 font-semibold">Conversations</h3>
+                        </div>
+                        {filteredContacts.map((contact) => (
+                          <div
+                            key={contact.userId}
+                            onClick={() => handleSelectContact(contact)}
+                            className={`p-4 flex items-start space-x-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${
+                              selectedContact?.userId === contact.userId ? "bg-gray-50 dark:bg-gray-800/50" : ""
+                            }`}
+                          >
+                            <div className="relative">
+                              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center overflow-hidden">
+                                {contact.profilePicture ? (
+                                  <img
+                                    src={contact.profilePicture}
+                                    alt={contact.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="font-bold">{getInitials(contact.name)}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-medium truncate">{contact.name}</h4>
+                                <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{formatTime(contact.lastMessage?.timestamp)}</span>
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                <p className="text-sm truncate text-gray-600 dark:text-gray-400">
+                                  {contact.lastMessage?.sentByMe ? "You: " : ""}
+                                  {contact.lastMessage?.content}
+                                </p>
+                                {contact.unreadCount > 0 && (
+                                  <span className="bg-primary text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
+                                    {contact.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        {searchInput ? (
+                          <p>No contacts match your search</p>
+                        ) : availableConnections.length > 0 ? (
+                          <div>
+                            <p className="mb-4">No conversations yet.</p>
+                            <p className="text-sm text-gray-400">Start a conversation with one of your connections above!</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="mb-4">No connections found</p>
+                            <button
+                              onClick={() => navigate(isStudent ? '/alumni-directory' : '/student-connections')}
+                              className="px-4 py-2 bg-primary text-white rounded-lg text-sm"
+                            >
+                              Find people to connect with
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Chat area */}
           <div className={`flex-1 flex flex-col bg-white dark:bg-gray-900 ${!showSidebar ? 'flex' : 'hidden md:flex'}`}>
-            {selectedContact ? (
+          {selectedContact ? (
+
               <>
                 {/* Chat header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
@@ -790,30 +738,19 @@ const Messages = () => {
                         <span className="font-bold">{getInitials(selectedContact.name)}</span>
                       )}
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-medium">{selectedContact.name}</h3>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     {isSelectionMode ? (
-                      <>
-                        <button 
-                          className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
-                          onClick={deleteSelectedMessages}
-                          disabled={selectedMessages.length === 0}
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                        <button 
-                          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          onClick={() => {
-                            setIsSelectionMode(false);
-                            setSelectedMessages([]);
-                          }}
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </>
+                      <button 
+                        className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                        onClick={deleteSelectedMessages}
+                        disabled={selectedMessages.length === 0}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
                     ) : (
                       <button 
                         className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -832,17 +769,24 @@ const Messages = () => {
                 </div>
 
                 {/* Messages */}
-                <div 
+                <div
                   ref={messageContainerRef}
                   className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-800/30"
                 >
                   {messages.length > 0 ? (
                     messages.map((message) => {
-                      // Improve isMe detection to be more reliable
+                      // Fix the isMe logic to properly determine message ownership
                       const isMe = message.isOptimistic || 
+                                  message.sentByMe === true || 
                                   String(message.sender) === String(currentUserId) ||
-                                  // Add this as a fallback to handle cases where the server returns the message with a different ID format
-                                  (message.sender && message.sender._id && String(message.sender._id) === String(currentUserId));
+                                  // Check if the message has a sender field that matches current user ID
+                                  (message.sender && typeof message.sender === 'object' && 
+                                   String(message.sender._id) === String(currentUserId)) ||
+                                  // Check for senderModel which might indicate message from current user
+                                  (message.senderModel === (isStudent ? 'Student' : 'Alumni') && 
+                                   (typeof message.sender === 'string' ? 
+                                    message.sender === currentUserId : 
+                                    message.sender._id.toString() === currentUserId));
                       
                       return (
                         <div
@@ -852,18 +796,24 @@ const Messages = () => {
                           <div className="flex items-end max-w-[75%] space-x-2">
                             {!isMe && (
                               <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1 overflow-hidden">
-                                {selectedContact.profilePicture ? (
+                                {selectedContact && selectedContact.profilePicture ? (
                                   <img
                                     src={selectedContact.profilePicture}
                                     alt={selectedContact.name}
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
-                                  <span className="font-bold text-xs">{getInitials(selectedContact.name)}</span>
+                                  <span className="font-bold text-xs">{selectedContact ? getInitials(selectedContact.name) : "?"}</span>
                                 )}
                               </div>
                             )}
                             <div>
+                              {/* Add sender name for group clarity - optional */}
+                              {!isMe && (
+                                <div className="text-xs text-primary font-medium mb-1">
+                                  {selectedContact ? selectedContact.name : "Unknown"}
+                                </div>
+                              )}
                               <div 
                                 className={`rounded-2xl px-4 py-2 inline-block relative ${
                                   isMe
