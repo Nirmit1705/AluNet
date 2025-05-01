@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Users, Calendar, AlertCircle } from "lucide-react";
+import { X, Users, Calendar, AlertCircle, Star, StarHalf } from "lucide-react";
 import axios from "axios";
 import { toast } from 'sonner';
 
@@ -17,13 +17,14 @@ const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, 
   const [newDomain, setNewDomain] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  
+  const [mentorRating, setMentorRating] = useState({ averageRating: 0, totalFeedbacks: 0 });
+
   // Extract mentor information from either direct props or mentor object
   const actualMentorId = mentorId || mentor?.id;
   const actualMentorName = mentorName || mentor?.name;
   const actualMentorRole = mentorRole || mentor?.role;
   const actualMentorEmail = mentorEmail || mentor?.email;
-  
+
   useEffect(() => {
     // Log mentor details for debugging
     console.log("Mentor information in request form:", { 
@@ -37,6 +38,49 @@ const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, 
       console.error("No mentor ID available");
     }
   }, [actualMentorId, actualMentorName, mentorId, mentor]);
+
+  // Fetch mentor rating when component mounts
+  useEffect(() => {
+    const fetchMentorRating = async () => {
+      try {
+        const alumniId = actualMentorId;
+        if (!alumniId) return;
+        
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/feedback/alumni/${alumniId}`
+        );
+        
+        setMentorRating(response.data);
+      } catch (err) {
+        console.error("Error fetching mentor rating:", err);
+      }
+    };
+    
+    fetchMentorRating();
+  }, [actualMentorId]);
+
+  // Helper function to render rating stars
+  const renderRatingStars = () => {
+    const rating = mentorRating?.averageRating || 0;
+    const totalFeedbacks = mentorRating?.totalFeedbacks || 0;
+    
+    if (totalFeedbacks === 0) return <span className="text-sm text-muted-foreground">No reviews yet</span>;
+    
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    
+    return (
+      <div className="flex items-center gap-1">
+        {[...Array(fullStars)].map((_, i) => (
+          <Star key={i} className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+        ))}
+        {halfStar && <StarHalf className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
+        <span className="text-sm ml-1 text-gray-600 dark:text-gray-300">
+          ({rating.toFixed(1)}) · {totalFeedbacks} {totalFeedbacks === 1 ? 'review' : 'reviews'}
+        </span>
+      </div>
+    );
+  };
 
   // Handle mentorship form input changes
   const handleMentorshipInputChange = (e) => {
@@ -165,7 +209,7 @@ const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, 
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-900 px-6 py-4 border-b border-border z-10 flex justify-between items-center">
           <h2 className="text-xl font-bold">Request Mentorship</h2>
           <button 
@@ -177,6 +221,15 @@ const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, 
         </div>
         
         <div className="p-6">
+          <div className="flex items-center mb-6">
+            <div className="mr-4">
+              <p className="text-lg font-medium">{actualMentorName}</p>
+              <p className="text-sm text-muted-foreground">{actualMentorRole || mentor?.position || "Mentor"}</p>
+              {/* Add mentor rating */}
+              {renderRatingStars()}
+            </div>
+          </div>
+          
           <p className="text-muted-foreground mb-6">
             You are requesting mentorship from <span className="font-semibold text-foreground">{actualMentorName}</span>. 
             Please provide details about what you're looking for in this mentorship.
@@ -320,7 +373,6 @@ const MentorshipRequestForm = ({ mentorName, mentorId, mentorRole, mentorEmail, 
               </div>
             </div>
             
-            {/* Add this new field before the meetingMode field */}
             <div>
               <label htmlFor="requestedSessions" className="block text-sm font-medium mb-2">
                 Number of Sessions*

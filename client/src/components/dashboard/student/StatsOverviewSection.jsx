@@ -37,7 +37,7 @@ const StatsOverviewSection = ({ stats, goToMentors, viewJobOpportunities, goToSk
         </p>
       </div>
 
-      <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={goToSkillsAssessment}>
+      <div className="glass-card rounded-xl p-6 animate-fade-in animate-delay-300 cursor-pointer" onClick={() => window.location.href = "/sessions"}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-medium text-lg">Upcoming Sessions</h3>
           <Lightbulb className="h-6 w-6 text-primary" />

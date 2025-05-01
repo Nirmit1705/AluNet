@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import MentorshipFeedback from '../Models/MentorshipFeedback.js';
 import Mentorship from '../Models/Mentorship.js';
+import mongoose from 'mongoose'; // Add this import
 import { createNotification } from './notificationController.js';
 
 // @desc    Submit feedback for a mentorship
@@ -234,9 +235,74 @@ const getFeedbackStats = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get ratings for specific alumni
+// @route   GET /api/mentorship/feedback/alumni/:alumniId
+// @access  Public
+const getAlumniRating = asyncHandler(async (req, res) => {
+  const { alumniId } = req.params;
+  
+  if (!mongoose.Types.ObjectId.isValid(alumniId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid alumni ID format'
+    });
+  }
+
+  // Find all mentorships where this person is the alumni
+  const mentorships = await Mentorship.find({ alumni: alumniId });
+  
+  if (!mentorships.length) {
+    return res.json({
+      totalFeedbacks: 0,
+      averageRating: 0,
+      ratingDistribution: {
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+      }
+    });
+  }
+  
+  // Find feedback where alumni received feedback from students
+  const feedback = await MentorshipFeedback.find({
+    mentorship: { $in: mentorships.map(m => m._id) },
+    fromStudent: true
+  });
+  
+  // Calculate statistics
+  const totalFeedbacks = feedback.length;
+  
+  if (totalFeedbacks === 0) {
+    return res.json({
+      totalFeedbacks: 0,
+      averageRating: 0,
+      ratingDistribution: {
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+      }
+    });
+  }
+  
+  const totalRating = feedback.reduce((sum, item) => sum + item.rating, 0);
+  const averageRating = totalRating / totalFeedbacks;
+  
+  // Count ratings for distribution
+  const ratingDistribution = {
+    1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+  };
+  
+  feedback.forEach(item => {
+    ratingDistribution[item.rating]++;
+  });
+  
+  res.json({
+    totalFeedbacks,
+    averageRating,
+    ratingDistribution
+  });
+});
+
 export {
   submitFeedback,
   getFeedback,
   getReceivedFeedback,
-  getFeedbackStats
+  getFeedbackStats,
+  getAlumniRating
 };

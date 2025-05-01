@@ -53,9 +53,9 @@ const FindMentorsSection = () => {
     }
   };
 
-  // Navigate to mentors page
+  // Navigate to alumni directory
   const goToMentors = () => {
-    navigate("/mentors");
+    navigate("/alumni");
   };
 
   return (
@@ -113,4 +113,4 @@ const FindMentorsSection = () => {
   );
 };
 
-export default FindMentorsSection; 
+export default FindMentorsSection;

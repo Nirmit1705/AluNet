@@ -17,6 +17,13 @@ import {
   getMyUpcomingSessions,
   checkExpiredSessions
 } from '../Controllers/mentorshipSessionController.js';
+import { 
+  submitFeedback, 
+  getFeedback, 
+  getReceivedFeedback, 
+  getFeedbackStats,
+  getAlumniRating 
+} from '../Controllers/mentorshipFeedbackController.js';
 
 const router = express.Router();
 
@@ -42,9 +49,11 @@ router.put('/sessions/:sessionId', protect, updateSession);
 router.put('/sessions/:sessionId/cancel', protect, cancelSession);
 
 // Routes for mentorship feedback
-// router.post('/:mentorshipId/feedback', protect, submitFeedback);
-// router.get('/:mentorshipId/feedback', protect, getFeedback);
-// router.get('/feedback/received', protect, getReceivedFeedback);
-// router.get('/feedback/stats', protect, getFeedbackStats);
+router.post('/:mentorshipId/feedback', protect, submitFeedback);
+router.get('/:mentorshipId/feedback', protect, getFeedback);
+router.get('/feedback/received', protect, getReceivedFeedback);
+router.get('/feedback/stats', protect, getFeedbackStats);
+// Add the new alumni rating endpoint
+router.get('/feedback/alumni/:alumniId', getAlumniRating);
 
 export default router;

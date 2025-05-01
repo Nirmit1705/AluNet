@@ -72,9 +72,24 @@ const StudentDashboardPage = () => {
     assessmentProgress: 0
   });
 
+  // New state for tracking connections
+  const [connectedAlumniIds, setConnectedAlumniIds] = useState([]);
+
   useEffect(() => {
     const hasSkippedPrompt = localStorage.getItem('skipUniversityPrompt') === 'true';
     setShowUniversityPrompt(!userUniversity && !hasSkippedPrompt);
+    
+    // Load connected alumni IDs from localStorage
+    const savedConnections = localStorage.getItem('connectedAlumni');
+    if (savedConnections) {
+      try {
+        const connections = JSON.parse(savedConnections);
+        setConnectedAlumniIds(connections);
+        console.log('Loaded connected alumni from localStorage:', connections);
+      } catch (e) {
+        console.error('Error parsing saved connections:', e);
+      }
+    }
   }, [userUniversity]);
   
   // Fetch alumni data - improved and more robust version
@@ -113,7 +128,7 @@ const StudentDashboardPage = () => {
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/alumni`,
         {
           params: {
-            limit: 6,
+            limit: 10, // Request more than needed to account for filtering
             mentorshipAvailable: true
           },
           headers: { Authorization: `Bearer ${token}` }
@@ -140,18 +155,24 @@ const StudentDashboardPage = () => {
         
         console.log("Fetched mentors data:", transformedMentors);
         
-        if (transformedMentors.length > 0) {
-          setRecommendedMentors(transformedMentors);
+        // Filter out mentors that are already connected
+        const filteredMentors = transformedMentors.filter(mentor => {
+          const mentorId = mentor.id || mentor._id;
+          return !isAlumniConnected(mentorId);
+        });
+        
+        if (filteredMentors.length > 0) {
+          setRecommendedMentors(filteredMentors);
           
           // Update stats with actual data
           setStats(prevStats => ({
             ...prevStats,
-            newMentors: transformedMentors.filter(mentor => {
+            newMentors: filteredMentors.filter(mentor => {
               return mentor.joinedDate && new Date(mentor.joinedDate) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-            }).length || Math.min(2, transformedMentors.length)
+            }).length || Math.min(2, filteredMentors.length)
           }));
         } else {
-          console.warn("Empty mentors data array returned");
+          console.warn("No unconnected mentors found");
           setRecommendedMentors([recommendedMentorExample]);
         }
       } else {
@@ -162,6 +183,24 @@ const StudentDashboardPage = () => {
       console.error("Error fetching alumni data:", error);
       setRecommendedMentors([recommendedMentorExample]);
     }
+  };
+
+  // Helper function to check if an alumni is already connected
+  const isAlumniConnected = (alumniId) => {
+    if (!alumniId || !connectedAlumniIds || !connectedAlumniIds.length) return false;
+    
+    // Convert to string for comparison
+    const alumIdStr = String(alumniId);
+    
+    // Check each connection
+    return connectedAlumniIds.some(connId => {
+      const connIdStr = String(connId);
+      
+      // Try exact match or substring match
+      return alumIdStr === connIdStr || 
+        connIdStr.includes(alumIdStr) || 
+        alumIdStr.includes(connIdStr);
+    });
   };
   
   // Helper function to get profile picture URL from various data structures
@@ -550,13 +589,25 @@ const StudentDashboardPage = () => {
     );
   }
   
-  // Connect with mentor
+  // Connect with mentor - update to handle connection state properly
   const connectWithMentor = async (mentorId) => {
+    // Check if already connected first
+    if (isAlumniConnected(mentorId)) {
+      alert("You are already connected with this mentor");
+      return;
+    }
+    
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+      
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/connections/request`,
         { 
-          alumniId: mentorId, // Change to alumniId instead of mentorId
+          alumniId: mentorId,
           message: "I would like to connect with you for mentorship guidance." 
         },
         {
@@ -568,11 +619,33 @@ const StudentDashboardPage = () => {
       );
       
       if (response.status === 201) {
+        // Update local state
+        const newConnections = [...connectedAlumniIds, mentorId];
+        setConnectedAlumniIds(newConnections);
+        
+        // Update localStorage
+        localStorage.setItem('connectedAlumni', JSON.stringify(newConnections));
+        
+        // Remove this mentor from recommended mentors
+        setRecommendedMentors(prevMentors => 
+          prevMentors.filter(mentor => mentor.id !== mentorId)
+        );
+        
         alert("Connection request sent successfully");
       }
     } catch (error) {
       console.error("Error sending connection request:", error);
-      alert(`Error: ${error.response?.data?.message || "Failed to send connection request"}`);
+      const errorMessage = error.response?.data?.message || "Failed to send connection request";
+      
+      // Handle already connected error specially
+      if (errorMessage.includes("already connected")) {
+        // Add to connections list to prevent future attempts
+        const newConnections = [...connectedAlumniIds, mentorId];
+        setConnectedAlumniIds(newConnections);
+        localStorage.setItem('connectedAlumni', JSON.stringify(newConnections));
+      }
+      
+      alert(`Error: ${errorMessage}`);
     }
   };
   
@@ -581,8 +654,18 @@ const StudentDashboardPage = () => {
     navigate("/connected-mentors");
   };
 
-  // Navigate to Alumni Directory
-  const goToAlumniDirectory = () => {
+  // Navigate to job board
+  const viewJobOpportunities = () => {
+    navigate("/student-job-board");
+  };
+
+  // Navigate to skills assessment
+  const goToSkillsAssessment = () => {
+    navigate("/skills-assessment");
+  };
+
+  // Navigate to all professionals (Alumni Directory)
+  const goToAllProfessionals = () => {
     navigate("/alumni-directory");
   };
   
@@ -598,11 +681,6 @@ const StudentDashboardPage = () => {
   // Toggle notifications panel
   const toggleNotifications = () => {
     setShowNotificationsPanel(!showNotificationsPanel);
-  };
-  
-  // View job opportunities
-  const viewJobOpportunities = () => {
-    navigate("/jobs");
   };
   
   // Loading indicator
@@ -759,9 +837,9 @@ const StudentDashboardPage = () => {
         {/* Stats overview - 3 cards with equal spacing */}
         <StatsOverviewSection 
           stats={stats}
-          goToMentors={() => navigate('/mentors')}
-          viewJobOpportunities={() => navigate('/job-board')}
-          goToSkillsAssessment={() => navigate('/skills-assessment')}
+          goToMentors={goToMentors}
+          viewJobOpportunities={viewJobOpportunities}
+          goToSkillsAssessment={goToSkillsAssessment}
         />
 
         {/* Main dashboard content - Fix: Add proper spacing */}
@@ -805,7 +883,7 @@ const StudentDashboardPage = () => {
                 {recommendedMentors.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <GraduationCap className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
-                    <p>No mentors found. Check back later!</p>
+                    <p>No available mentors found. Check back later!</p>
                   </div>
                 ) : (
                   recommendedMentors.slice(0, 3).map((mentor) => (
@@ -868,12 +946,21 @@ const StudentDashboardPage = () => {
                           <span className="text-xs text-green-600">{mentor.availability}</span>
                         </div>
                       </div>
-                      <button 
-                        className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
-                        onClick={() => connectWithMentor(mentor.id)}
-                      >
-                        Connect
-                      </button>
+                      {isAlumniConnected(mentor.id) ? (
+                        <button 
+                          className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-sm rounded-lg"
+                          disabled
+                        >
+                          Connected
+                        </button>
+                      ) : (
+                        <button 
+                          className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm rounded-lg transition-colors"
+                          onClick={() => connectWithMentor(mentor.id)}
+                        >
+                          Connect
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -882,7 +969,7 @@ const StudentDashboardPage = () => {
               <div className="flex justify-end mt-4">
                 <button 
                   className="text-sm text-primary font-medium flex items-center"
-                  onClick={goToMentors}
+                  onClick={goToAllProfessionals}
                 >
                   View all professionals
                   <ChevronRight className="h-4 w-4 ml-1" />
@@ -972,8 +1059,10 @@ const StudentDashboardPage = () => {
             <ChevronRight className="h-4 w-4 ml-1" />
           </button>
         </div>
+      </div>
       
-        {/* Footer with proper spacing */}
+      {/* Add proper styling to Footer - making sure it's outside the main content div but inside the page wrapper */}
+      <div className="mt-auto">
         <Footer />
       </div>
     </div>

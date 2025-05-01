@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ChevronLeft, Users, Search, Filter, X, GraduationCap, MessageSquare, Heart, ExternalLink, Calendar, Briefcase, MapPin, Mail, BookOpen, Info, School, Clock } from "lucide-react";
+import { ChevronLeft, Users, Search, Filter, X, GraduationCap, MessageSquare, Heart, ExternalLink, Calendar, Briefcase, MapPin, Mail, BookOpen, Info, School, Clock, Star, StarHalf } from "lucide-react";
 import Navbar from "../layout/Navbar";
 import MentorshipRequestForm from "./MentorshipRequestForm";
 import { useUniversity } from "../../context/UniversityContext";
@@ -29,9 +29,8 @@ const ConnectedMentorsPage = () => {
   const [showingAllUniversities, setShowingAllUniversities] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Add this new state
   const [mentorshipRequests, setMentorshipRequests] = useState([]);
+  const [mentorRatings, setMentorRatings] = useState({});
   
   // Add a function to fetch mentorship requests
   const fetchMentorshipRequests = useCallback(async () => {
@@ -58,9 +57,28 @@ const ConnectedMentorsPage = () => {
     }
   }, [navigate]);
   
+  // Add a function to fetch mentor ratings
+  const fetchMentorRatings = async (mentorIds) => {
+    try {
+      const ratingPromises = mentorIds.map(id => 
+        axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/feedback/alumni/${id}`)
+      );
+      
+      const responses = await Promise.all(ratingPromises);
+      
+      const ratingsMap = {};
+      mentorIds.forEach((id, index) => {
+        ratingsMap[id] = responses[index].data;
+      });
+      
+      setMentorRatings(ratingsMap);
+    } catch (err) {
+      console.error("Error fetching mentor ratings:", err);
+    }
+  };
+
   // Fetch connected mentors when component mounts
   useEffect(() => {
-    // Update the fetchConnectedMentors function to properly handle education data
     const fetchConnectedMentors = async () => {
       try {
         setIsLoading(true);
@@ -81,45 +99,27 @@ const ConnectedMentorsPage = () => {
           }
         );
         
-        // Enhanced debug logging for the raw API response
         console.log("Fetched mentor data:", response.data);
         
-        // Ensure we always set arrays, even if response.data is null or undefined
         const mentorsData = response.data || [];
         
-        // Transform data to ensure all required properties are present
         const transformedMentors = mentorsData.map(mentor => {
-          // Create a formatted education string if it's an object
           let educationString = mentor.education;
           
           if (typeof mentor.education === 'object' && mentor.education !== null) {
             educationString = formatEducation(mentor.education);
           }
           
-          // Handle mentorshipAreas field specifically - ensure it's an array
           let mentorshipAreas = [];
           
-          // First, directly check if mentorshipAreas exists and is an array
           if (Array.isArray(mentor.mentorshipAreas) && mentor.mentorshipAreas.length > 0) {
             mentorshipAreas = [...mentor.mentorshipAreas];
-            console.log(`Using mentorshipAreas array directly for ${mentor.name}:`, mentorshipAreas);
-          }
-          // If it's a string, split by commas
-          else if (mentor.mentorshipAreas && typeof mentor.mentorshipAreas === 'string') {
+          } else if (mentor.mentorshipAreas && typeof mentor.mentorshipAreas === 'string') {
             mentorshipAreas = mentor.mentorshipAreas.split(',').map(area => area.trim());
-            console.log(`Converted mentorshipAreas string to array for ${mentor.name}:`, mentorshipAreas);
-          }
-          // If we don't have mentorshipAreas, check if we have expertise that can be used
-          else if (mentor.expertise && Array.isArray(mentor.expertise) && mentor.expertise.length > 0) {
+          } else if (mentor.expertise && Array.isArray(mentor.expertise) && mentor.expertise.length > 0) {
             mentorshipAreas = [...mentor.expertise];
-            console.log(`Using expertise as fallback for ${mentor.name}:`, mentorshipAreas);
-          }
-          // If we still don't have anything, use an empty array
-          else {
-            console.log(`No mentorship areas found for ${mentor.name}, using empty array`);
           }
           
-          // Extract specialties separately (don't use this as mentorshipAreas)
           const specialties = mentor.specialties || mentor.expertise || mentor.skills || [];
           
           return {
@@ -128,7 +128,7 @@ const ConnectedMentorsPage = () => {
             role: mentor.role || `${mentor.position || 'Professional'} at ${mentor.company || 'Company'}`,
             position: mentor.position || 'Professional',
             specialties: specialties,
-            mentorshipAreas: mentorshipAreas, // Use our properly processed mentorshipAreas
+            mentorshipAreas: mentorshipAreas,
             availability: mentor.availability || "Available by appointment",
             location: mentor.location || mentor.city || "Remote",
             experience: mentor.experience || "N/A",
@@ -145,18 +145,16 @@ const ConnectedMentorsPage = () => {
           };
         });
         
-        // Log transformed mentors to check mentorshipAreas
-        console.log("Transformed mentors mentorship areas check:");
-        transformedMentors.forEach(mentor => {
-          console.log(`${mentor.name}: mentorshipAreas=${JSON.stringify(mentor.mentorshipAreas)}`);
-        });
-        
         setAllMentors(transformedMentors);
         setMentors(transformedMentors);
+        
+        // Fetch ratings for all mentors
+        if (transformedMentors.length > 0) {
+          fetchMentorRatings(transformedMentors.map(m => m.id));
+        }
       } catch (err) {
         console.error("Error fetching connected mentors:", err);
         setError("Failed to load your connected mentors. Please try again later.");
-        // Initialize with empty arrays on error
         setAllMentors([]);
         setMentors([]);
       } finally {
@@ -165,7 +163,6 @@ const ConnectedMentorsPage = () => {
     };
     
     fetchConnectedMentors();
-    // Fetch mentorship requests on component mount
     fetchMentorshipRequests();
   }, [navigate, fetchMentorshipRequests]);
   
@@ -179,17 +176,14 @@ const ConnectedMentorsPage = () => {
     }
   }, [userUniversity, filterByUniversity, showingAllUniversities, allMentors]);
   
-  // Toggle university filter
   const toggleUniversityFilter = () => {
     setShowingAllUniversities(!showingAllUniversities);
   };
   
-  // Navigate back to dashboard
   const goBack = () => {
     navigate(-1);
   };
   
-  // Handle search input
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     if (e.target.value === "") {
@@ -206,12 +200,10 @@ const ConnectedMentorsPage = () => {
     }
   };
   
-  // Toggle filter panel
   const toggleFilter = () => {
     setFilterOpen(!filterOpen);
   };
   
-  // Handle filter changes
   const handleFilterChange = (category, value) => {
     setFilters(prev => {
       const updated = { ...prev };
@@ -224,11 +216,9 @@ const ConnectedMentorsPage = () => {
     });
   };
   
-  // Apply filters
   const applyFilters = () => {
     let filtered = allMentors;
     
-    // Apply specialty filters
     if (filters.specialties.length > 0) {
       filtered = filtered.filter(mentor => 
         mentor.specialties.some(specialty => 
@@ -237,7 +227,6 @@ const ConnectedMentorsPage = () => {
       );
     }
     
-    // Apply availability filters
     if (filters.availability.length > 0) {
       filtered = filtered.filter(mentor => 
         filters.availability.some(time => 
@@ -246,7 +235,6 @@ const ConnectedMentorsPage = () => {
       );
     }
     
-    // Apply search term if present
     if (search) {
       filtered = filtered.filter(
         mentor => 
@@ -261,7 +249,6 @@ const ConnectedMentorsPage = () => {
     setFilterOpen(false);
   };
   
-  // Reset filters
   const resetFilters = () => {
     setFilters({
       specialties: [],
@@ -272,24 +259,19 @@ const ConnectedMentorsPage = () => {
     setFilterOpen(false);
   };
   
-  // View mentor profile
   const viewMentorProfile = (mentor) => {
     setSelectedMentor(mentor);
   };
   
-  // Close mentor profile
   const closeMentorProfile = () => {
     setSelectedMentor(null);
   };
   
-  // Message mentor
   const messageMentor = (mentorId) => {
     navigate(`/messages/${mentorId}`);
-    // In a real app, this would navigate to the messages page with this mentor selected
     alert(`Navigating to message with mentor #${mentorId}`);
   };
   
-  // Update the requestMentorship function to check for existing requests first
   const requestMentorship = (mentorId) => {
     const mentor = allMentors.find(m => m.id === mentorId);
     if (!mentor) {
@@ -297,10 +279,8 @@ const ConnectedMentorsPage = () => {
       return;
     }
     
-    // Check if mentorship already exists
     const status = getMentorshipStatus(mentorId);
     if (status === 'accepted') {
-      // Redirect to existing mentorship
       navigate('/mentorships');
       return;
     } else if (status === 'pending') {
@@ -308,23 +288,14 @@ const ConnectedMentorsPage = () => {
       return;
     }
     
-    console.log("Requesting mentorship with mentor:", mentor);
-    
-    // Show the mentorship request form
     setSelectedMentorForRequest(mentor);
     setShowMentorshipForm(true);
   };
   
-  // Update the handleMentorshipSubmit function
   const handleMentorshipSubmit = async (formData) => {
     try {
-      // This is now handled in the MentorshipRequestForm component
       console.log("Mentorship request submitted:", formData);
-      
-      // Refresh the mentorship requests
       fetchMentorshipRequests();
-      
-      // Close the form
       setShowMentorshipForm(false);
       setSelectedMentorForRequest(null);
     } catch (error) {
@@ -332,31 +303,21 @@ const ConnectedMentorsPage = () => {
     }
   };
   
-  // Update the getMentorshipStatus function to properly check mentorship status
   const getMentorshipStatus = (mentorId) => {
     if (!mentorshipRequests || !mentorshipRequests.length || !mentorId) {
       return null;
     }
     
-    console.log("Checking status for mentor ID:", mentorId);
-    console.log("Available mentorship requests:", mentorshipRequests);
-    
-    // Find the mentorship request for this mentor
     const request = mentorshipRequests.find(req => {
-      // Handle different ways the alumni ID might be stored
       const reqAlumniId = req.alumni?._id || req.alumni;
       const alumniIdStr = reqAlumniId?.toString();
       const mentorIdStr = mentorId?.toString();
-      
-      console.log(`Comparing: reqAlumniId=${alumniIdStr}, mentorId=${mentorIdStr}`);
       return alumniIdStr === mentorIdStr;
     });
     
-    console.log("Found request:", request);
     return request ? request.status : null;
   };
   
-  // Get initials from name
   const getInitials = (name) => {
     return name
       .split(' ')
@@ -365,12 +326,10 @@ const ConnectedMentorsPage = () => {
       .toUpperCase();
   };
   
-  // Get all unique specialties for filters
   const allSpecialties = Array.from(
     new Set(allMentors.flatMap(mentor => mentor.specialties))
   ).sort();
   
-  // Get all unique availability times for filters
   const allAvailability = [
     "Weekday Mornings",
     "Weekday Afternoons",
@@ -380,11 +339,8 @@ const ConnectedMentorsPage = () => {
     "Weekend Evenings"
   ];
 
-  // Enhance the renderMentorshipButton function to properly handle all states
   const renderMentorshipButton = (mentor) => {
     const status = getMentorshipStatus(mentor.id);
-    
-    console.log(`Mentor ${mentor.name} (${mentor.id}) has status:`, status);
     
     if (status === 'pending') {
       return (
@@ -426,7 +382,6 @@ const ConnectedMentorsPage = () => {
     }
   };
   
-  // Add helper function to get mentorship ID
   const getMentorshipId = (mentorId) => {
     if (!mentorshipRequests || !mentorshipRequests.length || !mentorId) {
       return null;
@@ -439,13 +394,33 @@ const ConnectedMentorsPage = () => {
     return request ? request._id : null;
   };
   
-  // Add a missing cancel function
   const cancelMentorshipRequest = () => {
     setShowMentorshipForm(false);
     setSelectedMentorForRequest(null);
   };
-  
-  // Render loading state
+
+  const renderRatingStars = (mentorId) => {
+    const rating = mentorRatings[mentorId]?.averageRating || 0;
+    const totalFeedbacks = mentorRatings[mentorId]?.totalFeedbacks || 0;
+    
+    if (totalFeedbacks === 0) return null;
+    
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        {[...Array(fullStars)].map((_, i) => (
+          <Star key={i} className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+        ))}
+        {halfStar && <StarHalf className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />}
+        <span className="text-xs ml-1 text-gray-600 dark:text-gray-300">
+          ({rating.toFixed(1)}) · {totalFeedbacks} {totalFeedbacks === 1 ? 'review' : 'reviews'}
+        </span>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -459,7 +434,6 @@ const ConnectedMentorsPage = () => {
     );
   }
 
-  // Render error state
   if (error) {
     return (
       <div className="min-h-screen bg-background">
@@ -485,7 +459,6 @@ const ConnectedMentorsPage = () => {
     );
   }
 
-  // Render empty state if no mentors are connected
   if (mentors.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -520,12 +493,10 @@ const ConnectedMentorsPage = () => {
     );
   }
 
-  // Render normal view with connected mentors
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container-custom pt-20">
-        {/* Header with back button */}
         <div className="mb-6 flex items-center">
           <button 
             onClick={() => navigate(-1)}
@@ -562,7 +533,6 @@ const ConnectedMentorsPage = () => {
           </div>
         </div>
         
-        {/* Filter panel */}
         {filterOpen && (
           <div className="glass-card rounded-xl p-6 mb-6 animate-fade-in">
             <div className="flex justify-between items-center mb-4">
@@ -573,7 +543,6 @@ const ConnectedMentorsPage = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Specialties filter */}
               <div>
                 <h4 className="text-sm font-medium mb-3">Specialties</h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
@@ -591,7 +560,6 @@ const ConnectedMentorsPage = () => {
                 </div>
               </div>
               
-              {/* Availability filter */}
               <div>
                 <h4 className="text-sm font-medium mb-3">Availability</h4>
                 <div className="space-y-2">
@@ -610,7 +578,6 @@ const ConnectedMentorsPage = () => {
               </div>
             </div>
             
-            {/* Filter actions */}
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={resetFilters}
@@ -628,12 +595,10 @@ const ConnectedMentorsPage = () => {
           </div>
         )}
         
-        {/* Results info */}
         <div className="mb-6">
           <p className="text-muted-foreground">Showing {mentors.length} mentors</p>
         </div>
         
-        {/* Mentors grid */}
         {mentors && mentors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {mentors.map((mentor) => (
@@ -656,6 +621,11 @@ const ConnectedMentorsPage = () => {
                       </span>
                     </div>
                   </div>
+                </div>
+                
+                <div className="mt-1.5">
+                  <p className="text-sm text-muted-foreground">{mentor.company || 'Company'}</p>
+                  {renderRatingStars(mentor.id)}
                 </div>
                 
                 <div className="mt-4">
@@ -698,7 +668,6 @@ const ConnectedMentorsPage = () => {
                       </div>
                     </div>
                   ) : (
-                    // Add a placeholder for mentorship areas when none are available
                     <div className="mb-3">
                       <p className="text-xs font-medium mb-1">Mentorship Areas</p>
                       <span className="text-xs text-gray-500">General mentorship</span>
@@ -748,7 +717,6 @@ const ConnectedMentorsPage = () => {
         )}
       </div>
       
-      {/* Mentor Profile Modal */}
       {selectedMentor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-xl animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -763,7 +731,6 @@ const ConnectedMentorsPage = () => {
             </div>
             
             <div className="p-6">
-              {/* Mentor header */}
               <div className="flex flex-col md:flex-row items-start gap-6 mb-8">
                 <div className="h-24 w-24 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold">
                   {selectedMentor.avatar ? (
@@ -791,6 +758,8 @@ const ConnectedMentorsPage = () => {
                     </div>
                   </div>
                   
+                  {renderRatingStars(selectedMentor.id)}
+                  
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button 
                       className="px-4 py-2 border border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center"
@@ -800,7 +769,6 @@ const ConnectedMentorsPage = () => {
                       Send Message
                     </button>
                     
-                    {/* Conditionally render button based on mentorship status */}
                     {getMentorshipStatus(selectedMentor.id) === 'accepted' ? (
                       <button 
                         className="px-4 py-2 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg hover:opacity-90 transition-colors flex items-center"
@@ -830,11 +798,8 @@ const ConnectedMentorsPage = () => {
                 </div>
               </div>
               
-              {/* Mentor details */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left column */}
                 <div className="space-y-6">
-                  {/* Education */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Education</h4>
                     <div className="flex items-start">
@@ -845,7 +810,6 @@ const ConnectedMentorsPage = () => {
                     </div>
                   </div>
                   
-                  {/* Availability */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Availability</h4>
                     <div className="flex items-start">
@@ -855,9 +819,7 @@ const ConnectedMentorsPage = () => {
                   </div>
                 </div>
                 
-                {/* Middle column */}
                 <div className="space-y-6">
-                  {/* Specialties */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Specialties</h4>
                     <div className="flex flex-wrap gap-2">
@@ -869,7 +831,6 @@ const ConnectedMentorsPage = () => {
                     </div>
                   </div>
                   
-                  {/* Mentorship Areas */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Mentorship Areas</h4>
                     <div className="flex flex-wrap gap-2">
@@ -885,7 +846,6 @@ const ConnectedMentorsPage = () => {
                     </div>
                   </div>
                   
-                  {/* Interests */}
                   <div className="glass-card rounded-xl p-5">
                     <h4 className="font-medium mb-4">Interests</h4>
                     <div className="flex flex-wrap gap-2">
@@ -898,9 +858,7 @@ const ConnectedMentorsPage = () => {
                   </div>
                 </div>
                 
-                {/* Right column */}
                 <div>
-                  {/* About */}
                   <div className="glass-card rounded-xl p-5 h-full">
                     <h4 className="font-medium mb-4">About</h4>
                     <p className="text-sm text-muted-foreground">{selectedMentor.description}</p>
@@ -920,7 +878,6 @@ const ConnectedMentorsPage = () => {
         </div>
       )}
       
-      {/* Mentorship Request Form */}
       {showMentorshipForm && selectedMentorForRequest && (
         <MentorshipRequestForm 
           mentorName={selectedMentorForRequest.name}
@@ -936,14 +893,11 @@ const ConnectedMentorsPage = () => {
   );
 };
 
-// Add this helper function in the component
 const formatEducation = (education) => {
-  // If education is already a string, return it
   if (typeof education === 'string') {
     return education;
   }
   
-  // If education is an object, format it appropriately
   if (education && typeof education === 'object') {
     let parts = [];
     if (education.degree) parts.push(education.degree);
@@ -951,7 +905,6 @@ const formatEducation = (education) => {
       parts.push(`in ${education.fieldOfStudy}`);
     }
     
-    // Handle both institution and university distinctly
     if (education.institution && education.university && education.institution !== education.university) {
       parts.push(`at ${education.institution}, ${education.university}`);
     } else if (education.institution) {
@@ -963,12 +916,10 @@ const formatEducation = (education) => {
     return parts.join(' ');
   }
   
-  // If we have an array, take the first element
   if (Array.isArray(education) && education.length > 0) {
     return formatEducation(education[0]);
   }
   
-  // Fallback
   return 'Education details not available';
 };
 

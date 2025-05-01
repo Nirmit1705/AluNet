@@ -5,7 +5,7 @@ import {
   googleOAuthCallback, 
   googleOAuthRedirect,
   verifyToken
-} from '../Controllers/authController.js';
+} from '../controllers/authController.js';
 import { authLimiter, accountLimiter } from '../middleware/rateLimitMiddleware.js';
 import { protect } from '../middleware/authMiddleware.js';
 

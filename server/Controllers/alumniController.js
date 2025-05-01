@@ -8,43 +8,61 @@ import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 
-// Import models with try/catch to handle missing models
+// Define model variables
 let Connection, Mentorship, JobPosting, JobApplication, Conversation, Message, VerificationRequest;
 
+// Import models with try/catch to handle missing models
 try {
-  Connection = mongoose.model('Connection');
+  const ConnectionModule = await import('../Models/Connection.js');
+  Connection = ConnectionModule.default;
+  console.log('Connection model loaded successfully');
 } catch (e) {
-  // Model not registered yet, will be imported on demand
+  console.log('Connection model not loaded:', e.message);
   Connection = null;
 }
 
 try {
-  Mentorship = mongoose.model('Mentorship');
+  const MentorshipModule = await import('../Models/Mentorship.js');
+  Mentorship = MentorshipModule.default;
+  console.log('Mentorship model loaded successfully');
 } catch (e) {
+  console.log('Mentorship model not loaded:', e.message);
   Mentorship = null;
 }
 
 try {
-  JobPosting = mongoose.model('JobPosting');
+  const JobPostingModule = await import('../Models/JobPosting.js');
+  JobPosting = JobPostingModule.default;
+  console.log('JobPosting model loaded successfully');
 } catch (e) {
+  console.log('JobPosting model not loaded:', e.message);
   JobPosting = null;
 }
 
 try {
-  Conversation = mongoose.model('Conversation');
+  const ConversationModule = await import('../Models/Conversation.js');
+  Conversation = ConversationModule.default;
+  console.log('Conversation model loaded successfully');
 } catch (e) {
+  console.log('Conversation model not loaded:', e.message);
   Conversation = null;
 }
 
 try {
-  Message = mongoose.model('Message');
+  const MessageModule = await import('../Models/Message.js');
+  Message = MessageModule.default;
+  console.log('Message model loaded successfully');
 } catch (e) {
+  console.log('Message model not loaded:', e.message);
   Message = null;
 }
 
 try {
-  VerificationRequest = mongoose.model('VerificationRequest');
+  const VerificationRequestModule = await import('../Models/VerificationRequest.js');
+  VerificationRequest = VerificationRequestModule.default;
+  console.log('VerificationRequest model loaded successfully');
 } catch (e) {
+  console.log('VerificationRequest model not loaded:', e.message);
   VerificationRequest = null;
 }
 
@@ -66,13 +84,59 @@ const getModel = async (modelName) => {
 
 // Ensure models are loaded before they're used
 const ensureModels = async () => {
-  if (!Connection) Connection = await getModel('Connection');
-  if (!Mentorship) Mentorship = await getModel('Mentorship');
-  if (!JobPosting) JobPosting = await getModel('JobPosting');
-  if (!JobApplication) JobApplication = await getModel('JobApplication');
-  if (!Conversation) Conversation = await getModel('Conversation');
-  if (!Message) Message = await getModel('Message');
-  if (!VerificationRequest) VerificationRequest = await getModel('VerificationRequest');
+  if (!Connection) {
+    try {
+      const module = await import('../Models/Connection.js');
+      Connection = module.default;
+    } catch (error) {
+      console.error('Failed to load Connection model:', error.message);
+    }
+  }
+  
+  if (!Mentorship) {
+    try {
+      const module = await import('../Models/Mentorship.js');
+      Mentorship = module.default;
+    } catch (error) {
+      console.error('Failed to load Mentorship model:', error.message);
+    }
+  }
+  
+  if (!JobPosting) {
+    try {
+      const module = await import('../Models/JobPosting.js');
+      JobPosting = module.default;
+    } catch (error) {
+      console.error('Failed to load JobPosting model:', error.message);
+    }
+  }
+  
+  if (!Conversation) {
+    try {
+      const module = await import('../Models/Conversation.js');
+      Conversation = module.default;
+    } catch (error) {
+      console.error('Failed to load Conversation model:', error.message);
+    }
+  }
+  
+  if (!Message) {
+    try {
+      const module = await import('../Models/Message.js');
+      Message = module.default;
+    } catch (error) {
+      console.error('Failed to load Message model:', error.message);
+    }
+  }
+  
+  if (!VerificationRequest) {
+    try {
+      const module = await import('../Models/VerificationRequest.js');
+      VerificationRequest = module.default;
+    } catch (error) {
+      console.error('Failed to load VerificationRequest model:', error.message);
+    }
+  }
 };
 
 // @desc    Alumni login
@@ -921,6 +985,17 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   try {
     const alumniId = req.user._id;
     
+    // Ensure all models are available
+    await ensureModels();
+    
+    // Print debug info about models
+    console.log('Model status before operations:');
+    console.log('- Connection:', Connection ? 'Loaded' : 'Not available');
+    console.log('- Mentorship:', Mentorship ? 'Loaded' : 'Not available');
+    console.log('- JobPosting:', JobPosting ? 'Loaded' : 'Not available');
+    console.log('- Conversation:', Conversation ? 'Loaded' : 'Not available');
+    console.log('- Message:', Message ? 'Loaded' : 'Not available');
+    
     // Attempt to get real data where possible, fallback to realistic mock data
     let totalConnections = 0;
     let newConnections = 0;
@@ -933,30 +1008,39 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     
     // Check if Connection model exists and is accessible
     try {
-      if (typeof Connection !== 'undefined') {
+      // Try to load Connection model directly if not already available
+      if (!Connection) {
+        Connection = mongoose.model('Connection');
+        console.log('Successfully retrieved Connection model from Mongoose');
+      }
+      
+      if (Connection) {
+        console.log(`Querying connections for alumni ID: ${alumniId}`);
+        
+        // More inclusive query to catch all types of connections
         totalConnections = await Connection.countDocuments({
-          $or: [
-            { from: alumniId, status: 'accepted' },
-            { to: alumniId, status: 'accepted' }
-          ]
+          alumni: alumniId,
+          status: 'accepted'
         });
+        
+        console.log(`Found ${totalConnections} total connections`);
         
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         
         newConnections = await Connection.countDocuments({
-          $or: [
-            { from: alumniId, status: 'accepted' },
-            { to: alumniId, status: 'accepted' }
-          ],
+          alumni: alumniId,
+          status: 'accepted',
           updatedAt: { $gte: oneMonthAgo }
         });
+        
+        console.log(`Found ${newConnections} new connections in the last month`);
       }
     } catch (error) {
       console.log('Connection model not available, using fallback data');
-      // Fallback to reasonable values
-      totalConnections = 28;
-      newConnections = 5;
+      // Fallback
+      totalConnections = 5;
+      newConnections = 1;
     }
     
     // Check if JobPosting model exists
@@ -1041,7 +1125,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     }
     
     // Return the statistics
-    res.json({
+    const stats = {
       connections: {
         total: totalConnections,
         increase: newConnections
@@ -1058,7 +1142,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         total: mentoredStudents,
         recent: recentMentorships
       }
-    });
+    };
+    
+    console.log('Returning alumni dashboard stats:', stats);
+    res.json(stats);
   } catch (error) {
     console.error('Error fetching alumni dashboard stats:', error);
     res.status(500).json({ message: 'Error fetching dashboard statistics' });

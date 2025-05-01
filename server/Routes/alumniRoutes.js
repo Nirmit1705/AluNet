@@ -16,14 +16,15 @@ import {
   updateAlumniProfilePicture,
   getDashboardStats 
 } from '../Controllers/alumniController.js';
-import { protect, alumniOnly } from '../Middleware/authMiddleware.js';
+import { protect, alumniOnly } from '../middleware/authMiddleware.js';
 import asyncHandler from '../Utils/asyncHandler.js'; // Add this import for asyncHandler
 import Alumni from '../Models/Alumni.js'; // Add this import for the debug route
 
 const router = express.Router();
 
 // Public routes
-router.post("/register", registerAlumni);
+router.post('/register', registerAlumni);
+
 router.post("/login", authAlumni);
 router.get("/", getAlumni); // Changed from getAllAlumni to getAlumni
 router.get("/search", searchAlumni);

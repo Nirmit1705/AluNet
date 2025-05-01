@@ -16,12 +16,12 @@ import studentRoutes from './routes/studentRoutes.js';
 import jobPostingRoutes from './Routes/jobPostingRoutes.js'; // Fixed to actual filename
 import adminRoutes from './routes/adminRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
-import mentorshipRoutes from './Routes/mentorshipRoutes.js';
+import mentorshipRoutes from './routes/mentorshipRoutes.js';
 import connectionRoutes from './Routes/connectionRoutes.js'; // Changed from './Routes/connectionRoutes.js' to './routes/connectionRoutes.js'
 import messageRoutes from './routes/messageRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
-import authRoutes from './Routes/authRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 // Setup for ES modules __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -42,13 +42,25 @@ connectDB();
 
 const app = express();
 
-// Configure CORS with more options
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+// Updated CORS configuration to fix Pragma header issue
+const corsOptions = {
+  origin: 'http://localhost:5173',
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'Pragma', // Explicitly allow Pragma header
+    'X-Access-Token'
+  ],
+};
+
+// Apply CORS middleware before your routes
+app.use(cors(corsOptions));
 
 // IMPORTANT: Serve static files from the uploads directory
 // This must come before route definitions
@@ -65,7 +77,6 @@ try {
 
 // Parse JSON request bodies
 app.use(express.json());
-app.use(cors());
 app.use(requestLogger); // Add request logging middleware
 
 // API routes

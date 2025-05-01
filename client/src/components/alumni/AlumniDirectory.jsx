@@ -25,7 +25,9 @@ import {
   UserPlus,
   Clock,
   ArrowLeft,
-  Check // Added Check icon
+  Check, // Added Check icon
+  Star,
+  StarHalf // Added Star and StarHalf icons
 } from "lucide-react";
 import { useUniversity } from "../../context/UniversityContext";
 import axios from "axios";
@@ -61,6 +63,7 @@ const AlumniDirectory = () => {
   // Add these state variables to track connection requests
   const [connectionRequests, setConnectionRequests] = useState({});
   const [connectedAlumni, setConnectedAlumni] = useState([]);
+  const [alumniRatings, setAlumniRatings] = useState({}); // Added state for alumni ratings
 
   // Sample alumni data for testing
   const alumniData = [
@@ -306,6 +309,33 @@ const AlumniDirectory = () => {
       }
     }
   }, []);
+  
+  // Fetch alumni ratings
+  useEffect(() => {
+    const fetchAlumniRatings = async () => {
+      if (alumni.length === 0) return;
+      
+      try {
+        const alumniIds = alumni.map(alum => alum.id);
+        const ratingPromises = alumniIds.map(id => 
+          axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/mentorship/feedback/alumni/${id}`)
+        );
+        
+        const responses = await Promise.all(ratingPromises);
+        
+        const ratingsMap = {};
+        alumniIds.forEach((id, index) => {
+          ratingsMap[id] = responses[index].data;
+        });
+        
+        setAlumniRatings(ratingsMap);
+      } catch (err) {
+        console.error("Error fetching alumni ratings:", err);
+      }
+    };
+    
+    fetchAlumniRatings();
+  }, [alumni]);
   
   // Process alumni data to ensure consistent format
   const processAlumniData = (data) => {
@@ -688,6 +718,29 @@ const AlumniDirectory = () => {
     return null;
   };
 
+  // Helper function to render rating stars
+  const renderRatingStars = (alumniId) => {
+    const rating = alumniRatings[alumniId]?.averageRating || 0;
+    const totalFeedbacks = alumniRatings[alumniId]?.totalFeedbacks || 0;
+    
+    if (totalFeedbacks === 0) return null;
+    
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        {[...Array(fullStars)].map((_, i) => (
+          <Star key={i} className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+        ))}
+        {halfStar && <StarHalf className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />}
+        <span className="text-xs ml-1 text-gray-600 dark:text-gray-300">
+          ({rating.toFixed(1)}) · {totalFeedbacks} {totalFeedbacks === 1 ? 'review' : 'reviews'}
+        </span>
+      </div>
+    );
+  };
+
   // Pagination controls
   const totalPages = Math.ceil(alumni.length / itemsPerPage);
   const paginatedAlumni = alumni.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -975,19 +1028,31 @@ const AlumniDirectory = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAlumni.length > 0 ? (
             filteredAlumni.map((alum) => (
-              <div key={alum._id} className="glass-card rounded-xl p-6 animate-fade-in">
+              <div key={alum._id} className="glass-card rounded-xl p-6 animate-fade-in hover:shadow-md transition-all">
                 <div className="flex items-start">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold">
-                    {alum.profilePicture?.url ? (
-                      <img src={alum.profilePicture.url} alt={alum.name} className="h-full w-full rounded-full object-cover" />
+                  <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-4 text-lg font-bold overflow-hidden">
+                    {getProfilePictureUrl(alum) ? (
+                      <img 
+                        src={getProfilePictureUrl(alum)} 
+                        alt={alum.name} 
+                        className="h-full w-full object-cover" 
+                      />
                     ) : (
                       getInitials(alum.name)
                     )}
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-medium text-lg">{alum.name}</h4>
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-medium text-lg">{alum.name}</h4>
+                      <button 
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                        onClick={() => toggleFavorite(alum.id)}
+                      >
+                        <Heart className={`h-4 w-4 ${favorites.includes(alum.id) ? "fill-red-500 text-red-500" : ""}`} />
+                      </button>
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      {alum.position ? `${alum.position} at ${alum.company || 'Company'}` : 'Alumni'}
+                      {alum.position ? `${alum.position}${alum.company ? ` at ${alum.company}` : ''}` : 'Alumni'}
                     </p>
                     <div className="flex items-center mt-1">
                       <Calendar className="h-3 w-3 text-muted-foreground mr-1.5" />
@@ -995,6 +1060,7 @@ const AlumniDirectory = () => {
                         Class of {alum.graduationYear || 'N/A'}
                       </span>
                     </div>
+                    
                     {/* Mentorship availability indicator */}
                     {alum.mentorshipAvailable && (
                       <div className="mt-2 flex items-center">
@@ -1004,40 +1070,59 @@ const AlumniDirectory = () => {
                         </span>
                       </div>
                     )}
+                    
+                    {/* Skills preview */}
+                    {alum.skills && alum.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {alum.skills.slice(0, 2).map((skill, index) => (
+                          <span key={index} className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
+                            {skill}
+                          </span>
+                        ))}
+                        {alum.skills.length > 2 && (
+                          <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
+                            +{alum.skills.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Alumni ratings */}
+                    {renderRatingStars(alum._id || alum.id)}
                   </div>
                 </div>
                 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 grid grid-cols-2 gap-2">
                   <button 
-                    className="flex-1 px-3 py-2 text-xs border border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    className="w-full px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center justify-center"
                     onClick={() => viewAlumniDetails(alum)}
                   >
-                    <Eye className="h-3 w-3 inline mr-1" />
+                    <Eye className="h-3 w-3 mr-2" />
                     View Profile
                   </button>
                   
                   {connectionRequests[alum._id || alum.id] === 'pending' ? (
                     <button 
-                      className="flex-1 px-3 py-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                      className="w-full px-3 py-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
                       disabled
                     >
-                      <Clock className="h-3 w-3 inline mr-1" />
-                      Request Pending
+                      <Clock className="h-3 w-3 mr-2" />
+                      Pending
                     </button>
                   ) : isConnected(alum._id || alum.id) ? (
                     <button 
-                      className="flex-1 px-3 py-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                      className="w-full px-3 py-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center cursor-not-allowed"
                       disabled
                     >
-                      <Check className="h-3 w-3 inline mr-1" />
+                      <Check className="h-3 w-3 mr-2" />
                       Connected
                     </button>
                   ) : (
                     <button 
-                      className="flex-1 px-3 py-2 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                      className="w-full px-3 py-2 text-xs bg-primary text-white rounded-lg hover:opacity-90 transition-colors flex items-center justify-center"
                       onClick={() => connectWithAlumni(alum._id || alum.id)}
                     >
-                      <UserPlus className="h-3 w-3 inline mr-1" />
+                      <UserPlus className="h-3 w-3 mr-2" />
                       Connect
                     </button>
                   )}
@@ -1108,13 +1193,15 @@ const AlumniDirectory = () => {
               <button 
                 onClick={closeAlumniDetails}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Go back"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <h2 className="text-xl font-bold">Alumni Profile</h2>
               <button 
-                className="text-gray-400 hover:text-red-500 transition-colors"
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-red-500 transition-colors"
                 onClick={() => toggleFavorite(selectedAlumni.id)}
+                aria-label={favorites.includes(selectedAlumni.id) ? "Remove from favorites" : "Add to favorites"}
               >
                 <Heart className={`h-5 w-5 ${favorites.includes(selectedAlumni.id) ? "fill-red-500 text-red-500" : ""}`} />
               </button>
@@ -1158,6 +1245,8 @@ const AlumniDirectory = () => {
                       Email
                     </a>
                   </div>
+                  {/* Alumni ratings */}
+                  {renderRatingStars(selectedAlumni._id || selectedAlumni.id)}
                 </div>
               </div>
               
@@ -1306,40 +1395,44 @@ const AlumniDirectory = () => {
               </div>
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-border p-4 flex gap-3">
               {connectionRequests[selectedAlumni?._id || selectedAlumni?.id] === 'pending' ? (
                 <button
                   disabled
-                  className="flex-1 px-4 py-2 bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                  className="flex-1 px-4 py-3 bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg flex items-center justify-center cursor-not-allowed font-medium"
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Request Pending
                 </button>
               ) : isConnected(selectedAlumni?._id || selectedAlumni?.id) ? (
                 <button
-                  disabled
-                  className="flex-1 px-4 py-2 bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+                  onClick={() => messageAlumni(selectedAlumni._id || selectedAlumni.id)}
+                  className="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
                 >
-                  <Check className="h-4 w-4 mr-2" />
-                  Connected
+                  <MessageSquare className="h-4 w-4 mr-2 inline" />
+                  Message
                 </button>
               ) : (
-                <button
-                  onClick={() => {
-                    connectWithAlumni(selectedAlumni._id || selectedAlumni.id);
-                    closeAlumniDetails();
-                  }}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Connect
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      connectWithAlumni(selectedAlumni._id || selectedAlumni.id);
+                      closeAlumniDetails();
+                    }}
+                    className="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2 inline" />
+                    Connect
+                  </button>
+                  <button
+                    onClick={() => messageAlumni(selectedAlumni._id || selectedAlumni.id)}
+                    className="flex-1 px-4 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors font-medium"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2 inline" />
+                    Message
+                  </button>
+                </>
               )}
-              <button
-                onClick={() => messageAlumni(selectedAlumni._id || selectedAlumni.id)}
-                className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors"
-              >
-                Message
-              </button>
             </div>
           </div>
         </div>
