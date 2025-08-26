@@ -2,7 +2,7 @@
 
 ## Setup Instructions
 
-### Server Setup
+### Server Setup:
 
 1. Navigate to the server directory:
 ```bash
@@ -27,7 +27,7 @@ FRONTEND_URL=http://localhost:5173
 npm run dev
 ```
 
-### Client Setup
+### Client Setup:
 
 1. Navigate to the client directory:
 ```bash
