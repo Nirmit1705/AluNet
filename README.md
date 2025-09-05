@@ -1,4 +1,4 @@
-# Student-Alumni Interaction Platform
+# AluNet - The Student-Alumni Interaction Platform
 
 ## Setup Instructions
 
